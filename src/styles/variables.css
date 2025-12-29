@@ -1,0 +1,15 @@
+:root{
+  --bg: #07080b;
+  --bg2: #0a1220;
+  --bg3: #07130f;
+
+  --glass: rgba(0,0,0,0.22);
+  --stroke: rgba(255,255,255,0.10);
+  --stroke2: rgba(255,255,255,0.18);
+
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.62);
+
+  --radius-lg: 18px;
+  --radius-md: 14px;
+}
