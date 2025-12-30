@@ -37,9 +37,16 @@ https://811182a5.toqibox.pages.dev/auth/callback
 В настройках проекта Cloudflare Pages проверьте:
 
 **Build settings:**
-- **Build command:** `npm run build`
+- **Build command:** `npm ci && npm run build`
 - **Build output directory:** `dist`
 - **Root directory:** `/` (корень проекта)
+- **Node version:** `20` (указано в `.nvmrc`)
+
+**Важно:** Если деплой не запускается ("No deployment available"):
+1. Проверьте логи деплоя в Cloudflare Pages Dashboard
+2. Убедитесь, что все зависимости установлены (`npm ci` вместо `npm install`)
+3. Проверьте, что переменные окружения `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY` установлены
+4. Убедитесь, что файл `_redirects` находится в `public/` (он автоматически копируется в `dist/`)
 
 ### 4. Проверка после деплоя
 
