@@ -1,6 +1,6 @@
 // src/app/page.jsx
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 const SLOGANS = [
