@@ -1,7 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { supabase } from "../../features/auth/supabaseClient.js";
 
 import artistCoverFallback from "../../assets/covers/artist-cover-placeholder.png";
+import artistCover2 from "../../assets/covers/artist-cover-placeholder2.jpg";
+import artistCover3 from "../../assets/covers/artist-cover-placeholder3.jpg";
+import artistCover4 from "../../assets/covers/artist-cover-placeholder4.jpg";
+import artistCover5 from "../../assets/covers/artist-cover-placeholder5.jpg";
+import artistCover6 from "../../assets/covers/artist-cover-placeholder6.jpg";
+import artistCover7 from "../../assets/covers/artist-cover-placeholder7.jpg";
+import artistCover8 from "../../assets/covers/artist-cover-placeholder8.jpg";
+import artistCover9 from "../../assets/covers/artist-cover-placeholder9.jpg";
+import artistCover10 from "../../assets/covers/artist-cover-placeholder10.jpg";
 import verifGold from "../../assets/verifgold.svg";
 
 export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
@@ -9,6 +18,52 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
   const [displayName, setDisplayName] = useState(artist?.display_name || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  
+  // Список всех обложек (определяем сразу, без useMemo)
+  const coverOptions = [
+    artistCoverFallback,
+    artistCover2,
+    artistCover3,
+    artistCover4,
+    artistCover5,
+    artistCover6,
+    artistCover7,
+    artistCover8,
+    artistCover9,
+    artistCover10,
+  ];
+
+  // Определяем текущую обложку и индекс (синхронно)
+  const getCurrentCoverData = () => {
+    // По умолчанию используем первую обложку
+    let cover = artistCoverFallback;
+    let index = 0;
+
+    // Проверяем localStorage для сохраненной обложки
+    const savedCoverName = artist?.id ? localStorage.getItem(`toqibox:cover:${artist.id}`) : null;
+    const coverNameToFind = artist?.cover_image || savedCoverName;
+
+    if (coverNameToFind) {
+      const foundIndex = coverOptions.findIndex(opt => {
+        const optName = opt.split('/').pop();
+        return optName === coverNameToFind || coverNameToFind.includes(optName);
+      });
+      if (foundIndex >= 0) {
+        cover = coverOptions[foundIndex];
+        index = foundIndex;
+      }
+    }
+
+    return { currentCover: cover, currentCoverIndex: index };
+  };
+
+  const { currentCover, currentCoverIndex } = getCurrentCoverData();
+  
+  // Состояние для выбора обложки (инициализируем с вычисленным значением)
+  const [previewCoverIndex, setPreviewCoverIndex] = useState(currentCoverIndex);
+  const [savingCover, setSavingCover] = useState(false);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
 
   console.log("🎨 ArtistHeader render:", { 
     hasArtist: !!artist, 
@@ -27,8 +82,80 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
     }
   }, [artist?.display_name, saved]);
 
-  const coverUrl = artistCoverFallback;
+  // Обновляем previewCoverIndex когда меняется текущая обложка
+  React.useEffect(() => {
+    const newIndex = currentCoverIndex >= 0 ? currentCoverIndex : 0;
+    setPreviewCoverIndex(newIndex);
+  }, [currentCoverIndex]);
+
   const isPremium = !!artist?.isPremium;
+
+  const handleCoverSave = async () => {
+    if (!artist?.id || !isOwner || savingCover) return;
+
+    setSavingCover(true);
+    try {
+      // Получаем имя файла из пути
+      const selectedCover = coverOptions[previewCoverIndex];
+      const coverFileName = selectedCover.split('/').pop();
+
+      // Пока не сохраняем в БД, так как поле cover_image не существует
+      // В будущем можно добавить это поле в таблицу artists
+      // const { error } = await supabase
+      //   .from("artists")
+      //   .update({ cover_image: coverFileName })
+      //   .eq("id", artist.id);
+      // if (error) throw error;
+
+      // Сохраняем в localStorage как временное решение
+      localStorage.setItem(`toqibox:cover:${artist.id}`, coverFileName);
+
+      // Обновляем данные
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (e) {
+      console.error("Error saving cover:", e);
+      alert("Ошибка при сохранении обложки: " + (e.message || "Неизвестная ошибка"));
+    } finally {
+      setSavingCover(false);
+    }
+  };
+
+  const handleCoverPrev = () => {
+    setPreviewCoverIndex((prev) => (prev > 0 ? prev - 1 : coverOptions.length - 1));
+  };
+
+  const handleCoverNext = () => {
+    setPreviewCoverIndex((prev) => (prev < coverOptions.length - 1 ? prev + 1 : 0));
+  };
+
+  // Обработка свайпа
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      handleCoverNext();
+    }
+    if (isRightSwipe) {
+      handleCoverPrev();
+    }
+  };
 
   const handleSave = async () => {
     if (!artist?.id || !isOwner || saving) {
@@ -92,18 +219,179 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
     }
   };
 
+  // Определяем, показывать ли превью обложки или текущую
+  const displayCover = isOwner ? coverOptions[previewCoverIndex] : currentCover;
+  const isPreviewDifferent = previewCoverIndex !== currentCoverIndex;
+
+  console.log("🎨 ArtistHeader - Cover picker:", { 
+    isOwner, 
+    showCoverPicker: isOwner, 
+    previewCoverIndex, 
+    currentCoverIndex,
+    displayCover: displayCover?.substring(0, 50) 
+  });
+
   return (
-    <section className="ah-root">
+    <section className="ah-root" style={{ position: "relative", overflow: "hidden" }}>
       <div
         className="ah-cover"
-        style={{ backgroundImage: `url(${coverUrl})` }}
+        style={{ 
+          backgroundImage: `url(${displayCover})`,
+          transition: "background-image 0.3s ease",
+        }}
+        onTouchStart={isOwner ? onTouchStart : undefined}
+        onTouchMove={isOwner ? onTouchMove : undefined}
+        onTouchEnd={isOwner ? onTouchEnd : undefined}
         aria-hidden="true"
       />
 
       <div className="ah-overlay" aria-hidden="true" />
 
+      {/* Вертикальная полоска сбоку для выбора обложки (только для владельца) */}
+      {isOwner && (
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: "clamp(45px, 8vw, 60px)",
+            minWidth: 45,
+            background: "rgba(0, 0, 0, 0.7)",
+            backdropFilter: "blur(10px)",
+            borderLeft: "2px solid rgba(255, 255, 255, 0.2)",
+            zIndex: 100,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            padding: "20px 6px",
+            touchAction: "none", // Предотвращаем скролл при свайпе
+          }}
+        >
+          {/* Стрелка вверх */}
+          <button
+            type="button"
+            onClick={handleCoverPrev}
+            style={{
+              width: "clamp(36px, 7vw, 40px)",
+              height: "clamp(36px, 7vw, 40px)",
+              minWidth: 36,
+              minHeight: 36,
+              background: "rgba(255, 255, 255, 0.2)",
+              border: "2px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: 8,
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: "clamp(20px, 4vw, 24px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s",
+              fontWeight: "bold",
+              WebkitTapHighlightColor: "transparent",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "rgba(255, 255, 255, 0.3)";
+              e.target.style.transform = "scale(1.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "rgba(255, 255, 255, 0.2)";
+              e.target.style.transform = "scale(1)";
+            }}
+          >
+            ↑
+          </button>
+
+          {/* Кнопка сохранения (галочка) */}
+          <button
+            type="button"
+            onClick={handleCoverSave}
+            disabled={savingCover || !isPreviewDifferent}
+            style={{
+              width: "clamp(40px, 8vw, 44px)",
+              height: "clamp(40px, 8vw, 44px)",
+              minWidth: 40,
+              minHeight: 40,
+              background: isPreviewDifferent ? "#10b981" : "rgba(255, 255, 255, 0.15)",
+              border: isPreviewDifferent ? "2px solid rgba(255, 255, 255, 0.3)" : "2px solid rgba(255, 255, 255, 0.2)",
+              borderRadius: "50%",
+              color: "#fff",
+              cursor: (savingCover || !isPreviewDifferent) ? "default" : "pointer",
+              fontSize: "clamp(22px, 5vw, 26px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: (savingCover || !isPreviewDifferent) ? 0.5 : 1,
+              transition: "all 0.2s",
+              fontWeight: "bold",
+              WebkitTapHighlightColor: "transparent",
+            }}
+            onMouseEnter={(e) => {
+              if (isPreviewDifferent && !savingCover) {
+                e.target.style.transform = "scale(1.15)";
+                e.target.style.boxShadow = "0 0 12px rgba(16, 185, 129, 0.5)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = "scale(1)";
+              e.target.style.boxShadow = "none";
+            }}
+          >
+            {savingCover ? "..." : "✓"}
+          </button>
+
+          {/* Стрелка вниз */}
+          <button
+            type="button"
+            onClick={handleCoverNext}
+            style={{
+              width: "clamp(36px, 7vw, 40px)",
+              height: "clamp(36px, 7vw, 40px)",
+              minWidth: 36,
+              minHeight: 36,
+              background: "rgba(255, 255, 255, 0.2)",
+              border: "2px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: 8,
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: "clamp(20px, 4vw, 24px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s",
+              fontWeight: "bold",
+              WebkitTapHighlightColor: "transparent",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "rgba(255, 255, 255, 0.3)";
+              e.target.style.transform = "scale(1.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "rgba(255, 255, 255, 0.2)";
+              e.target.style.transform = "scale(1)";
+            }}
+          >
+            ↓
+          </button>
+        </div>
+      )}
+
       <div className="ah-content">
-        <div className="ah-name" style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+        <div 
+          className="ah-name" 
+          style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: 8, 
+            position: "relative",
+            zIndex: 100,
+            color: "#ffffff",
+            WebkitTextStroke: "0.5px rgba(0, 0, 0, 0.3)",
+            textShadow: "0 2px 4px rgba(0,0,0,1), 0 4px 8px rgba(0,0,0,0.9), 0 6px 12px rgba(0,0,0,0.8)",
+          }}
+        >
           {isEditing && isOwner ? (
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <input
@@ -159,7 +447,26 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {artist?.display_name || artist?.name || "ARTIST"}
+              <span
+                style={{
+                  color: "#ffffff !important",
+                  backgroundColor: "rgba(0, 0, 0, 0.6)",
+                  padding: "4px 12px",
+                  borderRadius: "8px",
+                  textShadow: "0 2px 4px rgba(0,0,0,1), 0 4px 8px rgba(0,0,0,1), 0 6px 12px rgba(0,0,0,1), 0 0 40px rgba(0,0,0,0.9)",
+                  WebkitTextStroke: "1px rgba(255, 255, 255, 0.5)",
+                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,1)) drop-shadow(0 8px 16px rgba(0,0,0,1))",
+                  position: "relative",
+                  zIndex: 1000,
+                  fontWeight: 900,
+                  fontSize: "inherit",
+                  display: "inline-block",
+                  border: "2px solid rgba(255, 255, 255, 0.2)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)",
+                }}
+              >
+                {artist?.display_name || artist?.name || "ARTIST"}
+              </span>
               {saved && (
                 <svg
                   width="24"

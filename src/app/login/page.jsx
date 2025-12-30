@@ -33,13 +33,25 @@ export default function LoginPage() {
     const raw = localStorage.getItem("toqibox:returnTo") || "";
     localStorage.removeItem("toqibox:returnTo");
 
-    const bad =
-      raw.startsWith("/a/") ||
-      raw.startsWith("/t/") ||
-      raw.includes("edit=1") ||
-      raw.startsWith("/create");
+    // Извлекаем только путь из URL, если это полный URL
+    let path = raw;
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      try {
+        const url = new URL(raw);
+        path = url.pathname;
+      } catch (e) {
+        path = "";
+      }
+    }
 
-    const next = bad ? "/author" : (raw || "/author");
+    const bad =
+      path.startsWith("/a/") ||
+      path.startsWith("/t/") ||
+      path.includes("edit=1") ||
+      path.startsWith("/create") ||
+      path.includes("toqibox.win");
+
+    const next = bad ? "/author" : (path || "/author");
 
     navigate(next, { replace: true });
     return true;
