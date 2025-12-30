@@ -1,8 +1,10 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
+import HomePage from "./page.jsx";
 import TrackPage from "./t/[slug]/page.jsx";
 import ArtistPage from "./a/[slug]/page.jsx";
+import AuthorPage from "./author/page.jsx";
 import CreatePage from "./create/page.jsx";
 import ManagePage from "./manage/page.jsx";
 
@@ -21,11 +23,11 @@ export default function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
+      <Route path="/author" element={<AuthorPage />} />
       <Route path="/create" element={<CreatePage />} />
       <Route path="/manage" element={<ManagePage />} />
 
-      {/* удобный дефолт для разработки */}
-      <Route path="/" element={<Navigate to="/t/test" replace />} />
+      <Route path="/" element={<HomePage />} />
       <Route path="*" element={<Navigate to="/t/test" replace />} />
     </Routes>
   );

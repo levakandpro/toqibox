@@ -4,7 +4,6 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../features/auth/supabaseClient.js";
 
-
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
 
@@ -29,16 +28,19 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      // 1) если есть returnTo - возвращаем туда
-      const returnTo = localStorage.getItem("toqibox:returnTo");
-      if (returnTo && typeof returnTo === "string" && returnTo.startsWith("/")) {
-        localStorage.removeItem("toqibox:returnTo");
-        navigate(returnTo, { replace: true });
-        return;
-      }
+      // Нормализация returnTo (если в проекте кто-то ещё пишет туда старые ссылки)
+      const raw = localStorage.getItem("toqibox:returnTo") || "";
+      localStorage.removeItem("toqibox:returnTo");
 
-      // 2) иначе - дефолт в дом автора (пока V1)
-      navigate("/a/toqibox-artist", { replace: true });
+      const bad =
+        raw.startsWith("/a/") ||
+        raw.startsWith("/t/") ||
+        raw.includes("edit=1") ||
+        raw.startsWith("/create");
+
+      const next = bad ? "/author" : (raw || "/author");
+
+      navigate(next, { replace: true });
     };
 
     run();

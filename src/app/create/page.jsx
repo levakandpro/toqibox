@@ -1,11 +1,8 @@
-// FILE: src/app/create/page.jsx  (НОВЫЙ ФАЙЛ: канон-гейт, /create не редактирует, а кидает в дом)
+// src/app/create/page.jsx  (ПАТЧ: канон-гейт, /create кидает в /author)
 
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../features/auth/supabaseClient.js";
-
-
-
 
 export default function CreatePage() {
   const navigate = useNavigate();
@@ -22,16 +19,15 @@ export default function CreatePage() {
 
         if (!hasSession) {
           // вернёмся после логина
-          localStorage.setItem("toqibox:returnTo", "/create");
+          localStorage.setItem("toqibox:returnTo", "/author");
           navigate("/login", { replace: true });
           return;
         }
 
-        // Канон: редактирование внутри дома /a/:slug
-        // Пока V1 не знаем slug из БД - отправим в дефолтный дом
-        navigate("/a/toqibox-artist?edit=1&tab=tracks&action=add", { replace: true });
+        // Канон: редактирование ТОЛЬКО через /author
+        navigate("/author", { replace: true });
       } catch (e) {
-        localStorage.setItem("toqibox:returnTo", "/create");
+        localStorage.setItem("toqibox:returnTo", "/author");
         navigate("/login", { replace: true });
       }
     };
@@ -45,7 +41,7 @@ export default function CreatePage() {
 
   return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 20 }}>
-      <div style={{ opacity: 0.85 }}>Открываю добавление трека...</div>
+      <div style={{ opacity: 0.85 }}>Открываю кабинет артиста...</div>
     </div>
   );
 }

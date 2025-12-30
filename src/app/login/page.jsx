@@ -30,13 +30,19 @@ export default function LoginPage() {
   }, [email]);
 
   const returnBack = () => {
-    const returnTo = localStorage.getItem("toqibox:returnTo");
-    if (returnTo && returnTo.startsWith("/")) {
-      localStorage.removeItem("toqibox:returnTo");
-      navigate(returnTo, { replace: true });
-      return true;
-    }
-    return false;
+    const raw = localStorage.getItem("toqibox:returnTo") || "";
+    localStorage.removeItem("toqibox:returnTo");
+
+    const bad =
+      raw.startsWith("/a/") ||
+      raw.startsWith("/t/") ||
+      raw.includes("edit=1") ||
+      raw.startsWith("/create");
+
+    const next = bad ? "/author" : (raw || "/author");
+
+    navigate(next, { replace: true });
+    return true;
   };
 
   const onGoogle = async () => {
@@ -49,6 +55,10 @@ export default function LoginPage() {
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            prompt: "select_account", // Показывать выбор аккаунта
+            access_type: "offline",
+          },
         },
       });
 
@@ -95,7 +105,7 @@ export default function LoginPage() {
     try {
       const { data } = await supabase.auth.getSession();
       if (data?.session) {
-        if (!returnBack()) navigate("/a/toqibox-artist", { replace: true });
+        returnBack();
       } else {
         setErrorText("Сначала войди");
       }
@@ -923,8 +933,20 @@ export default function LoginPage() {
           <div style={styles.brand}>
             <div style={styles.title}>
               ВЫ АРТИСТ?
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{animation: "arrowBounce 1.5s ease-in-out infinite"}}>
-                <path d="M8 2L8 14M8 2L3 7M8 2L13 7" stroke="#000000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                style={{ animation: "arrowBounce 1.5s ease-in-out infinite" }}
+              >
+                <path
+                  d="M8 2L8 14M8 2L3 7M8 2L13 7"
+                  stroke="#000000"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </div>
           </div>
@@ -1035,14 +1057,8 @@ export default function LoginPage() {
       </div>
 
       {modalOpen && (
-        <div
-          style={styles.modalOverlay}
-          onClick={() => setModalOpen(null)}
-        >
-          <div
-            style={styles.modalBox}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div style={styles.modalOverlay} onClick={() => setModalOpen(null)}>
+          <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <div style={styles.modalTitle}>
                 {modalOpen === "terms" && "УСЛОВИЯ ИСПОЛЬЗОВАНИЯ TOQIBOX"}
@@ -1086,9 +1102,7 @@ export default function LoginPage() {
                 <>
                   <div style={styles.modalSection}>
                     <div style={styles.modalSectionTitle}>Хранение и воспроизведение контента</div>
-                    <div style={styles.modalText}>
-                      TOQIBOX не хранит аудио или видео файлы.
-                    </div>
+                    <div style={styles.modalText}>TOQIBOX не хранит аудио или видео файлы.</div>
                     <div style={styles.modalText}>
                       Воспроизведение осуществляется через внешние платформы:
                     </div>
@@ -1104,12 +1118,14 @@ export default function LoginPage() {
 
                   <div style={styles.modalSection}>
                     <div style={styles.modalSectionTitle}>Ответственность за контент</div>
-                    <div style={styles.modalText}>
-                      Пользователь (артист или представитель) подтверждает, что:
-                    </div>
+                    <div style={styles.modalText}>Пользователь (артист или представитель) подтверждает, что:</div>
                     <ul style={styles.modalList}>
-                      <li style={styles.modalListItem}>имеет права на публикацию трека, обложек и визуальных материалов</li>
-                      <li style={styles.modalListItem}>не нарушает авторские и смежные права третьих лиц</li>
+                      <li style={styles.modalListItem}>
+                        имеет права на публикацию трека, обложек и визуальных материалов
+                      </li>
+                      <li style={styles.modalListItem}>
+                        не нарушает авторские и смежные права третьих лиц
+                      </li>
                     </ul>
                     <div style={styles.modalText}>
                       TOQIBOX не несёт ответственности за контент, размещённый пользователями.
@@ -1124,9 +1140,7 @@ export default function LoginPage() {
                     <div style={styles.modalText}>
                       Любой пользователь сети Интернет может просматривать эти страницы.
                     </div>
-                    <div style={styles.modalText}>
-                      TOQIBOX не контролирует дальнейшее распространение ссылок.
-                    </div>
+                    <div style={styles.modalText}>TOQIBOX не контролирует дальнейшее распространение ссылок.</div>
                   </div>
 
                   <div style={styles.modalSection}>
@@ -1134,9 +1148,7 @@ export default function LoginPage() {
                     <div style={styles.modalText}>
                       Реакции (тюбетейка) не являются голосованием, рейтингом или оценкой.
                     </div>
-                    <div style={styles.modalText}>
-                      Одна реакция доступна один раз для одного устройства.
-                    </div>
+                    <div style={styles.modalText}>Одна реакция доступна один раз для одного устройства.</div>
                     <div style={styles.modalText}>
                       TOQIBOX не гарантирует сохранность реакций при очистке браузера.
                     </div>
@@ -1165,9 +1177,7 @@ export default function LoginPage() {
                   <div style={styles.modalText}>
                     Все вопросы, жалобы и запросы направляются через раздел Поддержка.
                   </div>
-                  <div style={styles.modalText}>
-                    Или пишите нам:
-                  </div>
+                  <div style={styles.modalText}>Или пишите нам:</div>
                   <div style={styles.supportLinks}>
                     <a
                       href="https://t.me/levakand_pro"

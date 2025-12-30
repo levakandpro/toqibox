@@ -1,0 +1,6 @@
+# Cloudflare Pages configuration
+# Этот файл не обязателен для Pages, но может быть полезен
+
+[site]
+bucket = "./dist"
+

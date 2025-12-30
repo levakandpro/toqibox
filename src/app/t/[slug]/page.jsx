@@ -58,22 +58,20 @@ export default function TrackPage() {
   const handleAddTrack = async (e) => {
     e.preventDefault();
 
-    const returnTo = `/a/${track.artistSlug}?edit=1&tab=tracks&action=add`;
-
     try {
-      localStorage.setItem("toqibox:returnTo", returnTo);
-
       const { data } = await supabase.auth.getSession();
       const hasSession = !!data?.session;
 
       if (!hasSession) {
-        navigate("/login", { replace: false });
+        localStorage.setItem("toqibox:returnTo", "/author");
+        navigate("/login", { replace: true });
         return;
       }
 
-      navigate(returnTo, { replace: false });
+      navigate("/author", { replace: true });
     } catch (err) {
-      navigate("/login", { replace: false });
+      localStorage.setItem("toqibox:returnTo", "/author");
+      navigate("/login", { replace: true });
     }
   };
 
@@ -96,7 +94,8 @@ export default function TrackPage() {
           <img src={shareIcon} alt="" className="t-shareIcon" />
         </button>
 
-        <Link to="/create" className="t-addTrack" onClick={handleAddTrack}>
+        {/* Канон: "Добавить трек" всегда ведёт в /author (через проверку сессии) */}
+        <Link to="/author" className="t-addTrack" onClick={handleAddTrack}>
           Добавить трек
         </Link>
 
