@@ -73,26 +73,49 @@ export async function uploadCover({ type, id, file }) {
       throw new Error('Presigned URL не получен от сервера');
     }
 
-    // Загружаем файл напрямую в R2 через presigned URL
-    console.log('📤 Загрузка файла в R2...', { uploadUrl: uploadUrl.substring(0, 100) + '...', fileSize: file.size });
-    
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': file.type,
-      },
-      body: file,
-    });
-
-    console.log('📤 Ответ загрузки:', { status: uploadResponse.status, ok: uploadResponse.ok });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text().catch(() => '');
-      console.error('❌ Ошибка загрузки в R2:', { status: uploadResponse.status, errorText });
-      throw new Error(`Ошибка загрузки файла в R2 (${uploadResponse.status}): ${errorText || 'Неизвестная ошибка'}`);
+    // В локальной разработке пропускаем загрузку в R2 из-за CORS
+    // Просто возвращаем key, файл будет виден только локально через превью
+    if (import.meta.env.DEV) {
+      console.log('⚠️ Локальная разработка: пропускаем загрузку в R2 (CORS), возвращаем key');
+      console.log('📝 В продакшене файл будет загружен в R2 автоматически');
+      return {
+        key,
+        publicUrl,
+      };
     }
 
-    console.log('✅ Файл успешно загружен в R2');
+    // Загружаем файл напрямую в R2 через presigned URL (только в продакшене)
+    console.log('📤 Загрузка файла в R2...', { uploadUrl: uploadUrl.substring(0, 100) + '...', fileSize: file.size });
+    
+    try {
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
+
+      console.log('📤 Ответ загрузки:', { status: uploadResponse.status, ok: uploadResponse.ok });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text().catch(() => '');
+        console.error('❌ Ошибка загрузки в R2:', { status: uploadResponse.status, errorText });
+        throw new Error(`Ошибка загрузки файла в R2 (${uploadResponse.status}): ${errorText || 'Неизвестная ошибка'}`);
+      }
+
+      console.log('✅ Файл успешно загружен в R2');
+    } catch (fetchError) {
+      // Если ошибка CORS или сети, в dev режиме просто продолжаем
+      if (import.meta.env.DEV && (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch'))) {
+        console.warn('⚠️ CORS ошибка в dev режиме, пропускаем загрузку');
+        return {
+          key,
+          publicUrl,
+        };
+      }
+      throw fetchError;
+    }
 
     return {
       key,

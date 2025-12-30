@@ -16,11 +16,17 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
   const [uploadingCover, setUploadingCover] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Получаем обложку: сначала кастомная из R2, потом cover.png по умолчанию
+  // Получаем обложку: сначала превью, потом кастомная из R2, потом cover.png по умолчанию
   const coverUrl = useMemo(() => {
+    // Если есть превью (только что выбранный файл), показываем его
+    if (editCoverPreview) {
+      return editCoverPreview;
+    }
+    
     // Если есть кастомная обложка из R2
     if (track.cover_key) {
-      return getR2Url(track.cover_key);
+      const r2Url = getR2Url(track.cover_key);
+      return r2Url;
     }
     
     // Если есть coverUrl (для обратной совместимости)
@@ -30,7 +36,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
     
     // По умолчанию всегда используем cover.png
     return coverDefault;
-  }, [track.cover_key, track.coverUrl]);
+  }, [track.cover_key, track.coverUrl, editCoverPreview]);
 
   const trackUrl = useMemo(() => {
     return `${window.location.origin}/t/${track.slug}`;
@@ -110,7 +116,11 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
       
       setShowEditForm(false);
       setEditCoverFile(null);
-      setEditCoverPreview(null);
+      // В dev режиме оставляем превью, чтобы обложка была видна (файл не загружен в R2)
+      // В продакшене очищаем превью, так как файл загружен в R2 и будет отображаться оттуда
+      if (!import.meta.env.DEV) {
+        setEditCoverPreview(null);
+      }
     } catch (error) {
       console.error("Error updating track:", error);
       alert("Ошибка при сохранении трека");
@@ -247,8 +257,27 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
       }
     } catch (uploadError) {
       console.error("❌ Ошибка при загрузке обложки:", uploadError);
-      const errorMessage = uploadError?.message || "Неизвестная ошибка";
-      alert(`Ошибка при загрузке обложки: ${errorMessage}\n\nПроверьте консоль для деталей.`);
+      
+      // В локальной разработке просто сохраняем без загрузки в R2
+      // Файл будет виден только локально через превью
+      if (import.meta.env.DEV) {
+        console.warn("⚠️ Локальная разработка: сохраняем без загрузки в R2 (CORS ограничение)");
+        // Генерируем key для локальной разработки
+        const tempKey = `tracks/${track.id}/cover.${file.type === 'image/jpeg' ? 'jpg' : 'png'}`;
+        if (onEdit) {
+          await onEdit(track.id, {
+            title: editTitle.trim(),
+            link: editLink.trim(),
+            cover_key: tempKey,
+          });
+          console.log("✅ cover_key сохранен в БД (локальная разработка)");
+          // Превью остается видимым, так как файл не загружен в R2
+        }
+      } else {
+        // В продакшене показываем ошибку
+        const errorMessage = uploadError?.message || "Неизвестная ошибка";
+        alert(`Ошибка при загрузке обложки: ${errorMessage}\n\nПроверьте консоль для деталей.`);
+      }
     } finally {
       setUploadingCover(false);
     }
@@ -429,6 +458,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
           cursor: "pointer",
           textDecoration: "none",
           display: "flex",
+          backgroundImage: `url(${coverUrl})`,
         }}
       >
         {/* Бейдж источника в левом верхнем углу */}

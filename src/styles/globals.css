@@ -983,10 +983,10 @@ body::before{
   width: 100%;
   height: 100%;
 
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(20, 20, 30, 0.7) 100%);
+  background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  backdrop-filter: blur(20px);
+  backdrop-filter: none;
   
   box-shadow: 
     0 8px 32px rgba(0, 0, 0, 0.4),
@@ -997,7 +997,27 @@ body::before{
   overflow: hidden;
 }
 
+/* Фон карточки с обложкой */
 .tc-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background-image: inherit;
+  background-size: 120% 120%;
+  background-position: center center;
+  background-repeat: no-repeat;
+  filter: blur(25px);
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Верхняя полоска при hover */
+.tc-card-hover-line {
   content: "";
   position: absolute;
   top: 0;
@@ -1013,6 +1033,22 @@ body::before{
   );
   opacity: 0;
   transition: opacity 0.3s ease;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* Текстура grain */
+.tc-card::after {
+  content:"";
+  position:absolute; 
+  inset:0;
+  border-radius: inherit;
+  background-image: radial-gradient(rgba(255,255,255,.3) 1px, transparent 1px);
+  background-size: 4px 4px;
+  animation: grainFloat 8s ease-in-out infinite;
+  pointer-events:none;
+  opacity: .04;
+  z-index: 1;
 }
 
 @media (hover:hover){
@@ -1020,13 +1056,13 @@ body::before{
     transform: translateY(-4px) scale(1.02);
     border-color: rgba(255, 255, 255, 0.2);
     box-shadow: 
-      0 16px 48px rgba(0, 0, 0, 0.5),
+      0 16px 48px rgba(0, 0, 0, 0.3),
       0 4px 16px rgba(139, 92, 246, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.15);
   }
   
   .tc-card:hover::before {
-    opacity: 1;
+    opacity: 0.6;
   }
 }
 
@@ -1040,6 +1076,7 @@ body::before{
   0%,100%{opacity:.03;}
   50%{opacity:.05;}
 }
+/* Текстура grain поверх фона */
 .tc-card::after{
   content:"";
   position:absolute; 
@@ -1050,18 +1087,26 @@ body::before{
   animation: grainFloat 8s ease-in-out infinite;
   pointer-events:none;
   opacity: .04;
-  z-index: 0;
+  z-index: 1;
 }
 
 .tc-cover{
   width: 80px;
   height: 80px;
   flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
 
   border-radius: 50%; /* Круглая обложка */
   background-size: cover;
-  background-position: 50% 50%;
+  background-position: center center;
   background-repeat: no-repeat;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
   
   box-shadow: 
     0 4px 16px rgba(0, 0, 0, 0.4),
@@ -1070,8 +1115,13 @@ body::before{
   
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   position: relative;
-  z-index: 1;
+  z-index: 3;
   overflow: hidden;
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .tc-card:hover .tc-cover {
