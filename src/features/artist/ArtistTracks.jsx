@@ -17,16 +17,77 @@ export default function ArtistTracks({
   onShare,
   tracks: tracksProp,
   onUpdate,
+  onCopyLink,
 }) {
   const navigate = useNavigate();
   const [editingSocial, setEditingSocial] = useState(null); // 'youtube', 'tiktok', 'instagram' или null
   const [socialUrl, setSocialUrl] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const handleEditTrack = async (trackId, data) => {
+    if (!onUpdate) return;
+    
+    try {
+      // Обновляем трек в БД
+      const updateData = {
+        title: data.title,
+        link: data.link,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Если передан cover_key, обновляем его
+      if (data.cover_key !== undefined) {
+        updateData.cover_key = data.cover_key;
+      }
+
+      const { error } = await supabase
+        .from("tracks")
+        .update(updateData)
+        .eq("id", trackId);
+
+      if (error) {
+        console.error("Error updating track:", error);
+        throw error;
+      }
+
+      // Обновляем список треков
+      await onUpdate();
+    } catch (error) {
+      console.error("Error updating track:", error);
+      throw error;
+    }
+  };
+
+  const handleDeleteTrack = async (trackId) => {
+    if (!onUpdate) return;
+    
+    try {
+      // Удаляем трек из БД
+      // Обложка в R2 останется, но это не критично (можно очистить вручную при необходимости)
+      const { error } = await supabase
+        .from("tracks")
+        .delete()
+        .eq("id", trackId);
+
+      if (error) {
+        console.error("Error deleting track:", error);
+        throw error;
+      }
+
+      // Обновляем список треков
+      await onUpdate();
+    } catch (error) {
+      console.error("Error deleting track:", error);
+      throw error;
+    }
+  };
+
   const tracks = useMemo(() => {
-    return Array.isArray(tracksProp)
+    const result = Array.isArray(tracksProp)
       ? tracksProp
       : getMockTracksByArtistSlug(artist?.slug);
+    console.log("🎵 ArtistTracks - tracks:", result.length, "from prop:", tracksProp?.length || 0);
+    return result;
   }, [tracksProp, artist?.slug]);
 
   const getSocialUrl = (key) => {
@@ -270,9 +331,27 @@ export default function ArtistTracks({
       </div>
 
       <div className="at-grid">
-        {tracks.map((t) => (
-          <TrackCard key={t.slug} track={t} />
-        ))}
+        {tracks.length === 0 ? (
+          <div style={{ 
+            gridColumn: "1 / -1", 
+            textAlign: "center", 
+            padding: "40px 20px",
+            opacity: 0.6,
+            fontSize: "14px"
+          }}>
+            Пока нет треков
+          </div>
+        ) : (
+          tracks.map((t) => (
+            <TrackCard 
+              key={t.slug} 
+              track={t} 
+              isOwner={isOwner}
+              onEdit={handleEditTrack}
+              onDelete={handleDeleteTrack}
+            />
+          ))
+        )}
       </div>
     </section>
   );

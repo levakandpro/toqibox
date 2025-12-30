@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import TrackPlayer from "../../../features/track/TrackPlayer.jsx";
@@ -14,16 +14,113 @@ import shareIcon from "../../../assets/share.svg";
 
 export default function TrackPage() {
   const navigate = useNavigate();
-
   const { slug = "test" } = useParams();
-  const track = useMemo(() => getMockTrackBySlug(slug), [slug]);
 
+  const [track, setTrack] = useState(null);
+  const [artist, setArtist] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
 
-  const artist = useMemo(
-    () => getMockArtistBySlug(track.artistSlug),
-    [track.artistSlug]
-  );
+  // Функция для извлечения YouTube ID из ссылки
+  const extractYoutubeId = (url) => {
+    if (!url) return null;
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
+
+  // Загружаем трек из БД
+  useEffect(() => {
+    let alive = true;
+
+    const loadTrack = async () => {
+      setLoading(true);
+      try {
+        // Загружаем трек из БД
+        const { data: trackData, error: trackError } = await supabase
+          .from("tracks")
+          .select("*")
+          .eq("slug", slug)
+          .maybeSingle();
+
+        if (trackError) {
+          console.error("Error loading track:", trackError);
+          // Fallback на мок, если трек не найден
+          const mockTrack = getMockTrackBySlug(slug);
+          if (alive) {
+            setTrack(mockTrack);
+            const mockArtist = getMockArtistBySlug(mockTrack.artistSlug);
+            setArtist(mockArtist);
+          }
+          setLoading(false);
+          return;
+        }
+
+        if (!trackData) {
+          // Fallback на мок, если трек не найден
+          const mockTrack = getMockTrackBySlug(slug);
+          if (alive) {
+            setTrack(mockTrack);
+            const mockArtist = getMockArtistBySlug(mockTrack.artistSlug);
+            setArtist(mockArtist);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Загружаем артиста
+        const { data: artistData, error: artistError } = await supabase
+          .from("artists")
+          .select("*")
+          .eq("id", trackData.artist_id)
+          .maybeSingle();
+
+        if (artistError) {
+          console.error("Error loading artist:", artistError);
+        }
+
+        if (alive) {
+          // Преобразуем трек из БД в формат для компонента
+          const youtubeId = extractYoutubeId(trackData.link);
+          const formattedTrack = {
+            slug: trackData.slug,
+            title: trackData.title,
+            artistSlug: artistData?.slug || "unknown",
+            artistName: artistData?.display_name || artistData?.name || "Unknown Artist",
+            source: trackData.source || "youtube",
+            variant: "video",
+            coverUrl: null,
+            youtubeId: youtubeId,
+            startSeconds: 0,
+            createdAt: trackData.created_at,
+          };
+
+          setTrack(formattedTrack);
+          setArtist(artistData || null);
+        }
+      } catch (e) {
+        console.error("Error loading track:", e);
+        // Fallback на мок
+        const mockTrack = getMockTrackBySlug(slug);
+        if (alive) {
+          setTrack(mockTrack);
+          const mockArtist = getMockArtistBySlug(mockTrack.artistSlug);
+          setArtist(mockArtist);
+        }
+      } finally {
+        if (alive) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadTrack();
+
+    return () => {
+      alive = false;
+    };
+  }, [slug]);
+
   const isPremium = !!artist?.isPremium;
 
   const shareUrl = useMemo(() => {
@@ -35,6 +132,7 @@ export default function TrackPage() {
   };
 
   const sourceLabel = useMemo(() => {
+    if (!track) return "";
     const source = String(track.source || "").toLowerCase();
     const variant = String(track.variant || "").toLowerCase();
 
@@ -43,9 +141,10 @@ export default function TrackPage() {
     if (source === "tiktok") return "Tik Tok";
 
     return (track.source || "").toUpperCase();
-  }, [track.source, track.variant]);
+  }, [track?.source, track?.variant]);
 
   const sourceType = useMemo(() => {
+    if (!track) return null;
     const source = String(track.source || "").toLowerCase();
 
     if (source === "youtube") return "shorts";
@@ -53,7 +152,7 @@ export default function TrackPage() {
     if (source === "tiktok") return "tiktok";
 
     return null;
-  }, [track.source]);
+  }, [track?.source]);
 
   const handleAddTrack = async (e) => {
     e.preventDefault();
@@ -75,13 +174,30 @@ export default function TrackPage() {
     }
   };
 
+  if (loading || !track) {
+    return (
+      <div className="t-page">
+        <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+          <div style={{ opacity: 0.7 }}>Загрузка...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Получаем обложку для фона
+  const coverUrl = track.coverUrl || (track.youtubeId 
+    ? `https://img.youtube.com/vi/${track.youtubeId}/maxresdefault.jpg`
+    : null);
+
   return (
     <div className="t-page">
-      <div
-        className="t-cover"
-        style={{ backgroundImage: `url(${track.coverUrl})` }}
-        aria-hidden="true"
-      />
+      {coverUrl && (
+        <div
+          className="t-cover"
+          style={{ backgroundImage: `url(${coverUrl})` }}
+          aria-hidden="true"
+        />
+      )}
       <div className="t-overlay" aria-hidden="true" />
 
       <header className="t-header">

@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import IconTubeteika from "../../ui/IconTubeteika.jsx";
 import YoutubeEmbed from "../video/YoutubeEmbed.jsx";
@@ -9,7 +8,6 @@ import InstagramEmbed from "../video/InstagramEmbed.jsx";
 export default function TrackPlayer({ track }) {
   const [playing, setPlaying] = useState(false);
   const [closing, setClosing] = useState(false);
-  const navigate = useNavigate();
 
   const embed = useMemo(() => {
     if (!playing) return null;
@@ -74,11 +72,10 @@ export default function TrackPlayer({ track }) {
     // Закрываем только если клик был на фоне, а не на самом видео
     if (e.target === e.currentTarget) {
       setClosing(true);
-      // Плавный переход после анимации закрытия
+      // Плавное закрытие видео, остаемся на странице трека
       setTimeout(() => {
         setPlaying(false);
         setClosing(false);
-        navigate("/", { replace: true });
       }, 300);
     }
   }

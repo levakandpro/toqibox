@@ -5,40 +5,65 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded 
   const [showForm, setShowForm] = useState(false);
   const [newTrack, setNewTrack] = useState({ link: "", title: "" });
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [createdTrackSlug, setCreatedTrackSlug] = useState(null);
 
   if (!isOwner) return null;
+
+  // Функция для извлечения YouTube ID из ссылки
+  const extractYoutubeId = (url) => {
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
 
   const handleAddTrack = async () => {
     if (!artist?.id || !newTrack.title || !newTrack.link) return;
 
-    // Проверяем, что ссылка на YouTube
-    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/;
-    if (!youtubeRegex.test(newTrack.link.trim())) {
-      alert("Пожалуйста, введите ссылку на YouTube видео");
+    // Извлекаем YouTube ID из ссылки
+    const youtubeId = extractYoutubeId(newTrack.link.trim());
+    if (!youtubeId) {
+      alert("Пожалуйста, введите корректную ссылку на YouTube видео");
       return;
     }
 
     setSaving(true);
     try {
+      // Генерируем slug из названия трека
+      const slugBase = newTrack.title
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const slug = `${slugBase}-${Date.now()}`;
+
       const { error } = await supabase
         .from("tracks")
         .insert({
           artist_id: artist.id,
           title: newTrack.title.trim(),
-          source: "youtube", // Всегда YouTube
-          link: newTrack.link.trim(),
-          slug: `${artist.slug}-${Date.now()}`, // временный slug
+          source: "youtube",
+          link: newTrack.link.trim(), // Сохраняем полную ссылку
+          slug: slug,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Supabase insert error:", error);
+        throw error;
+      }
 
-      // Очищаем форму и закрываем
-      setNewTrack({ link: "", title: "" });
-      setShowForm(false);
+      console.log("✅ Track added successfully");
+
+      // Сохраняем slug созданного трека для экрана успеха
+      setCreatedTrackSlug(slug);
+      setSuccess(true);
       
       // Обновляем список треков
       if (onTrackAdded) {
-        onTrackAdded();
+        console.log("🔄 Calling onTrackAdded...");
+        await onTrackAdded();
+      } else {
+        console.warn("⚠️ onTrackAdded callback not provided!");
       }
     } catch (e) {
       console.error("Error adding track:", e);
@@ -47,6 +72,146 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded 
       setSaving(false);
     }
   };
+
+  // Экран "Готово"
+  if (success) {
+    const trackUrl = `${window.location.origin}/t/${createdTrackSlug}`;
+    
+    return (
+      <div style={{
+        padding: "40px 20px",
+        background: "rgba(255, 255, 255, 0.02)",
+        borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+        textAlign: "center",
+      }}>
+        <div style={{
+          fontSize: "clamp(24px, 5vw, 32px)",
+          fontWeight: 700,
+          color: "#fff",
+          marginBottom: "12px",
+          lineHeight: 1.3,
+        }}>
+          Теперь ваш трек под своей Тюбетейкой
+        </div>
+        
+        <div style={{
+          fontSize: "14px",
+          color: "rgba(255, 255, 255, 0.6)",
+          marginBottom: "24px",
+        }}>
+          Забирай ссылку и размещай в сторис и био
+        </div>
+
+        <div style={{
+          display: "flex",
+          gap: "12px",
+          justifyContent: "center",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}>
+          <input
+            type="text"
+            readOnly
+            value={trackUrl}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              background: "rgba(255, 255, 255, 0.05)",
+              color: "#fff",
+              fontSize: "14px",
+              flex: "1",
+              minWidth: "200px",
+              maxWidth: "400px",
+            }}
+            onClick={(e) => e.target.select()}
+          />
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                // Пробуем использовать Clipboard API
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  await navigator.clipboard.writeText(trackUrl);
+                  alert("Ссылка скопирована!");
+                } else {
+                  // Fallback для старых браузеров
+                  const input = document.createElement("input");
+                  input.value = trackUrl;
+                  input.style.position = "fixed";
+                  input.style.opacity = "0";
+                  document.body.appendChild(input);
+                  input.select();
+                  input.setSelectionRange(0, 99999); // Для мобильных устройств
+                  try {
+                    document.execCommand("copy");
+                    alert("Ссылка скопирована!");
+                  } catch (err) {
+                    alert("Не удалось скопировать. Ссылка: " + trackUrl);
+                  }
+                  document.body.removeChild(input);
+                }
+              } catch (e) {
+                console.error("Failed to copy:", e);
+                // Показываем ссылку, если копирование не удалось
+                alert("Не удалось скопировать. Ссылка: " + trackUrl);
+              }
+            }}
+            style={{
+              padding: "10px 20px",
+              borderRadius: 8,
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              background: "rgba(255, 255, 255, 0.1)",
+              color: "#fff",
+              fontSize: "14px",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "rgba(255, 255, 255, 0.15)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "rgba(255, 255, 255, 0.1)";
+            }}
+          >
+            Копировать ссылку
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSuccess(false);
+            setShowForm(false);
+            setNewTrack({ link: "", title: "" });
+            setCreatedTrackSlug(null);
+          }}
+          style={{
+            marginTop: "24px",
+            padding: "10px 20px",
+            borderRadius: 8,
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            background: "transparent",
+            color: "rgba(255, 255, 255, 0.7)",
+            fontSize: "14px",
+            cursor: "pointer",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.color = "#fff";
+            e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.color = "rgba(255, 255, 255, 0.7)";
+            e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
+          }}
+        >
+          Добавить ещё трек
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -83,24 +248,35 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded 
       ) : (
         <div style={{
           display: "grid",
-          gap: 12,
-          padding: 16,
-          background: "rgba(255, 255, 255, 0.95)",
-          borderRadius: 12,
-          border: "1px solid rgba(0, 0, 0, 0.1)",
+          gap: 16,
+          padding: "24px",
+          background: "rgba(0, 0, 0, 0.6)",
+          backdropFilter: "blur(20px)",
+          borderRadius: 16,
+          border: "1px solid rgba(255, 255, 255, 0.1)",
         }}>
           <input
             type="text"
             placeholder="Название трека"
             value={newTrack.title}
             onChange={(e) => setNewTrack({ ...newTrack, title: e.target.value })}
+            disabled={saving}
             style={{
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid rgba(0, 0, 0, 0.15)",
+              padding: "14px 16px",
+              borderRadius: 12,
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              background: "rgba(255, 255, 255, 0.05)",
               outline: "none",
-              fontSize: 14,
+              fontSize: 16,
+              color: "#fff",
               width: "100%",
+              transition: "all 0.2s",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.4)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
             }}
           />
           <input
@@ -108,34 +284,78 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded 
             placeholder="Ссылка на YouTube видео"
             value={newTrack.link}
             onChange={(e) => setNewTrack({ ...newTrack, link: e.target.value })}
+            disabled={saving}
             style={{
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid rgba(0, 0, 0, 0.15)",
+              padding: "14px 16px",
+              borderRadius: 12,
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              background: "rgba(255, 255, 255, 0.05)",
               outline: "none",
-              fontSize: 14,
+              fontSize: 16,
+              color: "#fff",
               width: "100%",
+              transition: "all 0.2s",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.4)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
             }}
           />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              onClick={handleAddTrack}
-              disabled={saving || !newTrack.title || !newTrack.link}
-              style={{
-                padding: "10px 20px",
-                borderRadius: 8,
-                border: "none",
-                background: "#0b0b0b",
-                color: "#fff",
-                fontWeight: 700,
-                cursor: saving ? "default" : "pointer",
-                opacity: (saving || !newTrack.title || !newTrack.link) ? 0.5 : 1,
-                flex: 1,
-              }}
-            >
-              {saving ? "Добавляю..." : "Добавить"}
-            </button>
+          
+          <button
+            type="button"
+            onClick={handleAddTrack}
+            disabled={saving || !newTrack.title || !newTrack.link}
+            style={{
+              padding: "16px 24px",
+              borderRadius: 12,
+              border: "none",
+              background: saving ? "rgba(255, 255, 255, 0.1)" : "#fff",
+              color: saving ? "rgba(255, 255, 255, 0.7)" : "#000",
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: (saving || !newTrack.title || !newTrack.link) ? "default" : "pointer",
+              opacity: (saving || !newTrack.title || !newTrack.link) ? 0.5 : 1,
+              transition: "all 0.2s",
+              width: "100%",
+            }}
+            onMouseEnter={(e) => {
+              if (!saving && newTrack.title && newTrack.link) {
+                e.target.style.transform = "scale(1.02)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = "scale(1)";
+            }}
+          >
+            ОПУБЛИКОВАТЬ
+          </button>
+
+          {saving && (
+            <div style={{
+              textAlign: "center",
+              fontSize: 14,
+              color: "rgba(255, 255, 255, 0.6)",
+              marginTop: "-8px",
+            }}>
+              Создаём Тюбетейку…
+            </div>
+          )}
+
+          {!saving && (
+            <div style={{
+              textAlign: "center",
+              fontSize: 13,
+              color: "rgba(255, 255, 255, 0.5)",
+              marginTop: "-8px",
+            }}>
+              После публикации для трека будет создана Тюбетейка
+            </div>
+          )}
+
+          {!saving && (
             <button
               type="button"
               onClick={() => {
@@ -143,16 +363,27 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded 
                 setNewTrack({ link: "", title: "" });
               }}
               style={{
-                padding: "10px 20px",
-                borderRadius: 8,
-                border: "1px solid rgba(0, 0, 0, 0.15)",
+                padding: "12px 20px",
+                borderRadius: 12,
+                border: "1px solid rgba(255, 255, 255, 0.2)",
                 background: "transparent",
+                color: "rgba(255, 255, 255, 0.7)",
+                fontSize: 14,
                 cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.color = "#fff";
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.color = "rgba(255, 255, 255, 0.7)";
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
               }}
             >
               Отмена
             </button>
-          </div>
+          )}
         </div>
       )}
     </div>

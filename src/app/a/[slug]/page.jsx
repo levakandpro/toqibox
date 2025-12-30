@@ -8,6 +8,7 @@ import ArtistTracks from "../../../features/artist/ArtistTracks.jsx";
 import AddTrackSection from "../../../features/artist/AddTrackSection.jsx";
 
 import ShareSheet from "../../../features/share/ShareSheet.jsx";
+import CopyNotification from "../../../ui/CopyNotification.jsx";
 import { supabase } from "../../../features/auth/supabaseClient.js";
 
 export default function ArtistPage() {
@@ -15,12 +16,15 @@ export default function ArtistPage() {
 
   const [shareOpen, setShareOpen] = useState(false);
   const [artist, setArtist] = useState(null);
+  const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [devEditEnabled, setDevEditEnabled] = useState(false);
+  const [showCopyNotification, setShowCopyNotification] = useState(false);
 
   const refreshArtist = async () => {
     try {
+      console.log("🔄 refreshArtist called");
       const { data: artistData, error: artistError } = await supabase
         .from("artists")
         .select("*")
@@ -30,9 +34,53 @@ export default function ArtistPage() {
       if (artistError) throw artistError;
       if (artistData) {
         setArtist(artistData);
+        
+        // Загружаем треки артиста
+        console.log("📡 Loading tracks for artist_id:", artistData.id);
+        const { data: tracksData, error: tracksError } = await supabase
+          .from("tracks")
+          .select("*")
+          .eq("artist_id", artistData.id)
+          .order("created_at", { ascending: false });
+
+        if (tracksError) {
+          console.error("❌ Error loading tracks:", tracksError);
+          setTracks([]);
+        } else {
+          console.log("✅ Loaded tracks:", tracksData?.length || 0);
+          // Функция для извлечения YouTube ID из ссылки
+          const extractYoutubeId = (url) => {
+            if (!url) return null;
+            const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+            const match = url.match(regex);
+            return match ? match[1] : null;
+          };
+
+          // Преобразуем треки из БД в формат для TrackCard
+          const formattedTracks = (tracksData || []).map(track => {
+            const youtubeId = extractYoutubeId(track.link);
+            return {
+              id: track.id,
+              slug: track.slug,
+              title: track.title,
+              link: track.link,
+              cover_key: track.cover_key, // Ключ обложки в R2
+              source: track.source || "youtube",
+              variant: "video", // По умолчанию video, так как поле variant не существует в БД
+              coverUrl: null, // null для fallback в TrackCard
+              artistSlug: artistData.slug,
+              artistName: artistData.display_name || artistData.name,
+              youtubeId: youtubeId,
+              startSeconds: 0,
+              createdAt: track.created_at,
+            };
+          });
+          console.log("🎨 Formatted tracks:", formattedTracks.length);
+          setTracks(formattedTracks);
+        }
       }
     } catch (e) {
-      console.error("Error refreshing artist:", e);
+      console.error("❌ Error refreshing artist:", e);
     }
   };
 
@@ -125,6 +173,52 @@ export default function ArtistPage() {
 
         // Сразу показываем контент
         setArtist(artistData || null);
+        
+        // Загружаем треки артиста
+        if (artistData) {
+          const { data: tracksData, error: tracksError } = await supabase
+            .from("tracks")
+            .select("*")
+            .eq("artist_id", artistData.id)
+            .order("created_at", { ascending: false });
+
+          if (tracksError) {
+            console.error("Error loading tracks:", tracksError);
+            setTracks([]);
+          } else {
+            // Функция для извлечения YouTube ID из ссылки
+            const extractYoutubeId = (url) => {
+              if (!url) return null;
+              const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+              const match = url.match(regex);
+              return match ? match[1] : null;
+            };
+
+            // Преобразуем треки из БД в формат для TrackCard
+            const formattedTracks = (tracksData || []).map(track => {
+              const youtubeId = extractYoutubeId(track.link);
+              return {
+                id: track.id,
+                slug: track.slug,
+                title: track.title,
+                link: track.link,
+                cover_key: track.cover_key, // Ключ обложки в R2
+                source: track.source || "youtube",
+                variant: "video", // По умолчанию video, так как поле variant не существует в БД
+                coverUrl: null, // null для fallback в TrackCard
+                artistSlug: artistData.slug,
+                artistName: artistData.display_name || artistData.name,
+                youtubeId: youtubeId,
+                startSeconds: 0,
+                createdAt: track.created_at,
+              };
+            });
+            setTracks(formattedTracks);
+          }
+        } else {
+          setTracks([]);
+        }
+        
         setLoading(false);
 
         // Проверяем только dev режим из localStorage (никаких проверок auth)
@@ -217,6 +311,33 @@ export default function ArtistPage() {
           isOwner={isOwner}
           onShare={() => setShareOpen(true)}
           onUpdate={refreshArtist}
+          tracks={tracks}
+          onCopyLink={async () => {
+            const artistUrl = `${window.location.origin}/a/${slug}`;
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(artistUrl);
+                setShowCopyNotification(true);
+              } else {
+                const input = document.createElement("input");
+                input.value = artistUrl;
+                input.style.position = "fixed";
+                input.style.opacity = "0";
+                document.body.appendChild(input);
+                input.select();
+                input.setSelectionRange(0, 99999);
+                try {
+                  document.execCommand("copy");
+                  setShowCopyNotification(true);
+                } catch (err) {
+                  console.error("Failed to copy:", err);
+                }
+                document.body.removeChild(input);
+              }
+            } catch (e) {
+              console.error("Failed to copy:", e);
+            }
+          }}
         />
       </div>
 
@@ -225,6 +346,11 @@ export default function ArtistPage() {
         onClose={() => setShareOpen(false)}
         url={shareUrl}
         title="TOQIBOX"
+      />
+
+      <CopyNotification 
+        show={showCopyNotification} 
+        onClose={() => setShowCopyNotification(false)} 
       />
 
       {/* Кнопка для включения dev режима редактирования (только локально) */}

@@ -7,6 +7,14 @@ export default defineConfig({
     host: "0.0.0.0", // Слушаем на всех интерфейсах
     port: 5174,
     strictPort: true,
+    proxy: {
+      // Прокси для Cloudflare Pages Functions в локальной разработке
+      "/api/r2/presign": {
+        target: "https://toqibox.win", // Используем продакшн endpoint для локальной разработки
+        changeOrigin: true,
+        secure: true,
+      },
+    },
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       "Pragma": "no-cache",

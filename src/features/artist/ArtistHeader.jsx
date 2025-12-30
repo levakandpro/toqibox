@@ -13,11 +13,47 @@ import artistCover9 from "../../assets/covers/artist-cover-placeholder9.jpg";
 import artistCover10 from "../../assets/covers/artist-cover-placeholder10.jpg";
 import verifGold from "../../assets/verifgold.svg";
 
+// Цвета для переключения (вынесено за пределы компонента)
+const NAME_COLORS = [
+  "#ffffff",      // белый (по умолчанию)
+  "#8B5CF6",      // фиолетовый
+  "#06B6D4",      // бирюзовый
+  "#FBBF24",      // желтый
+  "#EF4444",      // красный
+  "#F97316",      // оранжевый
+  "#10B981",      // зеленый
+  "#3B82F6",      // синий
+];
+
 export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(artist?.display_name || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [nameColorIndex, setNameColorIndex] = useState(0);
+  
+  // Загружаем цвет из БД или localStorage при загрузке артиста
+  const artistId = artist?.id;
+  const artistNameColor = artist?.name_color ?? null;
+  
+  React.useEffect(() => {
+    if (artistId) {
+      // Сначала пробуем загрузить из БД (если поле есть)
+      const dbColor = artistNameColor;
+      if (dbColor !== null && dbColor !== undefined && dbColor >= 0 && dbColor < NAME_COLORS.length) {
+        setNameColorIndex(dbColor);
+        // Синхронизируем с localStorage
+        localStorage.setItem(`toqibox:nameColor:${artistId}`, dbColor.toString());
+      } else {
+        // Если в БД нет, загружаем из localStorage
+        const saved = localStorage.getItem(`toqibox:nameColor:${artistId}`);
+        const index = saved ? parseInt(saved, 10) : 0;
+        setNameColorIndex(index >= 0 && index < NAME_COLORS.length ? index : 0);
+      }
+    } else {
+      setNameColorIndex(0);
+    }
+  }, [artistId, artistNameColor]);
   
   // Список всех обложек (определяем сразу, без useMemo)
   const coverOptions = [
@@ -81,6 +117,32 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
       setDisplayName(artist?.display_name || "");
     }
   }, [artist?.display_name, saved]);
+
+  // Сохраняем цвет в localStorage и в БД при изменении
+  React.useEffect(() => {
+    if (!artist?.id) return;
+    
+    // Сохраняем в localStorage всегда
+    localStorage.setItem(`toqibox:nameColor:${artist.id}`, nameColorIndex.toString());
+    
+    // Сохраняем в БД только если владелец и цвет не белый (индекс > 0)
+    if (isOwner && nameColorIndex > 0) {
+      supabase
+        .from("artists")
+        .update({ name_color: nameColorIndex })
+        .eq("id", artist.id)
+        .then(({ error }) => {
+          if (error) {
+            console.log("⚠️ name_color field not in DB yet, saving only to localStorage");
+          }
+        });
+    }
+  }, [nameColorIndex, artist?.id, isOwner]);
+  
+  // Переключение цвета
+  const toggleNameColor = () => {
+    setNameColorIndex((prev) => (prev + 1) % NAME_COLORS.length);
+  };
 
   // Обновляем previewCoverIndex когда меняется текущая обложка
   React.useEffect(() => {
@@ -446,28 +508,67 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
               )}
             </div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <div
                 style={{
-                  color: "#ffffff !important",
-                  backgroundColor: "rgba(0, 0, 0, 0.6)",
-                  padding: "4px 12px",
-                  borderRadius: "8px",
-                  textShadow: "0 2px 4px rgba(0,0,0,1), 0 4px 8px rgba(0,0,0,1), 0 6px 12px rgba(0,0,0,1), 0 0 40px rgba(0,0,0,0.9)",
-                  WebkitTextStroke: "1px rgba(255, 255, 255, 0.5)",
-                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,1)) drop-shadow(0 8px 16px rgba(0,0,0,1))",
-                  position: "relative",
-                  zIndex: 1000,
-                  fontWeight: 900,
-                  fontSize: "inherit",
-                  display: "inline-block",
-                  border: "2px solid rgba(255, 255, 255, 0.2)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)",
+                  fontSize: "clamp(8px, 1.5vw, 10px)",
+                  fontWeight: 300,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: "rgba(255, 255, 255, 0.6)",
+                  opacity: 0.8,
                 }}
               >
-                {artist?.display_name || artist?.name || "ARTIST"}
-              </span>
-              {saved && (
+                ПРОВЕРЕННЫЙ АРТИСТ
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span
+                  style={{
+                    color: NAME_COLORS[nameColorIndex],
+                    position: "relative",
+                    zIndex: 1000,
+                    fontWeight: 900,
+                    fontSize: "inherit",
+                    display: "inline-block",
+                  }}
+                >
+                  {artist?.display_name || artist?.name || "ARTIST"}
+                </span>
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={toggleNameColor}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 4,
+                      display: "flex",
+                      alignItems: "center",
+                      marginLeft: 4,
+                      opacity: 0.7,
+                    }}
+                    aria-label="Изменить цвет имени"
+                    title="Изменить цвет имени"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={{ display: "block" }}
+                    >
+                      <path
+                        d="M8 1L9.5 6L14 6.5L10.5 10L11.5 14.5L8 12L4.5 14.5L5.5 10L2 6.5L6.5 6L8 1Z"
+                        fill={nameColorIndex === 0 ? "none" : NAME_COLORS[nameColorIndex]}
+                        stroke={nameColorIndex === 0 ? "rgba(255,255,255,0.5)" : NAME_COLORS[nameColorIndex]}
+                        strokeWidth={nameColorIndex === 0 ? "1" : "0.5"}
+                      />
+                    </svg>
+                  </button>
+                )}
+                {saved && (
                 <svg
                   width="24"
                   height="24"
@@ -528,6 +629,7 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
                   </svg>
                 </button>
               )}
+              </div>
             </div>
           )}
           {isPremium && (
