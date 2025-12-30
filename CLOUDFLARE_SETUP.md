@@ -42,11 +42,34 @@ https://811182a5.toqibox.pages.dev/auth/callback
 - **Root directory:** `/` (корень проекта)
 - **Node version:** `20` (указано в `.nvmrc`)
 
-**Важно:** Если деплой не запускается ("No deployment available"):
-1. Проверьте логи деплоя в Cloudflare Pages Dashboard
-2. Убедитесь, что все зависимости установлены (`npm ci` вместо `npm install`)
-3. Проверьте, что переменные окружения `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY` установлены
-4. Убедитесь, что файл `_redirects` находится в `public/` (он автоматически копируется в `dist/`)
+**Важно:** Если деплой не запускается ("No deployment available" или "unable to submit build job"):
+
+1. **Проверьте подключение к репозиторию:**
+   - Settings → Source → убедитесь, что репозиторий подключен
+   - Проверьте, что ветка `main` отслеживается
+   - Попробуйте переподключить репозиторий
+
+2. **Упростите build command:**
+   - Попробуйте сначала: `npm run build` (без `npm ci`)
+   - Если не работает, попробуйте: `npm install && npm run build`
+
+3. **Проверьте переменные окружения:**
+   - Settings → Environment variables
+   - Убедитесь, что `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY` установлены
+   - Проверьте, что они применяются к Production
+
+4. **Проверьте Node version:**
+   - В настройках сборки выберите Node.js версию 20 или выше
+   - Или оставьте "Auto" для автоматического определения
+
+5. **Попробуйте Retry deployment:**
+   - В разделе Deployments нажмите "Retry deployment"
+   - Иногда помогает при временных проблемах с сетью
+
+6. **Проверьте логи:**
+   - Откройте последний deployment
+   - Посмотрите полные логи сборки
+   - Ошибка может быть в другом месте, не только в "Initializing"
 
 ### 4. Проверка после деплоя
 
