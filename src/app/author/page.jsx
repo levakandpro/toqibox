@@ -101,6 +101,7 @@ export default function AuthorPage() {
 
   useEffect(() => {
     let alive = true;
+    let redirected = false;
 
     const run = async () => {
       setLoading(true);
@@ -110,7 +111,7 @@ export default function AuthorPage() {
         const { data } = await supabase.auth.getSession();
         const session = data?.session;
 
-        if (!alive) return;
+        if (!alive || redirected) return;
 
         if (!session) {
           localStorage.setItem("toqibox:returnTo", "/author");
@@ -121,7 +122,7 @@ export default function AuthorPage() {
         const user = session.user;
         const a = await getArtistForUser(user);
 
-        if (!alive) return;
+        if (!alive || redirected) return;
 
         // Если артиста нет - показываем заглушку
         if (!a) {
@@ -131,9 +132,10 @@ export default function AuthorPage() {
         }
 
         // Если артист есть - редиректим на его публичную страницу
+        redirected = true;
         navigate(`/a/${a.slug}`, { replace: true });
       } catch (e) {
-        if (!alive) return;
+        if (!alive || redirected) return;
         setFatal(e?.message || "Ошибка загрузки кабинета");
         setLoading(false);
       }

@@ -42,42 +42,45 @@ export default function ArtistPage() {
 
   useEffect(() => {
     let alive = true;
+    let timeoutId = null;
 
     const checkOwner = async (artistData) => {
+      if (!artistData) return false;
+      
       try {
-        // Проверяем владельца с повторной попыткой
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error("Session error:", sessionError);
           return false;
         }
 
         const session = sessionData?.session;
         const userId = session?.user?.id;
 
-        // Отладочная информация
-        console.log("Check owner:", {
-          hasSession: !!session,
-          userId,
-          artistUserId: artistData?.user_id,
-          isOwner: artistData && userId ? userId === artistData.user_id : false,
-        });
-
         if (artistData && userId) {
           return userId === artistData.user_id;
         }
         return false;
       } catch (e) {
-        console.error("Error checking owner:", e);
         return false;
       }
     };
 
     const run = async () => {
+      console.log("🚀 Starting load for slug:", slug);
       setLoading(true);
 
+      // Таймаут на случай, если запрос зависнет
+      timeoutId = setTimeout(() => {
+        if (alive) {
+          console.warn("⚠️ Loading timeout after 5s, showing page anyway");
+          setLoading(false);
+          setArtist(null);
+        }
+      }, 5000);
+
       try {
+        console.log("📡 Fetching artist from Supabase...");
         // Загружаем артиста из БД
         const { data: artistData, error: artistError } = await supabase
           .from("artists")
@@ -85,78 +88,65 @@ export default function ArtistPage() {
           .eq("slug", slug)
           .maybeSingle();
 
-        if (artistError) throw artistError;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
 
-        if (!alive) return;
+        if (!alive) {
+          console.log("❌ Component unmounted, aborting");
+          return;
+        }
 
-        setArtist(artistData);
+        if (artistError) {
+          console.error("❌ Artist query error:", artistError);
+          setArtist(null);
+          setLoading(false);
+          return;
+        }
 
-        // Проверяем владельца
-        const owner = await checkOwner(artistData);
-        if (!alive) return;
-        setIsOwner(owner);
+        console.log("✅ Artist loaded:", artistData ? "found" : "not found");
 
+        // Сразу показываем контент, не ждем проверки владельца
+        setArtist(artistData || null);
         setLoading(false);
+
+        // Проверяем владельца асинхронно, не блокируя отображение
+        if (artistData) {
+          checkOwner(artistData).then((owner) => {
+            if (!alive) return;
+            console.log("🔍 Owner check result:", { slug, owner, artistUserId: artistData?.user_id });
+            setIsOwner(owner);
+          }).catch((err) => {
+            console.error("Error checking owner:", err);
+          });
+        }
       } catch (e) {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
         if (!alive) return;
-        console.error("Error loading artist:", e);
+        console.error("❌ Error loading artist:", e);
+        setArtist(null);
         setLoading(false);
       }
     };
 
     run();
 
-    // Дополнительные проверки сессии через задержки (для мобильных)
-    const timeoutId1 = setTimeout(async () => {
-      if (!alive) return;
-      
-      try {
-        const { data: artistData } = await supabase
-          .from("artists")
-          .select("*")
-          .eq("slug", slug)
-          .maybeSingle();
-
-        if (artistData) {
-          const owner = await checkOwner(artistData);
-          if (!alive) return;
-          setIsOwner(owner);
-        }
-      } catch (e) {
-        console.error("Error in delayed check 1:", e);
+    return () => {
+      alive = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-    }, 500);
+    };
 
-    const timeoutId2 = setTimeout(async () => {
-      if (!alive) return;
-      
-      try {
-        const { data: artistData } = await supabase
-          .from("artists")
-          .select("*")
-          .eq("slug", slug)
-          .maybeSingle();
-
-        if (artistData) {
-          const owner = await checkOwner(artistData);
-          if (!alive) return;
-          setIsOwner(owner);
-        }
-      } catch (e) {
-        console.error("Error in delayed check 2:", e);
-      }
-    }, 1500);
-
-    // Слушаем изменения сессии (важно для мобильных устройств)
+    // Слушаем изменения сессии
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!alive) return;
-      
-      console.log("Auth state changed:", event, {
-        hasSession: !!session,
-        userId: session?.user?.id,
-      });
       
       // Получаем актуальные данные артиста
       try {
@@ -171,7 +161,7 @@ export default function ArtistPage() {
         if (artistData) {
           const owner = await checkOwner(artistData);
           if (!alive) return;
-          console.log("Setting isOwner to:", owner);
+          console.log("🔍 Auth state change - Owner check:", { slug, owner, artistUserId: artistData?.user_id });
           setIsOwner(owner);
         }
       } catch (e) {
@@ -183,10 +173,12 @@ export default function ArtistPage() {
 
     return () => {
       alive = false;
-      clearTimeout(timeoutId1);
-      clearTimeout(timeoutId2);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
       }
     };
   }, [slug]);
@@ -210,6 +202,8 @@ export default function ArtistPage() {
       </div>
     );
   }
+
+  console.log("🎨 Rendering ArtistPage:", { slug, hasArtist: !!artist, isOwner, artistId: artist?.id });
 
   return (
     <div className="a-page">
