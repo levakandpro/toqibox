@@ -974,7 +974,7 @@ export default function LoginPage() {
               ...(loading ? btnDisabledStyle : null),
             }}
           >
-            Войти
+            {loading ? "Вход..." : "Войти через Google"}
           </button>
 
           <button
