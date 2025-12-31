@@ -180,20 +180,56 @@ export default function HomePage() {
     let mounted = true;
 
     // Динамический импорт для правильной работы с Vite
-    import("vanta/dist/vanta.clouds.min.js").then((VANTA) => {
+    import("vanta/dist/vanta.clouds.min.js").then(() => {
       if (!mounted || !vantaRef.current) return;
       
-      // Vanta.js может экспортировать функцию по-разному
-      const CLOUDS = VANTA.default || VANTA;
-      
-      vantaEffect.current = CLOUDS({
-        el: vantaRef.current,
-        THREE: window.THREE || THREE,
-        mouseControls: true,
-        touchControls: true,
-        gyroControls: false,
-        speed: 0.90,
-      });
+      // Vanta.js создает глобальный объект window.VANTA после загрузки
+      // Ждем немного, чтобы убедиться, что он инициализирован
+      setTimeout(() => {
+        if (!mounted || !vantaRef.current) return;
+        
+        // Пробуем использовать window.VANTA.CLOUDS
+        if (window.VANTA && window.VANTA.CLOUDS) {
+          vantaEffect.current = window.VANTA.CLOUDS({
+            el: vantaRef.current,
+            THREE: window.THREE || THREE,
+            mouseControls: true,
+            touchControls: true,
+            gyroControls: false,
+            speed: 0.90,
+            // Светлые цвета для яркого фона как на демо Vanta.js
+            skyColor: 0x68b8d7,        // Светло-голубое небо
+            cloudColor: 0xadc1de,      // Светло-серо-голубые облака
+            cloudShadowColor: 0x183550, // Темно-синие тени облаков
+            sunColor: 0xff9919,        // Оранжевое солнце
+            sunGlareColor: 0xff6633,   // Ярко-оранжевые блики
+            sunlightColor: 0xff9933,   // Желто-оранжевый свет
+          });
+        } else {
+          // Fallback: пробуем импортированный модуль напрямую
+          import("vanta/dist/vanta.clouds.min.js").then((module) => {
+            const VANTA = module.default || module;
+            const CLOUDS = VANTA.CLOUDS || VANTA;
+            
+            if (typeof CLOUDS === 'function') {
+              vantaEffect.current = CLOUDS({
+                el: vantaRef.current,
+                THREE: window.THREE || THREE,
+                mouseControls: true,
+                touchControls: true,
+                gyroControls: false,
+                speed: 0.90,
+                skyColor: 0x68b8d7,
+                cloudColor: 0xadc1de,
+                cloudShadowColor: 0x183550,
+                sunColor: 0xff9919,
+                sunGlareColor: 0xff6633,
+                sunlightColor: 0xff9933,
+              });
+            }
+          });
+        }
+      }, 100);
     }).catch((err) => {
       console.error("Failed to load Vanta.js CLOUDS:", err);
     });
