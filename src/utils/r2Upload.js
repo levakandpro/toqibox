@@ -11,6 +11,15 @@ const R2_API_ENDPOINT = import.meta.env.DEV
   : '/api/r2';
 const R2_PUBLIC_BASE = 'https://cdn.toqibox.win';
 
+// Проверка конфигурации
+if (import.meta.env.DEV) {
+  console.log('🔧 R2 Upload Config:', {
+    endpoint: R2_API_ENDPOINT,
+    publicBase: R2_PUBLIC_BASE,
+    isDev: import.meta.env.DEV,
+  });
+}
+
 /**
  * Загружает обложку в R2 через presigned URL
  * @param {Object} params - Параметры загрузки

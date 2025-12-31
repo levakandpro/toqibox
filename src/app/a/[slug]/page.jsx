@@ -131,13 +131,22 @@ export default function ArtistPage() {
 
         const userId = session.user.id;
         
+        console.log("🔍 Проверка владельца:", {
+          artistUserId: artist.user_id,
+          currentUserId: userId,
+          match: artist.user_id === userId
+        });
+        
         // Сравниваем user_id артиста с текущим пользователем
         if (artist.user_id === userId) {
           setIsOwner(true);
           console.log("✅ Пользователь является владельцем артиста");
         } else {
           setIsOwner(false);
-          console.log("❌ Пользователь не является владельцем артиста");
+          console.log("❌ Пользователь не является владельцем артиста", {
+            artistUserId: artist.user_id,
+            currentUserId: userId
+          });
         }
       } catch (e) {
         console.error("Ошибка при проверке владельца:", e);
@@ -239,7 +248,9 @@ export default function ArtistPage() {
         console.log("📦 Supabase response:", { 
           hasData: !!artistData, 
           error: artistError?.message || null,
-          slug 
+          slug,
+          artistUserId: artistData?.user_id,
+          artistId: artistData?.id
         });
 
         if (timeoutId) {
@@ -391,7 +402,14 @@ export default function ArtistPage() {
     );
   }
 
-  console.log("🎨 Rendering ArtistPage:", { slug, hasArtist: !!artist, isOwner, artistId: artist?.id });
+  console.log("🎨 Rendering ArtistPage:", { 
+    slug, 
+    hasArtist: !!artist, 
+    isOwner, 
+    artistId: artist?.id,
+    artistUserId: artist?.user_id,
+    editMode 
+  });
 
   const handleEditClick = async () => {
     try {
@@ -416,7 +434,50 @@ export default function ArtistPage() {
 
   return (
     <div className="a-page">
-      {/* Кнопка редактирования для владельца или неавторизованных */}
+      {/* Переключатель режима редактирования для владельца */}
+      {isOwner && (
+        <div style={{
+          position: "fixed",
+          top: "12px",
+          right: "12px",
+          zIndex: 1000,
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+        }}>
+          <button
+            onClick={() => setEditMode(!editMode)}
+            style={{
+              padding: "10px 20px",
+              borderRadius: "999px",
+              border: `1px solid ${editMode ? "rgba(139, 92, 246, 0.8)" : "rgba(255, 255, 255, 0.3)"}`,
+              background: editMode ? "rgba(139, 92, 246, 0.9)" : "rgba(0, 0, 0, 0.6)",
+              color: "#fff",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+              backdropFilter: "blur(10px)",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!editMode) {
+                e.target.style.background = "rgba(139, 92, 246, 0.8)";
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!editMode) {
+                e.target.style.background = "rgba(0, 0, 0, 0.6)";
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+              }
+            }}
+          >
+            {editMode ? "👁️ Просмотр" : "✏️ Редактировать"}
+          </button>
+        </div>
+      )}
+
+      {/* Кнопка входа для неавторизованных */}
       {!isOwner && (
         <div style={{
           position: "fixed",
@@ -449,6 +510,145 @@ export default function ArtistPage() {
           >
             {artist ? "Войти в кабинет" : "Войти"}
           </button>
+        </div>
+      )}
+
+      {/* Панель редактирования */}
+      {isOwner && editMode && (
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            padding: "16px",
+            background: "rgba(255,255,255,0.95)",
+            backdropFilter: "blur(20px)",
+            borderBottom: "1px solid rgba(0,0,0,0.1)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div style={{ display: "flex", gap: "12px", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <div style={{ fontWeight: 900, letterSpacing: "1px", fontSize: "14px", color: "rgba(0,0,0,0.9)" }}>
+              РЕДАКТИРОВАНИЕ ПРОФИЛЯ
+            </div>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              {saveNote && (
+                <div style={{ fontSize: "12px", color: saveNote.includes("Ошибка") ? "#d00" : "#0a0" }}>
+                  {saveNote}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveArtist}
+                disabled={saving}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(0,0,0,0.16)",
+                  background: saving ? "rgba(0,0,0,0.3)" : "#0b0b0b",
+                  color: "#fff",
+                  fontWeight: 800,
+                  fontSize: "13px",
+                  cursor: saving ? "default" : "pointer",
+                  opacity: saving ? 0.7 : 1,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {saving ? "Сохраняю..." : "Сохранить"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: "10px" }}>
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Имя артиста"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: "12px",
+                border: "1px solid rgba(0,0,0,0.12)",
+                outline: "none",
+                fontSize: "14px",
+                background: "rgba(255,255,255,0.9)",
+              }}
+            />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+              <input
+                value={socInstagram}
+                onChange={(e) => setSocInstagram(e.target.value)}
+                placeholder="Instagram"
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  outline: "none",
+                  fontSize: "14px",
+                  background: "rgba(255,255,255,0.9)",
+                }}
+              />
+              <input
+                value={socTiktok}
+                onChange={(e) => setSocTiktok(e.target.value)}
+                placeholder="TikTok"
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  outline: "none",
+                  fontSize: "14px",
+                  background: "rgba(255,255,255,0.9)",
+                }}
+              />
+              <input
+                value={socYoutube}
+                onChange={(e) => setSocYoutube(e.target.value)}
+                placeholder="YouTube"
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  outline: "none",
+                  fontSize: "14px",
+                  background: "rgba(255,255,255,0.9)",
+                }}
+              />
+            </div>
+            <input
+              value={headerYoutubeUrl}
+              onChange={(e) => setHeaderYoutubeUrl(e.target.value)}
+              placeholder="YouTube URL для шапки (видео)"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: "12px",
+                border: "1px solid rgba(0,0,0,0.12)",
+                outline: "none",
+                fontSize: "14px",
+                background: "rgba(255,255,255,0.9)",
+              }}
+            />
+            <input
+              value={headerStartSec}
+              onChange={(e) => setHeaderStartSec(e.target.value)}
+              placeholder="Начало видео (секунды)"
+              type="number"
+              min="0"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: "12px",
+                border: "1px solid rgba(0,0,0,0.12)",
+                outline: "none",
+                fontSize: "14px",
+                background: "rgba(255,255,255,0.9)",
+              }}
+            />
+          </div>
         </div>
       )}
 
