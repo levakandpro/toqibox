@@ -10,11 +10,18 @@ import YoutubeEmbed from "../video/YoutubeEmbed.jsx";
  * @param {Function} props.onPlayClick - Callback когда пользователь кликает на главный плеер
  */
 export default function PreviewPlayer({ videoId, startSeconds = 0, onPreviewEnd, onPlayClick }) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false); // Начинаем с false, включаем после монтирования
   const [timeElapsed, setTimeElapsed] = useState(0);
   const timerRef = useRef(null);
   const iframeRef = useRef(null);
   const previewEndedRef = useRef(false);
+  
+  // Включаем воспроизведение после монтирования
+  useEffect(() => {
+    if (videoId && !previewEndedRef.current) {
+      setIsPlaying(true);
+    }
+  }, [videoId]);
 
   // Автовоспроизведение на 30 секунд
   useEffect(() => {
@@ -29,9 +36,12 @@ export default function PreviewPlayer({ videoId, startSeconds = 0, onPreviewEnd,
         if (newTime >= 30) {
           previewEndedRef.current = true;
           setIsPlaying(false);
-          if (onPreviewEnd) {
-            onPreviewEnd();
-          }
+          // Вызываем callback в следующем тике, чтобы избежать обновления во время рендера
+          setTimeout(() => {
+            if (onPreviewEnd) {
+              onPreviewEnd();
+            }
+          }, 0);
           return 30;
         }
         
@@ -53,9 +63,12 @@ export default function PreviewPlayer({ videoId, startSeconds = 0, onPreviewEnd,
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    if (onPlayClick) {
-      onPlayClick();
-    }
+    // Вызываем callback в следующем тике, чтобы избежать обновления во время рендера
+    setTimeout(() => {
+      if (onPlayClick) {
+        onPlayClick();
+      }
+    }, 0);
   };
 
   // Останавливаем превью при размонтировании

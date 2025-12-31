@@ -716,6 +716,12 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
     );
   }
 
+  // Проверяем, что slug существует
+  if (!track?.slug) {
+    console.warn("⚠️ TrackCard: track.slug отсутствует", track);
+    return null;
+  }
+
   return (
     <div style={{ position: "relative", width: "100%" }}>
       <Link 
@@ -726,6 +732,15 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
           textDecoration: "none",
           display: "flex",
           backgroundImage: `url(${coverUrl})`,
+          position: "relative",
+          zIndex: 1,
+        }}
+        onClick={(e) => {
+          // Разрешаем переход по ссылке, если клик не на кнопку
+          if (e.target.closest('button')) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
         }}
       >
         {/* Бейдж источника в левом верхнем углу */}
@@ -826,7 +841,11 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
       {!isOwner && (
         <button
           type="button"
-          onClick={handleCopyLink}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleCopyLink(e);
+          }}
           style={{
             position: "absolute",
             top: "8px",

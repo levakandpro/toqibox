@@ -196,14 +196,12 @@ export default function LoginPage() {
 
   const onPremiumMonth = (e) => {
     e.stopPropagation();
-    setErrorText("");
-    setNote("PREMIUM - 100 TJS в мес");
+    navigate("/pricing", { replace: false });
   };
 
   const onPremiumYear = (e) => {
     e.stopPropagation();
-    setErrorText("");
-    setNote("PREMIUM - 1000 TJS в год");
+    navigate("/pricing", { replace: false });
   };
 
   const styles = {

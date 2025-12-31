@@ -22,6 +22,8 @@ export default function TrackPage() {
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [previewEnded, setPreviewEnded] = useState(false);
+  const [mainPlayerPlaying, setMainPlayerPlaying] = useState(false);
 
   // Функция для извлечения YouTube ID из ссылки
   const extractYoutubeId = (url) => {
@@ -273,7 +275,8 @@ export default function TrackPage() {
 
       <main className="t-center" style={{ position: "relative" }}>
         {/* Превью-плеер: автовоспроизведение 30 секунд до нажатия главного плеера */}
-        {track?.youtubeId && !previewEnded && !mainPlayerPlaying && (
+        {/* Временно отключено для отладки */}
+        {false && track?.youtubeId && !previewEnded && !mainPlayerPlaying && (
           <PreviewPlayer
             videoId={track.youtubeId}
             startSeconds={track.preview_start_seconds || 0}

@@ -10,6 +10,7 @@ import ManagePage from "./manage/page.jsx";
 
 import LoginPage from "./login/page.jsx";
 import AuthCallbackPage from "./auth/callback/page.jsx";
+import PricingPage from "../pages/PricingPage.jsx";
 
 
 
@@ -26,6 +27,7 @@ export default function AppRouter() {
       <Route path="/author" element={<AuthorPage />} />
       <Route path="/create" element={<CreatePage />} />
       <Route path="/manage" element={<ManagePage />} />
+      <Route path="/pricing" element={<PricingPage />} />
 
       <Route path="/" element={<HomePage />} />
       <Route path="*" element={<Navigate to="/t/test" replace />} />
