@@ -14,6 +14,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
   const [editCoverFile, setEditCoverFile] = useState(null);
   const [editCoverPreview, setEditCoverPreview] = useState(null);
   const [editPlayIcon, setEditPlayIcon] = useState(track.play_icon || DEFAULT_PLAY_ICON);
+  const [editPreviewStartSeconds, setEditPreviewStartSeconds] = useState(track.preview_start_seconds || 0);
   const [saving, setSaving] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [coverLoadError, setCoverLoadError] = useState(false);
@@ -127,6 +128,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
         link: editLink.trim(),
         cover_key: coverKey,
         play_icon: editPlayIcon,
+        preview_start_seconds: Number(editPreviewStartSeconds) || 0,
       });
       
       setShowEditForm(false);
@@ -269,6 +271,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
           link: editLink.trim(),
           cover_key: uploadResult.key,
           play_icon: editPlayIcon,
+          preview_start_seconds: Number(editPreviewStartSeconds) || 0,
         });
         console.log("✅ cover_key обновлен в БД");
       }
@@ -288,6 +291,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
               link: editLink.trim(),
               cover_key: tempKey,
               play_icon: editPlayIcon,
+              preview_start_seconds: Number(editPreviewStartSeconds) || 0,
             });
             console.log("✅ cover_key сохранен в БД (локальная разработка)");
             // Превью остается видимым, так как файл не загружен в R2
@@ -486,6 +490,51 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
                   e.target.style.boxShadow = "none";
                 }}
               />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ 
+                fontSize: "11px", 
+                fontWeight: 600,
+                color: "rgba(255, 255, 255, 0.85)",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}>
+                Начало превью (сек)
+              </label>
+              <input
+                type="number"
+                value={editPreviewStartSeconds}
+                onChange={(e) => setEditPreviewStartSeconds(Math.max(0, Number(e.target.value) || 0))}
+                placeholder="0"
+                min="0"
+                style={{
+                  padding: "10px 14px",
+                  background: "rgba(0, 0, 0, 0.3)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: "10px",
+                  color: "#fff",
+                  fontSize: "13px",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                }}
+                onFocus={(e) => {
+                  e.target.style.background = "rgba(0, 0, 0, 0.5)";
+                  e.target.style.borderColor = "rgba(139, 92, 246, 0.6)";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(139, 92, 246, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.background = "rgba(0, 0, 0, 0.3)";
+                  e.target.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                  e.target.style.boxShadow = "none";
+                }}
+              />
+              <div style={{ 
+                fontSize: "10px", 
+                color: "rgba(255, 255, 255, 0.5)",
+                marginTop: "-2px",
+              }}>
+                Превью будет воспроизводиться 30 сек с этой секунды
+              </div>
             </div>
           </div>
 

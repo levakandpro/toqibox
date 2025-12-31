@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import TrackPlayer from "../../../features/track/TrackPlayer.jsx";
+import PreviewPlayer from "../../../features/track/PreviewPlayer.jsx";
 import TubeteikaReaction from "../../../features/reaction/TubeteikaReaction.jsx";
 import ShareSheet from "../../../features/share/ShareSheet.jsx";
 import { getMockTrackBySlug } from "../../../features/track/track.mock.js";
@@ -90,6 +91,7 @@ export default function TrackPage() {
             link: trackData.link,
             cover_key: trackData.cover_key, // Ключ обложки в R2
             play_icon: trackData.play_icon || null, // Иконка плеера
+            preview_start_seconds: trackData.preview_start_seconds || 0, // Начало превью
             artistSlug: artistData?.slug || "unknown",
             artistName: artistData?.display_name || artistData?.name || "Unknown Artist",
             source: trackData.source || "youtube",
@@ -269,8 +271,29 @@ export default function TrackPage() {
         </div>
       </header>
 
-      <main className="t-center">
-        <TrackPlayer track={track} />
+      <main className="t-center" style={{ position: "relative" }}>
+        {/* Превью-плеер: автовоспроизведение 30 секунд до нажатия главного плеера */}
+        {track?.youtubeId && !previewEnded && !mainPlayerPlaying && (
+          <PreviewPlayer
+            videoId={track.youtubeId}
+            startSeconds={track.preview_start_seconds || 0}
+            onPreviewEnd={() => {
+              setPreviewEnded(true);
+            }}
+            onPlayClick={() => {
+              setPreviewEnded(true);
+              setMainPlayerPlaying(true);
+            }}
+          />
+        )}
+        {/* Главный плеер */}
+        <TrackPlayer 
+          track={track} 
+          onPlay={() => {
+            setPreviewEnded(true);
+            setMainPlayerPlaying(true);
+          }}
+        />
       </main>
 
       <footer className="t-bottom">

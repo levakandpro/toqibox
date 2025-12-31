@@ -113,21 +113,37 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Проверяем, не находимся ли мы в iframe (Google блокирует OAuth в iframe)
+      if (window.self !== window.top) {
+        setErrorText("Вход через Google недоступен в этом режиме. Откройте страницу напрямую.");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
-            prompt: "select_account", // Показывать выбор аккаунта
+            prompt: "select_account",
             access_type: "offline",
           },
         },
       });
 
-      if (error) setErrorText("Ошибка входа");
-    } catch {
-      setErrorText("Ошибка входа");
-    } finally {
+      if (error) {
+        console.error("OAuth error:", error);
+        if (error.message?.includes("disallowed_useragent") || error.message?.includes("403")) {
+          setErrorText("Google блокирует вход. Проверьте настройки OAuth в Google Console или используйте вход через почту.");
+        } else {
+          setErrorText("Ошибка входа. Попробуйте войти через почту.");
+        }
+        setLoading(false);
+      }
+      // При успешном OAuth редирект произойдет автоматически
+    } catch (err) {
+      console.error("OAuth exception:", err);
+      setErrorText("Ошибка входа. Попробуйте войти через почту.");
       setLoading(false);
     }
   };

@@ -47,6 +47,11 @@ export default function ArtistTracks({
         playIconData.play_icon = data.play_icon;
       }
 
+      // Если передан preview_start_seconds, обновляем его
+      if (data.preview_start_seconds !== undefined) {
+        updateData.preview_start_seconds = Number(data.preview_start_seconds) || 0;
+      }
+
       console.log("📝 Обновление трека:", { trackId, updateData, playIconData });
 
       // Сначала пытаемся обновить с play_icon

@@ -6,7 +6,7 @@ import TiktokEmbed from "../video/TiktokEmbed.jsx";
 import InstagramEmbed from "../video/InstagramEmbed.jsx";
 import { getPlayIcon } from "../../utils/playIcons.js";
 
-export default function TrackPlayer({ track }) {
+export default function TrackPlayer({ track, onPlay }) {
   const [playing, setPlaying] = useState(false);
   const [closing, setClosing] = useState(false);
 
@@ -59,7 +59,7 @@ export default function TrackPlayer({ track }) {
     track.startSeconds
   ]);
 
-  function onPlay() {
+  function handlePlay() {
     if (playing) return;
 
     const key = `toqibox:play:${track.slug}`;
@@ -67,6 +67,10 @@ export default function TrackPlayer({ track }) {
     localStorage.setItem(key, String(next));
 
     setPlaying(true);
+    // Уведомляем родительский компонент о начале воспроизведения
+    if (onPlay) {
+      onPlay();
+    }
   }
 
   function onClose(e) {
@@ -102,7 +106,7 @@ export default function TrackPlayer({ track }) {
           </div>
         </div>
       ) : (
-        <button className="tp-play" onClick={onPlay} aria-label="Play">
+        <button className="tp-play" onClick={handlePlay} aria-label="Play">
           <span className="tp-iconWrap" aria-hidden="true">
             <img 
               src={playIconSrc} 
