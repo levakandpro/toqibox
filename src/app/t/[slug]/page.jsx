@@ -5,6 +5,7 @@ import TrackPlayer from "../../../features/track/TrackPlayer.jsx";
 import PreviewPlayer from "../../../features/track/PreviewPlayer.jsx";
 import TubeteikaReaction from "../../../features/reaction/TubeteikaReaction.jsx";
 import ShareSheet from "../../../features/share/ShareSheet.jsx";
+import ShaderToyBackground from "../../../features/track/ShaderToyBackground.jsx";
 import { getMockTrackBySlug } from "../../../features/track/track.mock.js";
 import { getMockArtistBySlug } from "../../../features/artist/artist.mock.js";
 
@@ -95,6 +96,7 @@ export default function TrackPage() {
             cover_key: trackData.cover_key, // Ключ обложки в R2
             play_icon: trackData.play_icon || null, // Иконка плеера
             preview_start_seconds: trackData.preview_start_seconds || 0, // Начало превью
+            shadertoy_background_id: trackData.shadertoy_background_id || null, // ShaderToy фон
             artistSlug: artistData?.slug || "unknown",
             artistName: artistData?.display_name || artistData?.name || "Unknown Artist",
             source: trackData.source || "youtube",
@@ -227,7 +229,13 @@ export default function TrackPage() {
 
   return (
     <div className="t-page">
-      {coverUrl && (
+      {/* ShaderToy фон (если выбран) */}
+      {track.shadertoy_background_id && (
+        <ShaderToyBackground backgroundId={track.shadertoy_background_id} />
+      )}
+      
+      {/* Обычный фон обложки (если ShaderToy не выбран) */}
+      {!track.shadertoy_background_id && coverUrl && (
         <div
           className="t-cover"
           style={{ backgroundImage: `url(${coverUrl})` }}

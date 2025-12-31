@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import TrackCard from "../track/TrackCard.jsx";
 import { getMockTracksByArtistSlug } from "../track/track.mock.js";
+import BackgroundSelector from "../track/BackgroundSelector.jsx";
 
 import shareIcon from "../../assets/share.svg";
 import { supabase } from "../../features/auth/supabaseClient.js";
@@ -20,11 +21,19 @@ export default function ArtistTracks({
   onUpdate,
   onCopyLink,
   onAddTrack,
+  editMode = false,
+  onToggleEditMode,
 }) {
   const navigate = useNavigate();
   const [editingSocial, setEditingSocial] = useState(null); // 'youtube', 'tiktok', 'instagram' или null
   const [socialUrl, setSocialUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [localSelectedTrack, setLocalSelectedTrack] = useState(selectedTrack);
+  
+  // Обновляем локальный выбранный трек при изменении пропса
+  useEffect(() => {
+    setLocalSelectedTrack(selectedTrack);
+  }, [selectedTrack]);
 
   const handleEditTrack = async (trackId, data) => {
     if (!onUpdate) return;
@@ -243,42 +252,91 @@ export default function ArtistTracks({
     <section className="at-root">
       <div className="at-head">
         <div className="at-title">
-          Релизы
+          <span>Релизы</span>
 
-          {isOwner && onAddTrack && (
+          {/* Переключатель режимов (только на мобильных, только для владельца) */}
+          {isOwner && onToggleEditMode && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              marginLeft: "12px",
+            }}>
+              <span style={{
+                fontSize: "10px",
+                color: "rgba(255, 255, 255, 0.6)",
+                fontWeight: 600,
+                letterSpacing: "0.5px",
+              }}>
+                {editMode ? "РЕД" : "ПРОСМ"}
+              </span>
+              <button
+                type="button"
+                onClick={onToggleEditMode}
+                style={{
+                  width: "32px",
+                  height: "18px",
+                  borderRadius: "9px",
+                  background: editMode ? "#10b981" : "rgba(255, 255, 255, 0.2)",
+                  border: "none",
+                  cursor: "pointer",
+                  position: "relative",
+                  transition: "all 0.3s ease",
+                  outline: "none",
+                  padding: 0,
+                }}
+                aria-label={editMode ? "Режим редактирования" : "Режим просмотра"}
+              >
+                <div style={{
+                  position: "absolute",
+                  top: "2px",
+                  left: editMode ? "16px" : "2px",
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+                }} />
+              </button>
+            </div>
+          )}
+
+          {/* Стильная кнопка "Добавить трек" (только в режиме редактирования) */}
+          {isOwner && editMode && onAddTrack && (
             <button
               type="button"
               onClick={onAddTrack}
               style={{
-                background: "none",
-                border: "none",
+                marginLeft: "12px",
+                padding: "6px 12px",
+                borderRadius: "8px",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                background: "rgba(139, 92, 246, 0.2)",
+                backdropFilter: "blur(10px)",
+                color: "#fff",
+                fontSize: "11px",
+                fontWeight: 600,
+                letterSpacing: "0.5px",
                 cursor: "pointer",
-                padding: 4,
                 display: "flex",
                 alignItems: "center",
-                opacity: 0.7,
-                marginLeft: 8,
+                gap: "6px",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = "rgba(139, 92, 246, 0.4)";
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "rgba(139, 92, 246, 0.2)";
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
               }}
               aria-label="Добавить трек"
               title="Добавить трек"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                style={{ display: "block", color: "#fff" }}
-              >
-                <path
-                  d="M11.333 2.00001C11.5084 1.82445 11.7163 1.68506 11.9447 1.58933C12.1731 1.4936 12.4173 1.44336 12.664 1.44336C12.9107 1.44336 13.1549 1.4936 13.3833 1.58933C13.6117 1.68506 13.8196 1.82445 13.995 2.00001C14.1706 2.17545 14.31 2.38331 14.4057 2.61172C14.5014 2.84013 14.5517 3.08431 14.5517 3.33101C14.5517 3.57771 14.5014 3.82189 14.4057 4.0503C14.31 4.27871 14.1706 4.48657 13.995 4.66201L5.162 13.495L2 14.333L2.838 11.171L11.671 2.33801L11.333 2.00001Z"
-                  stroke="#fff"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
+              <span>+</span>
+              <span>Добавить трек</span>
             </button>
           )}
 
@@ -443,29 +501,92 @@ export default function ArtistTracks({
         </div>
       </div>
 
-      <div className="at-grid">
-        {tracks.length === 0 ? (
-          <div style={{ 
-            gridColumn: "1 / -1", 
-            textAlign: "center", 
-            padding: "40px 20px",
-            opacity: 0.6,
-            fontSize: "14px"
-          }}>
-            Пока нет треков
-          </div>
-        ) : (
-          tracks.map((t) => (
-            <TrackCard 
-              key={t.slug} 
-              track={t} 
-              isOwner={isOwner}
-              onEdit={handleEditTrack}
-              onDelete={handleDeleteTrack}
-            />
-          ))
-        )}
+      {/* Блок с треками - ограничен 3 рядами, остальные с прокруткой */}
+      <div className="at-grid-wrapper">
+        <div className="at-grid">
+          {tracks.length === 0 ? (
+            <div style={{ 
+              gridColumn: "1 / -1", 
+              textAlign: "center", 
+              padding: "40px 20px",
+              opacity: 0.6,
+              fontSize: "14px"
+            }}>
+              Пока нет треков
+            </div>
+          ) : (
+            tracks.map((t) => (
+              <div
+                key={t.slug}
+                onClick={() => {
+                  if (isOwner && editMode) {
+                    setLocalSelectedTrack(t);
+                    if (onTrackClick) {
+                      onTrackClick(t);
+                    }
+                  }
+                }}
+                style={{
+                  cursor: isOwner && editMode ? "pointer" : "default",
+                  position: "relative",
+                }}
+              >
+                <TrackCard 
+                  track={t} 
+                  isOwner={isOwner && editMode}
+                  onEdit={handleEditTrack}
+                  onDelete={handleDeleteTrack}
+                />
+                {isOwner && editMode && (localSelectedTrack?.id === t.id || selectedTrack?.id === t.id) && (
+                  <div style={{
+                    position: "absolute",
+                    top: "8px",
+                    left: "8px",
+                    background: "rgba(16, 185, 129, 0.9)",
+                    color: "#fff",
+                    fontSize: "9px",
+                    fontWeight: 700,
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    zIndex: 100,
+                    pointerEvents: "none",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
+                  }}>
+                    Выбран для настройки
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       </div>
+
+      {/* Разделитель */}
+      <div className="at-divider" />
+
+      {/* Секция выбора фона главной страницы трека */}
+      {isOwner && editMode && (localSelectedTrack || selectedTrack) && (
+        <div className="at-background-selector">
+          <BackgroundSelector
+            track={localSelectedTrack || selectedTrack}
+            isOwner={isOwner && editMode}
+            onApply={onApplyBackground}
+          />
+        </div>
+      )}
+      
+      {isOwner && editMode && !localSelectedTrack && !selectedTrack && (
+        <div className="at-background-selector">
+          <div style={{
+            padding: "20px",
+            textAlign: "center",
+            opacity: 0.7,
+            fontSize: "14px",
+          }}>
+            Выберите трек для настройки фона
+          </div>
+        </div>
+      )}
     </section>
   );
 }

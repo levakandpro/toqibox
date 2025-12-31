@@ -26,6 +26,7 @@ export default function ArtistPage() {
   const [devEditEnabled, setDevEditEnabled] = useState(false);
   const [showCopyNotification, setShowCopyNotification] = useState(false);
   const [showAddTrack, setShowAddTrack] = useState(false);
+  const [selectedTrackForBackground, setSelectedTrackForBackground] = useState(null);
 
   const refreshArtist = async () => {
     try {
@@ -472,26 +473,90 @@ export default function ArtistPage() {
 
       <ArtistHeader artist={artist} isOwner={isOwner && editMode} onUpdate={refreshArtist} />
 
+      {/* Модальное окно для добавления трека */}
       {isOwner && editMode && showAddTrack && (
-        <AddTrackSection 
-          artist={artist} 
-          isOwner={isOwner}
-          onTrackAdded={() => {
-            refreshArtist();
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 2000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(0, 0, 0, 0.8)",
+          backdropFilter: "blur(10px)",
+          padding: "20px",
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
             setShowAddTrack(false);
+          }
+        }}
+        >
+          <div style={{
+            background: "rgba(0, 0, 0, 0.9)",
+            backdropFilter: "blur(20px)",
+            borderRadius: "16px",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            padding: "24px",
+            maxWidth: "500px",
+            width: "100%",
+            maxHeight: "90vh",
+            overflow: "auto",
           }}
-          onClose={() => setShowAddTrack(false)}
-        />
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AddTrackSection 
+              artist={artist} 
+              isOwner={isOwner}
+              onTrackAdded={() => {
+                refreshArtist();
+                setShowAddTrack(false);
+              }}
+              onClose={() => setShowAddTrack(false)}
+            />
+          </div>
+        </div>
       )}
+
 
       <div className="a-content">
         <ArtistTracks 
           artist={artist} 
-          isOwner={isOwner && editMode}
+          isOwner={isOwner}
+          editMode={editMode}
+          onToggleEditMode={() => setEditMode(!editMode)}
           onShare={() => setShareOpen(true)}
           onUpdate={refreshArtist}
           tracks={tracks}
           onAddTrack={() => setShowAddTrack(true)}
+          selectedTrack={selectedTrackForBackground}
+          onApplyBackground={async (backgroundId) => {
+            if (!selectedTrackForBackground?.id) return;
+            
+            try {
+              const { error } = await supabase
+                .from("tracks")
+                .update({ shadertoy_background_id: backgroundId })
+                .eq("id", selectedTrackForBackground.id);
+              
+              if (error) throw error;
+              
+              await refreshArtist();
+              // Обновляем selectedTrack
+              const updatedTrack = tracks.find(t => t.id === selectedTrackForBackground.id);
+              if (updatedTrack) {
+                setSelectedTrackForBackground({ ...updatedTrack, shadertoy_background_id: backgroundId });
+              }
+            } catch (error) {
+              console.error("Error applying background:", error);
+              throw error;
+            }
+          }}
+          onTrackClick={(track) => {
+            if (isOwner && editMode) {
+              setSelectedTrackForBackground(track);
+            }
+          }}
           onCopyLink={async () => {
             const artistUrl = `${window.location.origin}/a/${slug}`;
             try {

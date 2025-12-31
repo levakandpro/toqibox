@@ -944,11 +944,47 @@ body::before{
   .at-back:hover{ opacity:.92; }
 }
 
+/* Обертка для блока треков с ограничением высоты и прокруткой */
+.at-grid-wrapper {
+  max-height: calc((100vw - 40px) / 2 * (11/9) * 3 + 16px); /* 3 ряда на мобильных (2 колонки) */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0;
+  margin: 0 -18px; /* Компенсируем padding родителя */
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+/* На десктопе больше рядов */
+@media (min-width: 601px) {
+  .at-grid-wrapper {
+    max-height: calc((100vw - 40px) / 3 * (11/9) * 3 + 16px); /* 3 ряда на планшетах (3 колонки) */
+  }
+}
+
+@media (min-width: 901px) {
+  .at-grid-wrapper {
+    max-height: calc((100vw - 40px) / 4 * (11/9) * 3 + 16px); /* 3 ряда на десктопе (4 колонки) */
+  }
+}
+
+@media (min-width: 1201px) {
+  .at-grid-wrapper {
+    max-height: calc((100vw - 40px) / 5 * (11/9) * 3 + 16px); /* 3 ряда (5 колонок) */
+  }
+}
+
+@media (min-width: 1401px) {
+  .at-grid-wrapper {
+    max-height: calc((100vw - 40px) / 6 * (11/9) * 3 + 16px); /* 3 ряда (6 колонок) */
+  }
+}
+
 .at-grid{
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 12px;
-  padding: 8px 0 24px 0;
+  padding: 0;
 }
 
 @media (max-width: 1400px) {
@@ -973,6 +1009,10 @@ body::before{
   .at-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
+  }
+  
+  .at-grid-wrapper {
+    max-height: calc((100vw - 40px) / 2 * (11/9) * 3 + 16px); /* 3 ряда (2 колонки) */
   }
 }
 
@@ -1347,6 +1387,11 @@ img[alt*="копировать"] {
         rgba(0,0,0,0.90) 100%
       ) !important;
   }
+
+  /* Скрываем переключатель режимов на мобильных (он теперь рядом с "Релизы") */
+  .desktop-edit-toggle {
+    display: none !important;
+  }
 }
 /* === RESTORE LIKE POSITION: RIGHT SIDE INLINE === */
 
@@ -1527,4 +1572,23 @@ opacity: 0.95;
 
 .t-artist{
   opacity: 0.75;
+}
+
+/* Разделитель после блока треков */
+.at-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.1) 20%,
+    rgba(255, 255, 255, 0.1) 80%,
+    transparent
+  );
+  margin: 24px 0;
+}
+
+/* Секция выбора фона */
+.at-background-selector {
+  padding: 20px 0;
+  min-height: 100px;
 }
