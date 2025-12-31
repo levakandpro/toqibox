@@ -254,9 +254,6 @@ export default function HomePage() {
 
       {/* Vanta.js фон - сумеречное небо */}
       <div ref={vantaRef} style={styles.vantaContainer} />
-      
-      {/* Затемняющий overlay для глубокого неба */}
-      <div style={styles.darkOverlay} />
 
       {/* Контент поверх фона */}
       <div style={styles.wrap}>
@@ -285,7 +282,7 @@ const styles = {
     position: "relative",
     color: "rgba(255,255,255,0.95)", // Светлый текст для тёмного фона
     overflow: "hidden",
-    background: "#0a0e1a", // Тёмное небо по умолчанию
+    background: "transparent", // Прозрачный, чтобы Vanta.js был виден
   },
 
   vantaContainer: {
@@ -296,19 +293,7 @@ const styles = {
     height: "100%",
     zIndex: 0,
     pointerEvents: "none",
-    background: "#0a0e1a", // Тёмный фон по умолчанию (глубокое небо)
-  },
-
-  darkOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    zIndex: 0,
-    pointerEvents: "none",
-    background: "linear-gradient(to bottom, rgba(5, 8, 16, 0.4) 0%, rgba(10, 14, 26, 0.6) 50%, rgba(5, 8, 16, 0.8) 100%)",
-    mixBlendMode: "multiply",
+    background: "transparent", // Прозрачный, чтобы Vanta.js был виден
   },
 
   wrap: {
@@ -362,9 +347,9 @@ const styles = {
 };
 
 const css = `
-/* Переопределяем глобальные стили для главной страницы - тёмное небо */
+/* Переопределяем глобальные стили для главной страницы - убираем фон, чтобы Vanta.js был виден */
 body:has(main[style*="position: relative"]) {
-  background: #0a0e1a !important;
+  background: transparent !important;
   background-attachment: initial !important;
   animation: none !important;
 }
