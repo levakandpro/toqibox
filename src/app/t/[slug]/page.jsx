@@ -10,6 +10,7 @@ import { getMockArtistBySlug } from "../../../features/artist/artist.mock.js";
 
 import { supabase } from "../../../features/auth/supabaseClient.js";
 import { setTrackOgTags, clearOgTags } from "../../../utils/ogTags.js";
+import PremiumLoader from "../../../ui/PremiumLoader.jsx";
 
 import verifGold from "../../../assets/verifgold.svg";
 import shareIcon from "../../../assets/share.svg";
@@ -214,9 +215,7 @@ export default function TrackPage() {
   if (loading || !track) {
     return (
       <div className="t-page">
-        <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-          <div style={{ opacity: 0.7 }}>Загрузка...</div>
-        </div>
+        <PremiumLoader fullScreen message="track" />
       </div>
     );
   }

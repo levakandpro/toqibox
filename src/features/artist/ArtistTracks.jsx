@@ -6,6 +6,7 @@ import { getMockTracksByArtistSlug } from "../track/track.mock.js";
 
 import shareIcon from "../../assets/share.svg";
 import { supabase } from "../../features/auth/supabaseClient.js";
+import PremiumLoader from "../../ui/PremiumLoader.jsx";
 
 import youtubeIcon from "../../assets/soc/youtube.svg";
 import tiktokIcon from "../../assets/soc/tiktok.svg";
@@ -300,15 +301,22 @@ export default function ArtistTracks({
                       style={{
                         padding: "4px 8px",
                         border: "none",
-                        background: "#10b981",
+                        background: saving ? "rgba(16, 185, 129, 0.6)" : "#10b981",
                         color: "#fff",
                         borderRadius: 4,
                         cursor: saving ? "default" : "pointer",
                         fontSize: 11,
                         fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: saving ? "24px" : "auto",
+                        minHeight: saving ? "24px" : "auto",
                       }}
                     >
-                      ✓
+                      {saving ? (
+                        <PremiumLoader size="small" message="social" />
+                      ) : "✓"}
                     </button>
                     <button
                       type="button"
@@ -348,11 +356,36 @@ export default function ArtistTracks({
                   title={isOwner ? `Нажмите, чтобы ${hasUrl ? "изменить" : "добавить"} ссылку` : s.label}
                 >
                   <img src={s.icon} alt="" aria-hidden="true" />
+                  {isOwner && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: -6,
+                        right: -6,
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        background: "rgba(139, 92, 246, 0.95)",
+                        border: "2px solid rgba(255, 255, 255, 0.95)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 10,
+                        fontWeight: "bold",
+                        color: "#fff",
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                        zIndex: 10,
+                      }}
+                      title="Редактировать"
+                    >
+                      ✏️
+                    </div>
+                  )}
                   {hasUrl && isOwner && (
                     <div
                       style={{
                         position: "absolute",
-                        top: -2,
+                        bottom: -2,
                         right: -2,
                         width: 8,
                         height: 8,

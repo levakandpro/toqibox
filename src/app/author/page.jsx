@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import ArtistHeader from "../../features/artist/ArtistHeader.jsx";
 import ArtistTracks from "../../features/artist/ArtistTracks.jsx";
 import ShareSheet from "../../features/share/ShareSheet.jsx";
+import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import { supabase } from "../../features/auth/supabaseClient.js";
 
 import "./author.css";
@@ -226,7 +227,7 @@ export default function AuthorPage() {
   if (loading) {
     return (
       <div className="author-shell">
-        <div className="author-loading">Открываю кабинет артиста...</div>
+        <PremiumLoader fullScreen message="connecting" />
       </div>
     );
   }

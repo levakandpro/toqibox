@@ -1,4 +1,5 @@
 /* globals.css - CLEAN (no duplicates) */
+@import './premiumLoader.css';
 
 /* Base reset */
 *{ box-sizing: border-box; }

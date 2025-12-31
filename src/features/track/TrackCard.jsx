@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import coverDefault from "../../assets/cover.png";
 import copyIcon from "../../assets/copy-white.svg";
 import CopyNotification from "../../ui/CopyNotification.jsx";
+import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import { uploadCover, getR2Url } from "../../utils/r2Upload.js";
 import { PLAY_ICONS, DEFAULT_PLAY_ICON, getPlayIconObject } from "../../utils/playIcons.js";
 
@@ -397,7 +398,11 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
                   }
                 }}
               >
-                {uploadingCover ? "Загрузка..." : editCoverFile ? "Изменить" : "Выбрать"}
+                {uploadingCover ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <PremiumLoader size="small" message="uploading" />
+                  </div>
+                ) : editCoverFile ? "Изменить" : "Выбрать"}
               </button>
             </div>
             {editCoverFile && !uploadingCover && (
@@ -708,7 +713,11 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
                 }
               }}
             >
-              {saving ? "Сохранение..." : "Сохранить"}
+              {saving ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <PremiumLoader size="small" message="saving" />
+                </div>
+              ) : "Сохранить"}
             </button>
           </div>
         </div>
