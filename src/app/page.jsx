@@ -195,14 +195,14 @@ export default function HomePage() {
             mouseControls: true,
             touchControls: true,
             gyroControls: false,
-            speed: 0.90,
-            // Светлые цвета для яркого фона как на демо Vanta.js
-            skyColor: 0x68b8d7,        // Светло-голубое небо
-            cloudColor: 0xadc1de,      // Светло-серо-голубые облака
-            cloudShadowColor: 0x183550, // Темно-синие тени облаков
-            sunColor: 0xff9919,        // Оранжевое солнце
-            sunGlareColor: 0xff6633,   // Ярко-оранжевые блики
-            sunlightColor: 0xff9933,   // Желто-оранжевый свет
+            speed: 0.15, // Минимальная скорость для медленного движения
+            // Сумеречное/ночное небо - тёмные цвета
+            skyColor: 0x0a0e1a,        // Глубокий тёмно-синий/графит
+            cloudColor: 0x1a1f2e,      // Почти невидимые тёмные облака
+            cloudShadowColor: 0x050810, // Очень тёмные тени
+            sunColor: 0x0a0e1a,        // Тёмное солнце (почти невидимо)
+            sunGlareColor: 0x0a0e1a,   // Минимальные блики (тёмные)
+            sunlightColor: 0x0f1419,   // Очень слабый свет
           });
         } catch (error) {
           console.error("Error initializing Vanta.js CLOUDS:", error);
@@ -231,8 +231,11 @@ export default function HomePage() {
     <main style={styles.body}>
       <style>{css}</style>
 
-      {/* Vanta.js фон */}
+      {/* Vanta.js фон - сумеречное небо */}
       <div ref={vantaRef} style={styles.vantaContainer} />
+      
+      {/* Затемняющий overlay для глубокого неба */}
+      <div style={styles.darkOverlay} />
 
       {/* Контент поверх фона */}
       <div style={styles.wrap}>
@@ -259,9 +262,9 @@ const styles = {
     display: "grid",
     placeItems: "center",
     position: "relative",
-    color: "rgba(255,255,255,0.95)", // Светлый текст для Vanta.js фона
+    color: "rgba(255,255,255,0.95)", // Светлый текст для тёмного фона
     overflow: "hidden",
-    background: "#f5f5f5", // Светлый фон по умолчанию (будет заменен Vanta.js)
+    background: "#0a0e1a", // Тёмное небо по умолчанию
   },
 
   vantaContainer: {
@@ -272,12 +275,24 @@ const styles = {
     height: "100%",
     zIndex: 0,
     pointerEvents: "none",
-    background: "transparent", // Прозрачный, чтобы Vanta.js был виден
+    background: "#0a0e1a", // Тёмный фон по умолчанию (глубокое небо)
+  },
+
+  darkOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    zIndex: 0,
+    pointerEvents: "none",
+    background: "linear-gradient(to bottom, rgba(5, 8, 16, 0.4) 0%, rgba(10, 14, 26, 0.6) 50%, rgba(5, 8, 16, 0.8) 100%)",
+    mixBlendMode: "multiply",
   },
 
   wrap: {
     position: "relative",
-    zIndex: 1,
+    zIndex: 2, // Выше overlay
     width: "min(820px, 92vw)",
     display: "grid",
     justifyItems: "center",
@@ -326,9 +341,9 @@ const styles = {
 };
 
 const css = `
-/* Переопределяем глобальные стили для главной страницы */
+/* Переопределяем глобальные стили для главной страницы - тёмное небо */
 body:has(main[style*="position: relative"]) {
-  background: #f5f5f5 !important;
+  background: #0a0e1a !important;
   background-attachment: initial !important;
   animation: none !important;
 }
