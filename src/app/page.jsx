@@ -306,6 +306,7 @@ const styles = {
     fontFamily:
       'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
     fontWeight: 800,
+    fontStyle: "normal",
     fontSize: "clamp(36px, 8vw, 92px)",
     letterSpacing: "0.12em",
     lineHeight: 1,
@@ -317,6 +318,8 @@ const styles = {
     textOverflow: "ellipsis",
     color: "rgba(255,255,255,0.95)", // Светлый текст
     textShadow: "0 2px 8px rgba(0,0,0,0.3)", // Тень для читаемости
+    WebkitFontSmoothing: "antialiased",
+    MozOsxFontSmoothing: "grayscale",
   },
 
   btn: {
@@ -439,5 +442,12 @@ a[style]:focus-visible {
   a[style]{
     transition: none !important;
   }
+}
+
+/* Обеспечиваем жирность логотипа на мобильных */
+h1[style*="fontWeight"] {
+  font-weight: 800 !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 `;
