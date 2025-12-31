@@ -10,6 +10,7 @@ import AddTrackSection from "../../../features/artist/AddTrackSection.jsx";
 import ShareSheet from "../../../features/share/ShareSheet.jsx";
 import CopyNotification from "../../../ui/CopyNotification.jsx";
 import { supabase } from "../../../features/auth/supabaseClient.js";
+import { setArtistOgTags, clearOgTags } from "../../../utils/ogTags.js";
 
 export default function ArtistPage() {
   const { slug = "artist" } = useParams();
@@ -65,6 +66,7 @@ export default function ArtistPage() {
               title: track.title,
               link: track.link,
               cover_key: track.cover_key, // Ключ обложки в R2
+              play_icon: track.play_icon || null, // Иконка плеера
               source: track.source || "youtube",
               variant: "video", // По умолчанию video, так как поле variant не существует в БД
               coverUrl: null, // null для fallback в TrackCard
@@ -248,17 +250,31 @@ export default function ArtistPage() {
         clearTimeout(timeoutId);
       }
     };
-
-    // Убрали проверку авторизации - больше не слушаем изменения сессии
-
-    return () => {
-      alive = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      // Убрали подписку на auth state change
-    };
   }, [slug]);
+
+  // Обновляем Open Graph теги при загрузке данных артиста
+  useEffect(() => {
+    if (!artist) {
+      clearOgTags();
+      return;
+    }
+
+    const artistName = artist.display_name || artist.name || "Unknown Artist";
+    const coverKey = artist.cover_key || null;
+    const tracksCount = tracks.length;
+
+    setArtistOgTags({
+      artistName,
+      slug: artist.slug,
+      coverKey,
+      tracksCount,
+    });
+
+    // Очищаем теги при размонтировании
+    return () => {
+      clearOgTags();
+    };
+  }, [artist, tracks.length]);
 
   if (loading) {
     return (

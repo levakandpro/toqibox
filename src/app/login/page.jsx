@@ -1,6 +1,6 @@
 // FILE: src/app/login/page.jsx
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../features/auth/supabaseClient.js";
 
@@ -23,6 +23,56 @@ export default function LoginPage() {
 
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(null); // 'terms', 'privacy', 'support'
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Проверяем, авторизован ли пользователь
+  useEffect(() => {
+    let alive = true;
+
+    const checkAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session && alive) {
+          // Если уже авторизован, редиректим на /author
+          const raw = localStorage.getItem("toqibox:returnTo") || "";
+          localStorage.removeItem("toqibox:returnTo");
+          
+          let path = raw;
+          if (raw.startsWith("http://") || raw.startsWith("https://")) {
+            try {
+              const url = new URL(raw);
+              path = url.pathname;
+            } catch (e) {
+              path = "";
+            }
+          }
+
+          const bad =
+            path.startsWith("/a/") ||
+            path.startsWith("/t/") ||
+            path.includes("edit=1") ||
+            path.startsWith("/create") ||
+            path.includes("toqibox.win");
+
+          const next = bad ? "/author" : (path || "/author");
+          navigate(next, { replace: true });
+          return;
+        }
+      } catch (e) {
+        console.error("Error checking auth:", e);
+      } finally {
+        if (alive) {
+          setCheckingAuth(false);
+        }
+      }
+    };
+
+    checkAuth();
+
+    return () => {
+      alive = false;
+    };
+  }, [navigate]);
 
   const canSend = useMemo(() => {
     const v = String(email || "").trim();
@@ -517,6 +567,15 @@ export default function LoginPage() {
   const handleBack = () => {
     navigate("/", { replace: true });
   };
+
+  // Показываем загрузку, пока проверяем авторизацию
+  if (checkingAuth) {
+    return (
+      <div style={styles.page}>
+        <div style={{ opacity: 0.85 }}>Проверяю авторизацию...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.page}>

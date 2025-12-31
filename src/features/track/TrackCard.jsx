@@ -1,9 +1,10 @@
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import coverDefault from "../../assets/cover.png";
 import copyIcon from "../../assets/copy-white.svg";
 import CopyNotification from "../../ui/CopyNotification.jsx";
 import { uploadCover, getR2Url } from "../../utils/r2Upload.js";
+import { PLAY_ICONS, DEFAULT_PLAY_ICON, getPlayIconObject } from "../../utils/playIcons.js";
 
 export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) {
   const [showNotification, setShowNotification] = useState(false);
@@ -12,8 +13,10 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
   const [editLink, setEditLink] = useState(track.link || "");
   const [editCoverFile, setEditCoverFile] = useState(null);
   const [editCoverPreview, setEditCoverPreview] = useState(null);
+  const [editPlayIcon, setEditPlayIcon] = useState(track.play_icon || DEFAULT_PLAY_ICON);
   const [saving, setSaving] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverLoadError, setCoverLoadError] = useState(false);
   const fileInputRef = useRef(null);
 
   // Получаем обложку: сначала превью, потом кастомная из R2, потом cover.png по умолчанию
@@ -21,6 +24,11 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
     // Если есть превью (только что выбранный файл), показываем его
     if (editCoverPreview) {
       return editCoverPreview;
+    }
+    
+    // Если была ошибка загрузки R2 изображения, используем дефолт
+    if (coverLoadError) {
+      return coverDefault;
     }
     
     // Если есть кастомная обложка из R2
@@ -36,7 +44,12 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
     
     // По умолчанию всегда используем cover.png
     return coverDefault;
-  }, [track.cover_key, track.coverUrl, editCoverPreview]);
+  }, [track.cover_key, track.coverUrl, editCoverPreview, coverLoadError]);
+  
+  // Сбрасываем ошибку загрузки при изменении cover_key или превью
+  useEffect(() => {
+    setCoverLoadError(false);
+  }, [track.cover_key, editCoverPreview]);
 
   const trackUrl = useMemo(() => {
     return `${window.location.origin}/t/${track.slug}`;
@@ -77,6 +90,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
     setShowEditForm(true);
     setEditTitle(track.title);
     setEditLink(track.link || "");
+    setEditPlayIcon(track.play_icon || DEFAULT_PLAY_ICON);
   };
 
   const handleSaveEdit = async (e) => {
@@ -112,6 +126,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
         title: editTitle.trim(),
         link: editLink.trim(),
         cover_key: coverKey,
+        play_icon: editPlayIcon,
       });
       
       setShowEditForm(false);
@@ -122,8 +137,9 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
         setEditCoverPreview(null);
       }
     } catch (error) {
-      console.error("Error updating track:", error);
-      alert("Ошибка при сохранении трека");
+      console.error("❌ Ошибка при сохранении трека:", error);
+      const errorMessage = error?.message || "Неизвестная ошибка";
+      alert(`Ошибка при сохранении трека: ${errorMessage}\n\nПроверьте консоль для деталей.`);
     } finally {
       setSaving(false);
       setUploadingCover(false);
@@ -252,6 +268,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
           title: editTitle.trim(),
           link: editLink.trim(),
           cover_key: uploadResult.key,
+          play_icon: editPlayIcon,
         });
         console.log("✅ cover_key обновлен в БД");
       }
@@ -265,13 +282,19 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
         // Генерируем key для локальной разработки
         const tempKey = `tracks/${track.id}/cover.${file.type === 'image/jpeg' ? 'jpg' : 'png'}`;
         if (onEdit) {
-          await onEdit(track.id, {
-            title: editTitle.trim(),
-            link: editLink.trim(),
-            cover_key: tempKey,
-          });
-          console.log("✅ cover_key сохранен в БД (локальная разработка)");
-          // Превью остается видимым, так как файл не загружен в R2
+          try {
+            await onEdit(track.id, {
+              title: editTitle.trim(),
+              link: editLink.trim(),
+              cover_key: tempKey,
+              play_icon: editPlayIcon,
+            });
+            console.log("✅ cover_key сохранен в БД (локальная разработка)");
+            // Превью остается видимым, так как файл не загружен в R2
+          } catch (editError) {
+            console.error("❌ Ошибка при сохранении cover_key (локальная разработка):", editError);
+            // Не прерываем процесс
+          }
         }
       } else {
         // В продакшене показываем ошибку
@@ -289,34 +312,40 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
         <div className="tc-card" style={{ 
           display: "flex", 
           flexDirection: "column", 
-          gap: "8px",
-          padding: "12px",
-          background: "rgba(0, 0, 0, 0.4)",
-          borderRadius: "12px",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
+          gap: "12px",
+          padding: "16px",
+          background: "linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(20, 20, 30, 0.5) 100%)",
+          backdropFilter: "blur(20px)",
+          borderRadius: "16px",
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
           maxHeight: "90vh",
           overflowY: "auto",
         }}>
           {/* Превью обложки - компактное */}
           <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "100%" }}>
             <label style={{ 
-              fontSize: "10px", 
-              color: "rgba(255, 255, 255, 0.6)",
-              marginBottom: "2px",
+              fontSize: "11px", 
+              fontWeight: 600,
+              color: "rgba(255, 255, 255, 0.85)",
+              marginBottom: "4px",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
             }}>
               Обложка
             </label>
             <div style={{ 
               width: "100%", 
-              height: "100px", 
-              borderRadius: "8px",
+              height: "120px", 
+              borderRadius: "12px",
               overflow: "hidden",
               backgroundImage: `url(${currentCoverUrl})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
               border: "1px solid rgba(255, 255, 255, 0.2)",
               position: "relative",
-              backgroundColor: "rgba(0, 0, 0, 0.3)",
+              backgroundColor: "rgba(0, 0, 0, 0.4)",
+              boxShadow: "inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2)",
             }}>
               <input
                 ref={fileInputRef}
@@ -331,29 +360,36 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
                 disabled={uploadingCover}
                 style={{
                   position: "absolute",
-                  bottom: "6px",
-                  right: "6px",
-                  padding: "4px 10px",
-                  background: uploadingCover ? "rgba(139, 92, 246, 0.6)" : "rgba(0, 0, 0, 0.8)",
-                  border: "1px solid rgba(255, 255, 255, 0.4)",
-                  borderRadius: "6px",
+                  bottom: "8px",
+                  right: "8px",
+                  padding: "6px 14px",
+                  background: uploadingCover 
+                    ? "rgba(139, 92, 246, 0.7)" 
+                    : "linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  borderRadius: "8px",
                   color: "#fff",
                   cursor: uploadingCover ? "not-allowed" : "pointer",
-                  fontSize: "10px",
-                  fontWeight: 500,
+                  fontSize: "11px",
+                  fontWeight: 600,
                   backdropFilter: "blur(10px)",
-                  transition: "all 0.2s",
+                  boxShadow: "0 2px 8px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+                  transition: "all 0.3s ease",
                 }}
                 onMouseEnter={(e) => {
                   if (!uploadingCover) {
-                    e.target.style.background = "rgba(139, 92, 246, 0.8)";
-                    e.target.style.borderColor = "rgba(255, 255, 255, 0.6)";
+                    e.target.style.background = "linear-gradient(135deg, rgba(139, 92, 246, 1) 0%, rgba(124, 58, 237, 1) 100%)";
+                    e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
+                    e.target.style.boxShadow = "0 4px 12px rgba(139, 92, 246, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3)";
+                    e.target.style.transform = "translateY(-1px)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!uploadingCover) {
-                    e.target.style.background = "rgba(0, 0, 0, 0.8)";
-                    e.target.style.borderColor = "rgba(255, 255, 255, 0.4)";
+                    e.target.style.background = "linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)";
+                    e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+                    e.target.style.boxShadow = "0 2px 8px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)";
+                    e.target.style.transform = "translateY(0)";
                   }
                 }}
               >
@@ -375,53 +411,213 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
           </div>
 
           {/* Поля ввода - компактные */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ 
+                fontSize: "11px", 
+                fontWeight: 600,
+                color: "rgba(255, 255, 255, 0.85)",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}>
+                Название
+              </label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Введите название трека"
+                style={{
+                  padding: "10px 14px",
+                  background: "rgba(0, 0, 0, 0.3)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: "10px",
+                  color: "#fff",
+                  fontSize: "13px",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                }}
+                onFocus={(e) => {
+                  e.target.style.background = "rgba(0, 0, 0, 0.5)";
+                  e.target.style.borderColor = "rgba(139, 92, 246, 0.6)";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(139, 92, 246, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.background = "rgba(0, 0, 0, 0.3)";
+                  e.target.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                  e.target.style.boxShadow = "none";
+                }}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ 
+                fontSize: "11px", 
+                fontWeight: 600,
+                color: "rgba(255, 255, 255, 0.85)",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}>
+                Ссылка
+              </label>
+              <input
+                type="url"
+                value={editLink}
+                onChange={(e) => setEditLink(e.target.value)}
+                placeholder="https://www.youtube.com/..."
+                style={{
+                  padding: "10px 14px",
+                  background: "rgba(0, 0, 0, 0.3)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: "10px",
+                  color: "#fff",
+                  fontSize: "13px",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                }}
+                onFocus={(e) => {
+                  e.target.style.background = "rgba(0, 0, 0, 0.5)";
+                  e.target.style.borderColor = "rgba(139, 92, 246, 0.6)";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(139, 92, 246, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.background = "rgba(0, 0, 0, 0.3)";
+                  e.target.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                  e.target.style.boxShadow = "none";
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Выбор иконки плеера */}
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              placeholder="Название трека"
-              style={{
-                padding: "6px 10px",
-                background: "rgba(255, 255, 255, 0.1)",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "6px",
-                color: "#fff",
-                fontSize: "12px",
-                outline: "none",
-              }}
-              autoFocus
-            />
-            <input
-              type="url"
-              value={editLink}
-              onChange={(e) => setEditLink(e.target.value)}
-              placeholder="Ссылка на YouTube"
-              style={{
-                padding: "6px 10px",
-                background: "rgba(255, 255, 255, 0.1)",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "6px",
-                color: "#fff",
-                fontSize: "12px",
-                outline: "none",
-              }}
-            />
+            <label style={{ 
+              fontSize: "11px", 
+              fontWeight: 600,
+              color: "rgba(255, 255, 255, 0.85)",
+              marginBottom: "4px",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}>
+              Иконка плеера
+            </label>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(6, 1fr)",
+              gap: "6px",
+              padding: "10px",
+              background: "rgba(0, 0, 0, 0.3)",
+              borderRadius: "12px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.2)",
+            }}>
+              {PLAY_ICONS.map((icon) => {
+                const isSelected = editPlayIcon === icon.id;
+                return (
+                  <button
+                    key={icon.id}
+                    type="button"
+                    onClick={() => setEditPlayIcon(icon.id)}
+                    style={{
+                      width: "100%",
+                      aspectRatio: "1",
+                      padding: "4px",
+                      background: isSelected 
+                        ? "linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(124, 58, 237, 0.4) 100%)" 
+                        : "rgba(255, 255, 255, 0.05)",
+                      border: isSelected
+                        ? "2px solid rgba(139, 92, 246, 0.9)"
+                        : "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "8px",
+                      boxShadow: isSelected 
+                        ? "0 0 0 2px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)" 
+                        : "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.2s",
+                      position: "relative",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.target.style.background = "rgba(255, 255, 255, 0.1)";
+                        e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+                        e.target.style.transform = "scale(1.05)";
+                        e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.3)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.target.style.background = "rgba(255, 255, 255, 0.05)";
+                        e.target.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                        e.target.style.transform = "scale(1)";
+                        e.target.style.boxShadow = "none";
+                      }
+                    }}
+                    title={icon.name}
+                  >
+                    <img 
+                      src={icon.icon} 
+                      alt={icon.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        filter: isSelected ? "none" : "opacity(0.7)",
+                      }}
+                    />
+                    {isSelected && (
+                      <div style={{
+                        position: "absolute",
+                        top: "2px",
+                        right: "2px",
+                        width: "14px",
+                        height: "14px",
+                        borderRadius: "50%",
+                        background: "rgba(139, 92, 246, 1)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "9px",
+                        color: "#fff",
+                        fontWeight: "bold",
+                      }}>
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           
           {/* Кнопки - компактные */}
-          <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", marginTop: "4px" }}>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "8px" }}>
             <button
               type="button"
               onClick={handleCancelEdit}
               style={{
-                padding: "5px 10px",
-                background: "rgba(255, 255, 255, 0.1)",
+                padding: "10px 20px",
+                background: "rgba(255, 255, 255, 0.08)",
                 border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "6px",
-                color: "#fff",
+                borderRadius: "10px",
+                color: "rgba(255, 255, 255, 0.9)",
                 cursor: "pointer",
-                fontSize: "11px",
+                fontSize: "12px",
+                fontWeight: 600,
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = "rgba(255, 255, 255, 0.15)";
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+                e.target.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "rgba(255, 255, 255, 0.08)";
+                e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
+                e.target.style.transform = "translateY(0)";
               }}
             >
               Отмена
@@ -431,14 +627,36 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
               onClick={handleSaveEdit}
               disabled={saving || !editTitle.trim()}
               style={{
-                padding: "5px 10px",
-                background: saving ? "rgba(255, 255, 255, 0.2)" : "rgba(139, 92, 246, 0.6)",
+                padding: "10px 24px",
+                background: saving || !editTitle.trim()
+                  ? "rgba(139, 92, 246, 0.4)" 
+                  : "linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)",
                 border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "6px",
+                borderRadius: "10px",
                 color: "#fff",
-                cursor: saving ? "not-allowed" : "pointer",
-                fontSize: "11px",
-                opacity: saving || !editTitle.trim() ? 0.5 : 1,
+                cursor: saving || !editTitle.trim() ? "not-allowed" : "pointer",
+                fontSize: "12px",
+                fontWeight: 600,
+                opacity: saving || !editTitle.trim() ? 0.6 : 1,
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+                boxShadow: saving || !editTitle.trim() 
+                  ? "none" 
+                  : "0 2px 8px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+              }}
+              onMouseEnter={(e) => {
+                if (!saving && editTitle.trim()) {
+                  e.target.style.background = "linear-gradient(135deg, rgba(139, 92, 246, 1) 0%, rgba(124, 58, 237, 1) 100%)";
+                  e.target.style.boxShadow = "0 4px 12px rgba(139, 92, 246, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3)";
+                  e.target.style.transform = "translateY(-1px)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!saving && editTitle.trim()) {
+                  e.target.style.background = "linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)";
+                  e.target.style.boxShadow = "0 2px 8px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)";
+                  e.target.style.transform = "translateY(0)";
+                }
               }}
             >
               {saving ? "Сохранение..." : "Сохранить"}
@@ -483,7 +701,23 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
             backgroundImage: `url(${coverUrl})`,
           }}
           aria-hidden="true"
-        />
+        >
+          {/* Скрытое изображение для проверки загрузки R2 URL */}
+          {track.cover_key && !editCoverPreview && (
+            <img
+              src={getR2Url(track.cover_key)}
+              alt=""
+              style={{ display: "none" }}
+              onError={() => {
+                console.warn("⚠️ Ошибка загрузки обложки из R2, используем дефолт:", getR2Url(track.cover_key));
+                setCoverLoadError(true);
+              }}
+              onLoad={() => {
+                setCoverLoadError(false);
+              }}
+            />
+          )}
+        </div>
 
         <div className="tc-right">
           {/* Название артиста под аватаркой */}

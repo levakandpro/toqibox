@@ -4,6 +4,7 @@ import IconTubeteika from "../../ui/IconTubeteika.jsx";
 import YoutubeEmbed from "../video/YoutubeEmbed.jsx";
 import TiktokEmbed from "../video/TiktokEmbed.jsx";
 import InstagramEmbed from "../video/InstagramEmbed.jsx";
+import { getPlayIcon } from "../../utils/playIcons.js";
 
 export default function TrackPlayer({ track }) {
   const [playing, setPlaying] = useState(false);
@@ -80,6 +81,18 @@ export default function TrackPlayer({ track }) {
     }
   }
 
+  // Получаем иконку для отображения
+  const playIconSrc = useMemo(() => {
+    const icon = getPlayIcon(track?.play_icon);
+    console.log("🎵 TrackPlayer - play_icon:", {
+      trackPlayIcon: track?.play_icon,
+      resolvedIcon: icon,
+      trackId: track?.id,
+      trackSlug: track?.slug,
+    });
+    return icon;
+  }, [track?.play_icon, track?.id, track?.slug]);
+
   return (
     <div className="tp-root">
       {playing ? (
@@ -91,10 +104,13 @@ export default function TrackPlayer({ track }) {
       ) : (
         <button className="tp-play" onClick={onPlay} aria-label="Play">
           <span className="tp-iconWrap" aria-hidden="true">
-            <IconTubeteika className="tp-icon" />
+            <img 
+              src={playIconSrc} 
+              alt="Play" 
+              className="tp-icon"
+              key={track?.play_icon || 'default'} // Принудительное обновление при изменении иконки
+            />
           </span>
-
-
         </button>
       )}
     </div>

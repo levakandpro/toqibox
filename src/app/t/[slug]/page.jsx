@@ -8,6 +8,7 @@ import { getMockTrackBySlug } from "../../../features/track/track.mock.js";
 import { getMockArtistBySlug } from "../../../features/artist/artist.mock.js";
 
 import { supabase } from "../../../features/auth/supabaseClient.js";
+import { setTrackOgTags, clearOgTags } from "../../../utils/ogTags.js";
 
 import verifGold from "../../../assets/verifgold.svg";
 import shareIcon from "../../../assets/share.svg";
@@ -83,8 +84,12 @@ export default function TrackPage() {
           // Преобразуем трек из БД в формат для компонента
           const youtubeId = extractYoutubeId(trackData.link);
           const formattedTrack = {
+            id: trackData.id,
             slug: trackData.slug,
             title: trackData.title,
+            link: trackData.link,
+            cover_key: trackData.cover_key, // Ключ обложки в R2
+            play_icon: trackData.play_icon || null, // Иконка плеера
             artistSlug: artistData?.slug || "unknown",
             artistName: artistData?.display_name || artistData?.name || "Unknown Artist",
             source: trackData.source || "youtube",
@@ -94,6 +99,12 @@ export default function TrackPage() {
             startSeconds: 0,
             createdAt: trackData.created_at,
           };
+
+          console.log("🎵 Загружен трек:", {
+            slug: formattedTrack.slug,
+            play_icon: formattedTrack.play_icon,
+            trackData: trackData,
+          });
 
           setTrack(formattedTrack);
           setArtist(artistData || null);
@@ -126,6 +137,28 @@ export default function TrackPage() {
   const shareUrl = useMemo(() => {
     return `${window.location.origin}/t/${slug}`;
   }, [slug]);
+
+  // Обновляем Open Graph теги при загрузке данных трека
+  useEffect(() => {
+    if (!track || !artist) {
+      clearOgTags();
+      return;
+    }
+
+    setTrackOgTags({
+      trackTitle: track.title,
+      artistName: track.artistName,
+      slug: track.slug,
+      coverKey: track.cover_key || null,
+      source: track.source || "youtube",
+      artistSlug: track.artistSlug || null,
+    });
+
+    // Очищаем теги при размонтировании
+    return () => {
+      clearOgTags();
+    };
+  }, [track, artist]);
 
   const handleShare = () => {
     setShareOpen(true);

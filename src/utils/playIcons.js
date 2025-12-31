@@ -1,0 +1,63 @@
+/**
+ * Утилита для работы с иконками плеера
+ */
+
+import play1 from "../assets/play/play (1).svg";
+import play2 from "../assets/play/play (2).svg";
+import play3 from "../assets/play/play (3).svg";
+import play4 from "../assets/play/play (4).svg";
+import play5 from "../assets/play/play (5).svg";
+import play6 from "../assets/play/play (6).svg";
+import play7 from "../assets/play/play (7).svg";
+import play8 from "../assets/play/play (8).svg";
+import play9 from "../assets/play/play (9).svg";
+import play10 from "../assets/play/play (10).svg";
+import play11 from "../assets/play/play (11).svg";
+import tubeteika from "../assets/tubeteika.svg";
+
+// Дефолтная иконка (tubeteika)
+export const DEFAULT_PLAY_ICON = "default";
+
+// Все доступные иконки
+export const PLAY_ICONS = [
+  { id: "default", name: "По умолчанию", icon: tubeteika },
+  { id: "play1", name: "Play 1", icon: play1 },
+  { id: "play2", name: "Play 2", icon: play2 },
+  { id: "play3", name: "Play 3", icon: play3 },
+  { id: "play4", name: "Play 4", icon: play4 },
+  { id: "play5", name: "Play 5", icon: play5 },
+  { id: "play6", name: "Play 6", icon: play6 },
+  { id: "play7", name: "Play 7", icon: play7 },
+  { id: "play8", name: "Play 8", icon: play8 },
+  { id: "play9", name: "Play 9", icon: play9 },
+  { id: "play10", name: "Play 10", icon: play10 },
+  { id: "play11", name: "Play 11", icon: play11 },
+];
+
+/**
+ * Получает иконку по ID
+ * @param {string|null|undefined} iconId - ID иконки
+ * @returns {string} URL иконки
+ */
+export function getPlayIcon(iconId) {
+  if (!iconId || iconId === "default") {
+    return tubeteika;
+  }
+  
+  const icon = PLAY_ICONS.find(i => i.id === iconId);
+  return icon ? icon.icon : tubeteika;
+}
+
+/**
+ * Получает объект иконки по ID
+ * @param {string|null|undefined} iconId - ID иконки
+ * @returns {Object} Объект иконки
+ */
+export function getPlayIconObject(iconId) {
+  if (!iconId || iconId === "default") {
+    return PLAY_ICONS[0];
+  }
+  
+  return PLAY_ICONS.find(i => i.id === iconId) || PLAY_ICONS[0];
+}
+

@@ -40,15 +40,60 @@ export default function ArtistTracks({
         updateData.cover_key = data.cover_key;
       }
 
-      const { error } = await supabase
-        .from("tracks")
-        .update(updateData)
-        .eq("id", trackId);
-
-      if (error) {
-        console.error("Error updating track:", error);
-        throw error;
+      // Если передан play_icon, пытаемся обновить его
+      // Если поле не существует в БД, просто пропускаем его
+      let playIconData = {};
+      if (data.play_icon !== undefined && data.play_icon !== null) {
+        playIconData.play_icon = data.play_icon;
       }
+
+      console.log("📝 Обновление трека:", { trackId, updateData, playIconData });
+
+      // Сначала пытаемся обновить с play_icon
+      let updateDataWithIcon = { ...updateData, ...playIconData };
+      let { error, data: updateResult } = await supabase
+        .from("tracks")
+        .update(updateDataWithIcon)
+        .eq("id", trackId)
+        .select();
+
+      // Если ошибка связана с play_icon, пробуем без него
+      if (error && error.message && (
+        error.message.includes("play_icon") || 
+        error.message.includes("column") ||
+        error.code === "42703" // PostgreSQL error code for undefined column
+      )) {
+        console.warn("⚠️ Поле play_icon не существует в БД, сохраняем без него");
+        console.warn("💡 Добавьте поле play_icon в таблицу tracks в Supabase (см. SUPABASE_PLAY_ICON_SETUP.md)");
+        
+        // Пробуем обновить без play_icon
+        const { error: errorWithoutIcon } = await supabase
+          .from("tracks")
+          .update(updateData)
+          .eq("id", trackId)
+          .select();
+        
+        if (errorWithoutIcon) {
+          console.error("❌ Ошибка обновления трека (без play_icon):", errorWithoutIcon);
+          throw errorWithoutIcon;
+        }
+        
+        console.log("✅ Трек обновлен (без play_icon)");
+      } else if (error) {
+        console.error("❌ Ошибка обновления трека:", error);
+        console.error("📋 Данные для обновления:", updateDataWithIcon);
+        console.error("🔍 Детали ошибки:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      } else {
+        console.log("✅ Трек успешно обновлен (с play_icon):", updateResult);
+      }
+
+      console.log("✅ Трек успешно обновлен:", updateResult);
 
       // Обновляем список треков
       await onUpdate();
