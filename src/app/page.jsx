@@ -183,11 +183,31 @@ export default function HomePage() {
     import("vanta/dist/vanta.clouds.min.js").then((module) => {
       if (!mounted || !vantaRef.current) return;
       
-      // Vanta.js экспортирует функцию напрямую или через default
-      const CLOUDS = module.default || module;
+      // Vanta.js может экспортировать по-разному, пробуем разные варианты
+      let CLOUDS = null;
       
-      // Проверяем, что это функция
-      if (typeof CLOUDS === 'function') {
+      // Вариант 1: window.VANTA.CLOUDS (после загрузки модуля)
+      if (window.VANTA && window.VANTA.CLOUDS) {
+        CLOUDS = window.VANTA.CLOUDS;
+      }
+      // Вариант 2: module.default.CLOUDS
+      else if (module.default && module.default.CLOUDS) {
+        CLOUDS = module.default.CLOUDS;
+      }
+      // Вариант 3: module.CLOUDS
+      else if (module.CLOUDS) {
+        CLOUDS = module.CLOUDS;
+      }
+      // Вариант 4: module.default как функция
+      else if (typeof module.default === 'function') {
+        CLOUDS = module.default;
+      }
+      // Вариант 5: module как функция
+      else if (typeof module === 'function') {
+        CLOUDS = module;
+      }
+      
+      if (CLOUDS && typeof CLOUDS === 'function') {
         try {
           vantaEffect.current = CLOUDS({
             el: vantaRef.current,
@@ -196,6 +216,7 @@ export default function HomePage() {
             touchControls: true,
             gyroControls: false,
             speed: 0.15, // Минимальная скорость для медленного движения
+            backgroundColor: 0x0a0e1a, // Фон контейнера
             // Сумеречное/ночное небо - тёмные цвета
             skyColor: 0x0a0e1a,        // Глубокий тёмно-синий/графит
             cloudColor: 0x1a1f2e,      // Почти невидимые тёмные облака
@@ -208,7 +229,7 @@ export default function HomePage() {
           console.error("Error initializing Vanta.js CLOUDS:", error);
         }
       } else {
-        console.error("Vanta.js CLOUDS is not a function:", CLOUDS);
+        console.error("Vanta.js CLOUDS is not a function. Module structure:", module);
       }
     }).catch((err) => {
       console.error("Failed to load Vanta.js CLOUDS:", err);
