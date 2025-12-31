@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import * as THREE from "three";
-import VANTA from "vanta/dist/vanta.clouds.min.js";
 
 const SLOGANS = [
   "Место, где треки получают свою страницу",
@@ -178,16 +177,29 @@ export default function HomePage() {
   useEffect(() => {
     if (!vantaRef.current) return;
 
-    vantaEffect.current = VANTA({
-      el: vantaRef.current,
-      THREE: window.THREE || THREE,
-      mouseControls: true,
-      touchControls: true,
-      gyroControls: false,
-      speed: 0.90,
+    let mounted = true;
+
+    // Динамический импорт для правильной работы с Vite
+    import("vanta/dist/vanta.clouds.min.js").then((VANTA) => {
+      if (!mounted || !vantaRef.current) return;
+      
+      // Vanta.js может экспортировать функцию по-разному
+      const CLOUDS = VANTA.default || VANTA;
+      
+      vantaEffect.current = CLOUDS({
+        el: vantaRef.current,
+        THREE: window.THREE || THREE,
+        mouseControls: true,
+        touchControls: true,
+        gyroControls: false,
+        speed: 0.90,
+      });
+    }).catch((err) => {
+      console.error("Failed to load Vanta.js CLOUDS:", err);
     });
 
     return () => {
+      mounted = false;
       if (vantaEffect.current) {
         vantaEffect.current.destroy();
         vantaEffect.current = null;
