@@ -239,8 +239,9 @@ const styles = {
     display: "grid",
     placeItems: "center",
     position: "relative",
-    color: "rgba(0,0,0,0.92)",
+    color: "rgba(255,255,255,0.95)", // Светлый текст для Vanta.js фона
     overflow: "hidden",
+    background: "#f5f5f5", // Светлый фон по умолчанию (будет заменен Vanta.js)
   },
 
   vantaContainer: {
@@ -251,6 +252,7 @@ const styles = {
     height: "100%",
     zIndex: 0,
     pointerEvents: "none",
+    background: "transparent", // Прозрачный, чтобы Vanta.js был виден
   },
 
   wrap: {
@@ -278,19 +280,23 @@ const styles = {
     width: "100%",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    color: "rgba(255,255,255,0.95)", // Светлый текст
+    textShadow: "0 2px 8px rgba(0,0,0,0.3)", // Тень для читаемости
   },
 
   btn: {
     marginTop: "10px",
     padding: "14px 30px",
     borderRadius: "14px",
-    border: "1px solid rgba(0,0,0,0.18)",
+    border: "1px solid rgba(255,255,255,0.3)",
     textDecoration: "none",
-    color: "rgba(0,0,0,0.78)",
+    color: "rgba(255,255,255,0.95)",
     fontWeight: 700,
     fontSize: "14px",
     letterSpacing: "0.12em",
     textTransform: "uppercase",
+    background: "rgba(255,255,255,0.1)",
+    backdropFilter: "blur(10px)",
     transition:
       "background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease",
     display: "inline-flex",
@@ -300,6 +306,17 @@ const styles = {
 };
 
 const css = `
+/* Переопределяем глобальные стили для главной страницы */
+body:has(main[style*="position: relative"]) {
+  background: #f5f5f5 !important;
+  background-attachment: initial !important;
+  animation: none !important;
+}
+
+body:has(main[style*="position: relative"])::before {
+  display: none !important;
+}
+
 .toqibox-slogan {
   position: relative;
   width: 100%;
@@ -325,7 +342,9 @@ const css = `
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  opacity: 0.78;
+  opacity: 0.85;
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.3);
   will-change: transform, opacity;
   transform: translateY(0);
   transition: transform 520ms ease, opacity 520ms ease;
@@ -340,7 +359,7 @@ const css = `
 
 .toqibox-slogan .line.current.in {
   transform: translateY(0);
-  opacity: 0.78;
+  opacity: 0.85;
 }
 
 .toqibox-slogan .line.current.out {
@@ -355,7 +374,7 @@ const css = `
 
 .toqibox-slogan .line.next.in {
   transform: translateY(0);
-  opacity: 0.78;
+  opacity: 0.85;
 }
 
 .toqibox-slogan .line.next.idle {
@@ -368,16 +387,16 @@ a[style]{
   -webkit-tap-highlight-color: transparent;
 }
 a[style]:hover {
-  background: rgba(0,0,0,0.92) !important;
-  color: rgba(255,255,255,0.96) !important;
-  border-color: rgba(0,0,0,0.32) !important;
+  background: rgba(255,255,255,0.2) !important;
+  color: rgba(255,255,255,1) !important;
+  border-color: rgba(255,255,255,0.5) !important;
   transform: translateY(-1px);
 }
 a[style]:active {
   transform: translateY(0px) scale(0.99);
 }
 a[style]:focus-visible {
-  outline: 2px solid rgba(0,0,0,0.22);
+  outline: 2px solid rgba(255,255,255,0.4);
   outline-offset: 4px;
 }
 
