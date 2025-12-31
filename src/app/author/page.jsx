@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 import ArtistHeader from "../../features/artist/ArtistHeader.jsx";
 import ArtistTracks from "../../features/artist/ArtistTracks.jsx";
+import AddTrackSection from "../../features/artist/AddTrackSection.jsx";
 import ShareSheet from "../../features/share/ShareSheet.jsx";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import { supabase } from "../../features/auth/supabaseClient.js";
@@ -83,22 +84,89 @@ export default function AuthorPage() {
   const [artist, setArtist] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [fatal, setFatal] = useState("");
-
-  // edit fields (local state)
-  const [displayName, setDisplayName] = useState("");
-  const [socInstagram, setSocInstagram] = useState("");
-  const [socTiktok, setSocTiktok] = useState("");
-  const [socYoutube, setSocYoutube] = useState("");
-  const [headerYoutubeUrl, setHeaderYoutubeUrl] = useState("");
-  const [headerStartSec, setHeaderStartSec] = useState("0");
+  const [showAddTrack, setShowAddTrack] = useState(false);
+  const [tracks, setTracks] = useState([]);
 
   const [saving, setSaving] = useState(false);
-  const [saveNote, setSaveNote] = useState("");
 
   const shareUrl = useMemo(() => {
     if (!artist?.slug) return "";
     return `${window.location.origin}/a/${artist.slug}`;
   }, [artist?.slug]);
+
+  // Функция для загрузки треков артиста
+  const loadTracks = async (artistId) => {
+    if (!artistId) {
+      setTracks([]);
+      return;
+    }
+
+    try {
+      const { data: tracksData, error: tracksError } = await supabase
+        .from("tracks")
+        .select("*")
+        .eq("artist_id", artistId)
+        .order("created_at", { ascending: false });
+
+      if (tracksError) {
+        console.error("Error loading tracks:", tracksError);
+        setTracks([]);
+        return;
+      }
+
+      // Функция для извлечения YouTube ID из ссылки
+      const extractYoutubeId = (url) => {
+        if (!url) return null;
+        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        const match = url.match(regex);
+        return match ? match[1] : null;
+      };
+
+      // Преобразуем треки из БД в формат для TrackCard
+      const formattedTracks = (tracksData || []).map(track => {
+        const youtubeId = extractYoutubeId(track.link);
+        return {
+          id: track.id,
+          slug: track.slug,
+          title: track.title,
+          link: track.link,
+          cover_key: track.cover_key,
+          play_icon: track.play_icon || null,
+          preview_start_seconds: track.preview_start_seconds || 0,
+          source: track.source || "youtube",
+          variant: "video",
+          coverUrl: null,
+          artistSlug: artist?.slug,
+          artistName: artist?.display_name || artist?.name,
+          youtubeId: youtubeId,
+          startSeconds: 0,
+          createdAt: track.created_at,
+        };
+      });
+
+      setTracks(formattedTracks);
+    } catch (e) {
+      console.error("Error loading tracks:", e);
+      setTracks([]);
+    }
+  };
+
+  // Функция для обновления данных артиста и треков
+  const refreshArtist = async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      if (!session?.user) return;
+
+      const a = await getArtistForUser(session.user);
+      if (a) {
+        setArtist(a);
+        await loadTracks(a.id);
+      }
+    } catch (e) {
+      console.error("Error refreshing artist:", e);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -136,6 +204,7 @@ export default function AuthorPage() {
         // Редактирование происходит прямо на /author
         if (!alive || redirected) return;
         setArtist(a);
+        await loadTracks(a.id);
         setLoading(false);
       } catch (e) {
         if (!alive || redirected) return;
@@ -151,27 +220,13 @@ export default function AuthorPage() {
     };
   }, [navigate]);
 
-  // Заполняем поля формы данными артиста при загрузке
-  useEffect(() => {
-    if (artist) {
-      setDisplayName(artist.display_name || "");
-      setSocInstagram(artist.soc_instagram || "");
-      setSocTiktok(artist.soc_tiktok || "");
-      setSocYoutube(artist.soc_youtube || "");
-      setHeaderYoutubeUrl(artist.header_youtube_url || "");
-      setHeaderStartSec(String(artist.header_start_sec || 0));
-    }
-  }, [artist]);
-
   const onCreate = async () => {
     setSaving(true);
-    setSaveNote("");
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData?.session;
       if (!session) {
-        setSaveNote("Нет сессии");
         setSaving(false);
         return;
       }
@@ -182,45 +237,8 @@ export default function AuthorPage() {
       // Редиректим на публичную страницу артиста
       navigate(`/a/${created.slug}`, { replace: true });
     } catch (e) {
-      setSaveNote(e?.message || "Ошибка создания");
+      console.error("Ошибка создания артиста:", e);
       setSaving(false);
-      setTimeout(() => setSaveNote(""), 2500);
-    }
-  };
-
-  const onSave = async () => {
-    if (!artist?.id) return;
-
-    setSaving(true);
-    setSaveNote("");
-
-    try {
-      const patch = {
-        display_name: String(displayName || "").trim(),
-        soc_instagram: String(socInstagram || "").trim(),
-        soc_tiktok: String(socTiktok || "").trim(),
-        soc_youtube: String(socYoutube || "").trim(),
-        header_youtube_url: String(headerYoutubeUrl || "").trim(),
-        header_start_sec: Number.isFinite(Number(headerStartSec)) ? Number(headerStartSec) : 0,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { data: updated, error } = await supabase
-        .from("artists")
-        .update(patch)
-        .eq("id", artist.id)
-        .select("*")
-        .single();
-
-      if (error) throw error;
-
-      setArtist(updated);
-      setSaveNote("Сохранено");
-    } catch (e) {
-      setSaveNote(e?.message || "Ошибка сохранения");
-    } finally {
-      setSaving(false);
-      setTimeout(() => setSaveNote(""), 2500);
     }
   };
 
@@ -282,11 +300,6 @@ export default function AuthorPage() {
               У тебя ещё нет страницы артиста. Создай её, чтобы начать добавлять треки и делиться своей музыкой.
             </p>
             <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "center" }}>
-              {saveNote ? (
-                <div style={{ fontSize: 14, opacity: 0.75, color: saveNote.includes("Ошибка") ? "#d00" : "#0a0" }}>
-                  {saveNote}
-                </div>
-              ) : null}
               <button
                 type="button"
                 onClick={onCreate}
@@ -317,151 +330,29 @@ export default function AuthorPage() {
   // EDIT PAGE (CANON) - если артист есть
   return (
     <div className="a-page is-edit">
-      {/* ЯВНАЯ ПАНЕЛЬ РЕДАКТИРОВАНИЯ (чтобы ты наконец увидел "это оно") */}
-      <div
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          padding: 12,
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(0,0,0,0.08)",
-        }}
-      >
-        <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontWeight: 900, letterSpacing: 1 }}>
-            РЕДАКТИРОВАНИЕ - /author
-          </div>
+      <ArtistHeader artistSlug={artist.slug} artist={artist} isOwner={true} onUpdate={refreshArtist} />
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {saveNote ? <div style={{ fontSize: 12, opacity: 0.75 }}>{saveNote}</div> : null}
-
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={saving}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 999,
-                border: "1px solid rgba(0,0,0,0.16)",
-                background: "#0b0b0b",
-                color: "#fff",
-                fontWeight: 800,
-                cursor: saving ? "default" : "pointer",
-                opacity: saving ? 0.7 : 1,
-              }}
-            >
-              {saving ? "Сохраняю..." : "Сохранить"}
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-          <input
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="display_name"
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              borderRadius: 14,
-              border: "1px solid rgba(0,0,0,0.12)",
-              outline: "none",
-              fontSize: 14,
-              background: "rgba(255,255,255,0.9)",
-            }}
-          />
-
-          <div style={{ display: "grid", gap: 8 }}>
-            <input
-              value={socInstagram}
-              onChange={(e) => setSocInstagram(e.target.value)}
-              placeholder="soc_instagram"
-              style={{
-                width: "100%",
-                padding: "12px 14px",
-                borderRadius: 14,
-                border: "1px solid rgba(0,0,0,0.12)",
-                outline: "none",
-                fontSize: 14,
-                background: "rgba(255,255,255,0.9)",
-              }}
-            />
-            <input
-              value={socTiktok}
-              onChange={(e) => setSocTiktok(e.target.value)}
-              placeholder="soc_tiktok"
-              style={{
-                width: "100%",
-                padding: "12px 14px",
-                borderRadius: 14,
-                border: "1px solid rgba(0,0,0,0.12)",
-                outline: "none",
-                fontSize: 14,
-                background: "rgba(255,255,255,0.9)",
-              }}
-            />
-            <input
-              value={socYoutube}
-              onChange={(e) => setSocYoutube(e.target.value)}
-              placeholder="soc_youtube"
-              style={{
-                width: "100%",
-                padding: "12px 14px",
-                borderRadius: 14,
-                border: "1px solid rgba(0,0,0,0.12)",
-                outline: "none",
-                fontSize: 14,
-                background: "rgba(255,255,255,0.9)",
-              }}
-            />
-          </div>
-
-          <input
-            value={headerYoutubeUrl}
-            onChange={(e) => setHeaderYoutubeUrl(e.target.value)}
-            placeholder="header_youtube_url"
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              borderRadius: 14,
-              border: "1px solid rgba(0,0,0,0.12)",
-              outline: "none",
-              fontSize: 14,
-              background: "rgba(255,255,255,0.9)",
-            }}
-          />
-
-          <input
-            value={headerStartSec}
-            onChange={(e) => setHeaderStartSec(e.target.value)}
-            placeholder="header_start_sec"
-            inputMode="numeric"
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              borderRadius: 14,
-              border: "1px solid rgba(0,0,0,0.12)",
-              outline: "none",
-              fontSize: 14,
-              background: "rgba(255,255,255,0.9)",
-            }}
-          />
-        </div>
-      </div>
-
-      {/* ниже остаётся твой текущий UI как есть */}
-      <ArtistHeader artistSlug={artist.slug} artist={artist} />
+      {showAddTrack && (
+        <AddTrackSection 
+          artist={artist} 
+          isOwner={true}
+          onTrackAdded={() => {
+            refreshArtist();
+            setShowAddTrack(false);
+          }}
+          onCancel={() => setShowAddTrack(false)}
+        />
+      )}
 
       <div className="a-content">
         <ArtistTracks
           artistSlug={artist.slug}
           artist={artist}
+          isOwner={true}
           onShare={() => setShareOpen(true)}
-          editMode={true}
-          editTab={"tracks"}
-          editAction={""}
+          onUpdate={refreshArtist}
+          tracks={tracks}
+          onAddTrack={() => setShowAddTrack(true)}
         />
       </div>
 

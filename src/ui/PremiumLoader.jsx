@@ -3,16 +3,16 @@ import playIcon from "../assets/play/play (6).svg";
 import "../styles/premiumLoader.css";
 
 const LOADING_MESSAGES = {
-  default: "Загрузка...",
-  saving: "Сохранение...",
-  uploading: "Загрузка файла...",
-  processing: "Обработка...",
-  connecting: "Подключение...",
-  loading: "Загрузка данных...",
-  track: "Загрузка трека...",
-  artist: "Загрузка артиста...",
-  cover: "Загрузка обложки...",
-  social: "Сохранение ссылки...",
+  default: "Загрузка",
+  saving: "Сохранение",
+  uploading: "Загрузка файла",
+  processing: "Обработка",
+  connecting: "Подключение",
+  loading: "Загрузка данных",
+  track: "Загрузка трека",
+  artist: "Загрузка артиста",
+  cover: "Загрузка обложки",
+  social: "Сохранение ссылки",
 };
 
 export default function PremiumLoader({ 
@@ -36,20 +36,8 @@ export default function PremiumLoader({
   const content = (
     <div className={`premium-loader ${sizeClass} ${fullScreen ? "pl-fullscreen" : ""} ${overlay ? "pl-overlay" : ""}`}>
       <div className="pl-container">
-        {/* Внешнее кольцо - пульсирующее */}
-        <div className="pl-ring pl-ring-outer">
-          <div className="pl-ring-inner"></div>
-        </div>
-        
-        {/* Среднее кольцо - вращающееся */}
-        <div className="pl-ring pl-ring-middle">
-          <div className="pl-ring-glow"></div>
-        </div>
-        
-        {/* Внутреннее кольцо - пульсирующее с градиентом */}
-        <div className="pl-ring pl-ring-inner">
-          <div className="pl-ring-gradient"></div>
-        </div>
+        {/* Одно простое вращающееся кольцо */}
+        <div className="pl-ring"></div>
         
         {/* Центральная иконка */}
         <div className="pl-icon-wrapper">
@@ -59,21 +47,6 @@ export default function PremiumLoader({
             className="pl-icon"
             aria-hidden="true"
           />
-          <div className="pl-icon-glow"></div>
-        </div>
-        
-        {/* Частицы вокруг */}
-        <div className="pl-particles">
-          {[...Array(8)].map((_, i) => (
-            <div 
-              key={i} 
-              className="pl-particle"
-              style={{
-                '--particle-index': i,
-                '--particle-delay': `${i * 0.1}s`,
-              }}
-            />
-          ))}
         </div>
       </div>
       

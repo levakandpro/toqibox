@@ -327,8 +327,8 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 12,
-            padding: "20px 6px",
+            gap: 8,
+            padding: "12px 4px",
             touchAction: "none", // Предотвращаем скролл при свайпе
           }}
         >
@@ -337,29 +337,31 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
             type="button"
             onClick={handleCoverPrev}
             style={{
-              width: "clamp(36px, 7vw, 40px)",
-              height: "clamp(36px, 7vw, 40px)",
-              minWidth: 36,
-              minHeight: 36,
-              background: "rgba(255, 255, 255, 0.2)",
-              border: "2px solid rgba(255, 255, 255, 0.3)",
-              borderRadius: 8,
+              width: "28px",
+              height: "28px",
+              background: "rgba(0, 0, 0, 0.4)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(255, 255, 255, 0.25)",
+              borderRadius: "6px",
               color: "#fff",
               cursor: "pointer",
-              fontSize: "clamp(20px, 4vw, 24px)",
+              fontSize: "14px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              transition: "all 0.2s",
-              fontWeight: "bold",
+              transition: "all 0.2s ease",
+              fontWeight: "600",
               WebkitTapHighlightColor: "transparent",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
             }}
             onMouseEnter={(e) => {
-              e.target.style.background = "rgba(255, 255, 255, 0.3)";
-              e.target.style.transform = "scale(1.1)";
+              e.target.style.background = "rgba(0, 0, 0, 0.6)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.4)";
+              e.target.style.transform = "scale(1.05)";
             }}
             onMouseLeave={(e) => {
-              e.target.style.background = "rgba(255, 255, 255, 0.2)";
+              e.target.style.background = "rgba(0, 0, 0, 0.4)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.25)";
               e.target.style.transform = "scale(1)";
             }}
           >
@@ -372,33 +374,33 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
             onClick={handleCoverSave}
             disabled={savingCover || !isPreviewDifferent}
             style={{
-              width: "clamp(40px, 8vw, 44px)",
-              height: "clamp(40px, 8vw, 44px)",
-              minWidth: 40,
-              minHeight: 40,
-              background: isPreviewDifferent ? "#10b981" : "rgba(255, 255, 255, 0.15)",
-              border: isPreviewDifferent ? "2px solid rgba(255, 255, 255, 0.3)" : "2px solid rgba(255, 255, 255, 0.2)",
+              width: "30px",
+              height: "30px",
+              background: isPreviewDifferent ? "#10b981" : "rgba(0, 0, 0, 0.4)",
+              backdropFilter: "blur(8px)",
+              border: isPreviewDifferent ? "1px solid rgba(255, 255, 255, 0.3)" : "1px solid rgba(255, 255, 255, 0.2)",
               borderRadius: "50%",
               color: "#fff",
               cursor: (savingCover || !isPreviewDifferent) ? "default" : "pointer",
-              fontSize: "clamp(22px, 5vw, 26px)",
+              fontSize: "16px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               opacity: (savingCover || !isPreviewDifferent) ? 0.5 : 1,
-              transition: "all 0.2s",
-              fontWeight: "bold",
+              transition: "all 0.2s ease",
+              fontWeight: "600",
               WebkitTapHighlightColor: "transparent",
+              boxShadow: isPreviewDifferent ? "0 2px 8px rgba(16, 185, 129, 0.4)" : "0 2px 4px rgba(0, 0, 0, 0.2)",
             }}
             onMouseEnter={(e) => {
               if (isPreviewDifferent && !savingCover) {
-                e.target.style.transform = "scale(1.15)";
-                e.target.style.boxShadow = "0 0 12px rgba(16, 185, 129, 0.5)";
+                e.target.style.transform = "scale(1.1)";
+                e.target.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.6)";
               }
             }}
             onMouseLeave={(e) => {
               e.target.style.transform = "scale(1)";
-              e.target.style.boxShadow = "none";
+              e.target.style.boxShadow = isPreviewDifferent ? "0 2px 8px rgba(16, 185, 129, 0.4)" : "0 2px 4px rgba(0, 0, 0, 0.2)";
             }}
           >
             {savingCover ? "..." : "✓"}
@@ -409,29 +411,31 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
             type="button"
             onClick={handleCoverNext}
             style={{
-              width: "clamp(36px, 7vw, 40px)",
-              height: "clamp(36px, 7vw, 40px)",
-              minWidth: 36,
-              minHeight: 36,
-              background: "rgba(255, 255, 255, 0.2)",
-              border: "2px solid rgba(255, 255, 255, 0.3)",
-              borderRadius: 8,
+              width: "28px",
+              height: "28px",
+              background: "rgba(0, 0, 0, 0.4)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(255, 255, 255, 0.25)",
+              borderRadius: "6px",
               color: "#fff",
               cursor: "pointer",
-              fontSize: "clamp(20px, 4vw, 24px)",
+              fontSize: "14px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              transition: "all 0.2s",
-              fontWeight: "bold",
+              transition: "all 0.2s ease",
+              fontWeight: "600",
               WebkitTapHighlightColor: "transparent",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
             }}
             onMouseEnter={(e) => {
-              e.target.style.background = "rgba(255, 255, 255, 0.3)";
-              e.target.style.transform = "scale(1.1)";
+              e.target.style.background = "rgba(0, 0, 0, 0.6)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.4)";
+              e.target.style.transform = "scale(1.05)";
             }}
             onMouseLeave={(e) => {
-              e.target.style.background = "rgba(255, 255, 255, 0.2)";
+              e.target.style.background = "rgba(0, 0, 0, 0.4)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.25)";
               e.target.style.transform = "scale(1)";
             }}
           >

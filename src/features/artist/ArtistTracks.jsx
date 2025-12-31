@@ -19,6 +19,7 @@ export default function ArtistTracks({
   tracks: tracksProp,
   onUpdate,
   onCopyLink,
+  onAddTrack,
 }) {
   const navigate = useNavigate();
   const [editingSocial, setEditingSocial] = useState(null); // 'youtube', 'tiktok', 'instagram' или null
@@ -244,6 +245,43 @@ export default function ArtistTracks({
         <div className="at-title">
           Релизы
 
+          {isOwner && onAddTrack && (
+            <button
+              type="button"
+              onClick={onAddTrack}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 4,
+                display: "flex",
+                alignItems: "center",
+                opacity: 0.7,
+                marginLeft: 8,
+              }}
+              aria-label="Добавить трек"
+              title="Добавить трек"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ display: "block", color: "#fff" }}
+              >
+                <path
+                  d="M11.333 2.00001C11.5084 1.82445 11.7163 1.68506 11.9447 1.58933C12.1731 1.4936 12.4173 1.44336 12.664 1.44336C12.9107 1.44336 13.1549 1.4936 13.3833 1.58933C13.6117 1.68506 13.8196 1.82445 13.995 2.00001C14.1706 2.17545 14.31 2.38331 14.4057 2.61172C14.5014 2.84013 14.5517 3.08431 14.5517 3.33101C14.5517 3.57771 14.5014 3.82189 14.4057 4.0503C14.31 4.27871 14.1706 4.48657 13.995 4.66201L5.162 13.495L2 14.333L2.838 11.171L11.671 2.33801L11.333 2.00001Z"
+                  stroke="#fff"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+          )}
+
           <button
             type="button"
             className="at-share"
@@ -360,21 +398,13 @@ export default function ArtistTracks({
                     <div
                       style={{
                         position: "absolute",
-                        top: -6,
-                        right: -6,
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        background: "rgba(139, 92, 246, 0.95)",
-                        border: "2px solid rgba(255, 255, 255, 0.95)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 10,
-                        fontWeight: "bold",
-                        color: "#fff",
-                        boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                        top: -4,
+                        right: -4,
+                        fontSize: 12,
+                        color: "#ffffff",
+                        textShadow: "0 1px 3px rgba(0,0,0,0.8)",
                         zIndex: 10,
+                        pointerEvents: "none",
                       }}
                       title="Редактировать"
                     >

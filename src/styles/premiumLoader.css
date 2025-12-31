@@ -41,281 +41,111 @@
   justify-content: center;
 }
 
-/* Размеры */
+/* Размеры - УВЕЛИЧЕНЫ */
 .pl-small .pl-container {
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
 }
 
 .pl-medium .pl-container {
-  width: 100px;
-  height: 100px;
+  width: 160px;
+  height: 160px;
 }
 
 .pl-large .pl-container {
-  width: 140px;
-  height: 140px;
+  width: 220px;
+  height: 220px;
 }
 
-/* Кольца */
+/* Одно простое кольцо - минимализм */
 .pl-ring {
   position: absolute;
-  border-radius: 50%;
-  border-style: solid;
-}
-
-.pl-ring-outer {
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  border-width: 2px;
-  border-color: rgba(139, 92, 246, 0.3);
-  animation: pl-pulse-outer 2s ease-in-out infinite;
-}
-
-.pl-ring-middle {
-  width: 75%;
-  height: 75%;
-  border-width: 3px;
-  border-color: rgba(139, 92, 246, 0.5);
-  border-top-color: rgba(139, 92, 246, 0.9);
-  border-right-color: rgba(139, 92, 246, 0.7);
-  animation: pl-spin 1.5s linear infinite;
-}
-
-.pl-ring-inner {
-  width: 50%;
-  height: 50%;
-  border-width: 2px;
-  border-color: rgba(139, 92, 246, 0.4);
-  animation: pl-pulse-inner 1.5s ease-in-out infinite;
-}
-
-.pl-ring-inner {
-  overflow: hidden;
-}
-
-.pl-ring-gradient {
-  width: 100%;
-  height: 100%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(139, 92, 246, 0.8),
-    rgba(6, 182, 212, 0.6),
-    rgba(139, 92, 246, 0.8),
-    rgba(139, 92, 246, 0.8)
-  );
-  animation: pl-rotate-gradient 3s linear infinite;
   border-radius: 50%;
+  border: 4px solid transparent;
+  border-top-color: rgba(139, 92, 246, 1);
+  border-right-color: rgba(6, 182, 212, 0.8);
+  border-bottom-color: rgba(139, 92, 246, 0.6);
+  border-left-color: rgba(6, 182, 212, 0.4);
+  animation: pl-spin 1.2s linear infinite;
 }
 
-.pl-ring-glow {
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(139, 92, 246, 0.4) 0%,
-    transparent 70%
-  );
-  animation: pl-glow-pulse 2s ease-in-out infinite;
-  filter: blur(8px);
-}
-
-.pl-ring-inner {
-  position: relative;
-}
-
-/* Иконка */
+/* Иконка - ИСПРАВЛЕНО ЦЕНТРИРОВАНИЕ */
 .pl-icon-wrapper {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
 .pl-small .pl-icon-wrapper {
-  width: 30px;
-  height: 30px;
-}
-
-.pl-medium .pl-icon-wrapper {
   width: 50px;
   height: 50px;
 }
 
+.pl-medium .pl-icon-wrapper {
+  width: 90px;
+  height: 90px;
+}
+
 .pl-large .pl-icon-wrapper {
-  width: 70px;
-  height: 70px;
+  width: 130px;
+  height: 130px;
 }
 
 .pl-icon {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center center;
   filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
+  display: block;
+  margin: 0;
+  padding: 0;
   animation: pl-icon-pulse 2s ease-in-out infinite;
 }
 
-.pl-icon-glow {
-  position: absolute;
-  inset: -8px;
-  background: radial-gradient(
-    circle,
-    rgba(139, 92, 246, 0.5) 0%,
-    transparent 70%
-  );
-  filter: blur(12px);
-  animation: pl-icon-glow-pulse 2s ease-in-out infinite;
-  z-index: -1;
+@keyframes pl-icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
 }
 
-/* Частицы */
-.pl-particles {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.pl-particle {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: rgba(139, 92, 246, 0.8);
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  transform-origin: 0 0;
-  animation: pl-particle-orbit 2s linear infinite;
-  box-shadow: 0 0 6px rgba(139, 92, 246, 0.8);
-}
-
-.pl-small .pl-particle {
-  width: 3px;
-  height: 3px;
-}
-
-.pl-large .pl-particle {
-  width: 6px;
-  height: 6px;
-}
-
-/* Позиционирование частиц - базовое для medium */
-.pl-medium .pl-particle:nth-child(1) {
-  transform: translate(-50%, -50%) rotate(0deg) translateX(50px);
-}
-
-.pl-medium .pl-particle:nth-child(2) {
-  transform: translate(-50%, -50%) rotate(45deg) translateX(50px);
-}
-
-.pl-medium .pl-particle:nth-child(3) {
-  transform: translate(-50%, -50%) rotate(90deg) translateX(50px);
-}
-
-.pl-medium .pl-particle:nth-child(4) {
-  transform: translate(-50%, -50%) rotate(135deg) translateX(50px);
-}
-
-.pl-medium .pl-particle:nth-child(5) {
-  transform: translate(-50%, -50%) rotate(180deg) translateX(50px);
-}
-
-.pl-medium .pl-particle:nth-child(6) {
-  transform: translate(-50%, -50%) rotate(225deg) translateX(50px);
-}
-
-.pl-medium .pl-particle:nth-child(7) {
-  transform: translate(-50%, -50%) rotate(270deg) translateX(50px);
-}
-
-.pl-medium .pl-particle:nth-child(8) {
-  transform: translate(-50%, -50%) rotate(315deg) translateX(50px);
-}
-
-.pl-small .pl-particle:nth-child(1) {
-  transform: translate(-50%, -50%) rotate(0deg) translateX(30px);
-}
-
-.pl-small .pl-particle:nth-child(2) {
-  transform: translate(-50%, -50%) rotate(45deg) translateX(30px);
-}
-
-.pl-small .pl-particle:nth-child(3) {
-  transform: translate(-50%, -50%) rotate(90deg) translateX(30px);
-}
-
-.pl-small .pl-particle:nth-child(4) {
-  transform: translate(-50%, -50%) rotate(135deg) translateX(30px);
-}
-
-.pl-small .pl-particle:nth-child(5) {
-  transform: translate(-50%, -50%) rotate(180deg) translateX(30px);
-}
-
-.pl-small .pl-particle:nth-child(6) {
-  transform: translate(-50%, -50%) rotate(225deg) translateX(30px);
-}
-
-.pl-small .pl-particle:nth-child(7) {
-  transform: translate(-50%, -50%) rotate(270deg) translateX(30px);
-}
-
-.pl-small .pl-particle:nth-child(8) {
-  transform: translate(-50%, -50%) rotate(315deg) translateX(30px);
-}
-
-.pl-large .pl-particle:nth-child(1) {
-  transform: translate(-50%, -50%) rotate(0deg) translateX(70px);
-}
-
-.pl-large .pl-particle:nth-child(2) {
-  transform: translate(-50%, -50%) rotate(45deg) translateX(70px);
-}
-
-.pl-large .pl-particle:nth-child(3) {
-  transform: translate(-50%, -50%) rotate(90deg) translateX(70px);
-}
-
-.pl-large .pl-particle:nth-child(4) {
-  transform: translate(-50%, -50%) rotate(135deg) translateX(70px);
-}
-
-.pl-large .pl-particle:nth-child(5) {
-  transform: translate(-50%, -50%) rotate(180deg) translateX(70px);
-}
-
-.pl-large .pl-particle:nth-child(6) {
-  transform: translate(-50%, -50%) rotate(225deg) translateX(70px);
-}
-
-.pl-large .pl-particle:nth-child(7) {
-  transform: translate(-50%, -50%) rotate(270deg) translateX(70px);
-}
-
-.pl-large .pl-particle:nth-child(8) {
-  transform: translate(-50%, -50%) rotate(315deg) translateX(70px);
-}
+/* Частицы убраны - минимализм */
 
 /* Сообщение */
 .pl-message {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 1px;
   text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .pl-small .pl-message {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .pl-large .pl-message {
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .pl-message-text {
@@ -344,122 +174,6 @@
   animation-delay: 0.4s;
 }
 
-/* Анимации */
-@keyframes pl-pulse-outer {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.9;
-  }
-}
-
-@keyframes pl-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes pl-pulse-inner {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 0.8;
-  }
-}
-
-@keyframes pl-rotate-gradient {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes pl-glow-pulse {
-  0%, 100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.1);
-  }
-}
-
-@keyframes pl-icon-pulse {
-  0%, 100% {
-    transform: scale(1);
-    filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
-  }
-  50% {
-    transform: scale(1.05);
-    filter: drop-shadow(0 0 16px rgba(139, 92, 246, 0.9));
-  }
-}
-
-@keyframes pl-icon-glow-pulse {
-  0%, 100% {
-    opacity: 0.5;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.2);
-  }
-}
-
-@keyframes pl-particle-orbit-medium {
-  from {
-    transform: translate(-50%, -50%) rotate(calc(var(--particle-index) * 45deg)) translateX(50px) rotate(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(calc(var(--particle-index) * 45deg)) translateX(50px) rotate(360deg);
-  }
-}
-
-.pl-medium .pl-particle {
-  animation: pl-particle-orbit-medium 2s linear infinite;
-  animation-delay: var(--particle-delay, 0s);
-}
-
-@keyframes pl-particle-orbit-small {
-  from {
-    transform: translate(-50%, -50%) rotate(calc(var(--particle-index) * 45deg)) translateX(30px) rotate(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(calc(var(--particle-index) * 45deg)) translateX(30px) rotate(360deg);
-  }
-}
-
-.pl-small .pl-particle {
-  animation: pl-particle-orbit-small 2s linear infinite;
-  animation-delay: var(--particle-delay, 0s);
-}
-
-@keyframes pl-particle-orbit-large {
-  from {
-    transform: translate(-50%, -50%) rotate(calc(var(--particle-index) * 45deg)) translateX(70px) rotate(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(calc(var(--particle-index) * 45deg)) translateX(70px) rotate(360deg);
-  }
-}
-
-.pl-large .pl-particle {
-  animation: pl-particle-orbit-large 2s linear infinite;
-  animation-delay: var(--particle-delay, 0s);
-}
-
 @keyframes pl-dot-bounce {
   0%, 80%, 100% {
     transform: translateY(0);
@@ -470,6 +184,17 @@
     opacity: 1;
   }
 }
+
+/* Анимации - упрощены */
+@keyframes pl-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 
 /* Адаптивность */
 @media (max-width: 768px) {

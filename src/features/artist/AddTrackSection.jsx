@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../../features/auth/supabaseClient.js";
 
-export default function AddTrackSection({ artist, isOwner = false, onTrackAdded }) {
+export default function AddTrackSection({ artist, isOwner = false, onTrackAdded, onClose }) {
   const [showForm, setShowForm] = useState(false);
   const [newTrack, setNewTrack] = useState({ link: "", title: "" });
   const [saving, setSaving] = useState(false);
@@ -213,39 +213,20 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded 
     );
   }
 
+  // Автоматически показываем форму при монтировании
+  React.useEffect(() => {
+    if (!showForm && !success) {
+      setShowForm(true);
+    }
+  }, []);
+
   return (
     <div style={{
       padding: "16px 20px",
       background: "rgba(255, 255, 255, 0.02)",
       borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
     }}>
-      {!showForm ? (
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          style={{
-            padding: "12px 20px",
-            borderRadius: 8,
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-            background: "rgba(255, 255, 255, 0.05)",
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: 14,
-            cursor: "pointer",
-            transition: "all 0.2s",
-            width: "100%",
-            textAlign: "center",
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.background = "rgba(255, 255, 255, 0.1)";
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = "rgba(255, 255, 255, 0.05)";
-          }}
-        >
-          + Добавить трек
-        </button>
-      ) : (
+      {showForm && (
         <div style={{
           display: "grid",
           gap: 16,
@@ -361,6 +342,7 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded 
               onClick={() => {
                 setShowForm(false);
                 setNewTrack({ link: "", title: "" });
+                if (onClose) onClose();
               }}
               style={{
                 padding: "12px 20px",

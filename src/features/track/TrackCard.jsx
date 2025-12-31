@@ -2,6 +2,8 @@ import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import coverDefault from "../../assets/cover.png";
 import copyIcon from "../../assets/copy-white.svg";
+import editIcon from "../../assets/icons/edit.svg";
+import deleteIcon from "../../assets/icons/delete.svg";
 import CopyNotification from "../../ui/CopyNotification.jsx";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import { uploadCover, getR2Url } from "../../utils/r2Upload.js";
@@ -825,7 +827,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
             }}
             title="Редактировать"
           >
-            ✏️
+            <img src={editIcon} alt="Редактировать" style={{ width: "14px", height: "14px", display: "block" }} />
           </button>
           <button
             type="button"
@@ -841,7 +843,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
             }}
             title="Удалить"
           >
-            🗑️
+            <img src={deleteIcon} alt="Удалить" style={{ width: "14px", height: "14px", display: "block" }} />
           </button>
         </div>
       )}

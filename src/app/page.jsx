@@ -211,7 +211,7 @@ const styles = {
     display: "grid",
     justifyItems: "center",
     gap: "22px",
-    padding: "56px 0",
+    padding: "56px max(16px, 4vw)",
     textAlign: "center",
   },
 
@@ -220,10 +220,15 @@ const styles = {
     fontFamily:
       'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
     fontWeight: 800,
-    fontSize: "clamp(46px, 7vw, 92px)",
+    fontSize: "clamp(36px, 8vw, 92px)",
     letterSpacing: "0.12em",
     lineHeight: 1,
     textTransform: "uppercase",
+    padding: "0 max(8px, 2vw)",
+    boxSizing: "border-box",
+    width: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
 
   btn: {
@@ -248,13 +253,16 @@ const styles = {
 const css = `
 .toqibox-slogan {
   position: relative;
-  width: min(720px, 92vw);
+  width: 100%;
+  max-width: min(720px, 100%);
   height: 22px; /* fixed to prevent layout jump */
   overflow: hidden;
   display: grid;
   place-items: center;
   margin: 0;
   user-select: none;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .toqibox-slogan .line {
@@ -262,8 +270,9 @@ const css = `
   left: 0;
   right: 0;
   margin: 0;
+  padding: 0 8px;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 14px;
+  font-size: clamp(12px, 3.5vw, 14px);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -271,6 +280,8 @@ const css = `
   will-change: transform, opacity;
   transform: translateY(0);
   transition: transform 520ms ease, opacity 520ms ease;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .toqibox-slogan .line.reduced {

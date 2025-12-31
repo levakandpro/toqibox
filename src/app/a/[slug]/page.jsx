@@ -22,8 +22,10 @@ export default function ArtistPage() {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [devEditEnabled, setDevEditEnabled] = useState(false);
   const [showCopyNotification, setShowCopyNotification] = useState(false);
+  const [showAddTrack, setShowAddTrack] = useState(false);
 
   const refreshArtist = async () => {
     try {
@@ -147,17 +149,6 @@ export default function ArtistPage() {
     checkOwnership();
   }, [artist?.id, artist?.user_id]);
 
-  // Заполняем поля редактирования данными артиста
-  useEffect(() => {
-    if (artist && isOwner) {
-      setDisplayName(artist.display_name || "");
-      setSocInstagram(artist.soc_instagram || "");
-      setSocTiktok(artist.soc_tiktok || "");
-      setSocYoutube(artist.soc_youtube || "");
-      setHeaderYoutubeUrl(artist.header_youtube_url || "");
-      setHeaderStartSec(String(artist.header_start_sec || 0));
-    }
-  }, [artist, isOwner]);
 
   // Функция сохранения данных артиста
 
@@ -381,6 +372,68 @@ export default function ArtistPage() {
   return (
     <div className="a-page">
 
+      {/* Переключатель режимов редактирования (только для владельца) */}
+      {isOwner && (
+        <div style={{
+          position: "fixed",
+          top: "12px",
+          right: "12px",
+          zIndex: 1000,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          background: "rgba(0, 0, 0, 0.7)",
+          backdropFilter: "blur(10px)",
+          padding: "6px 12px",
+          borderRadius: "20px",
+          border: "1px solid rgba(255, 255, 255, 0.2)",
+        }}>
+          <span style={{
+            fontSize: "12px",
+            color: "rgba(255, 255, 255, 0.7)",
+            fontWeight: 600,
+            letterSpacing: "0.5px",
+          }}>
+            {editMode ? "РЕДАКТИРОВАНИЕ" : "ПРОСМОТР"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setEditMode(!editMode)}
+            style={{
+              width: "40px",
+              height: "20px",
+              borderRadius: "10px",
+              background: editMode ? "#10b981" : "rgba(255, 255, 255, 0.2)",
+              border: "none",
+              cursor: "pointer",
+              position: "relative",
+              transition: "all 0.3s ease",
+              outline: "none",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.boxShadow = editMode 
+                ? "0 0 8px rgba(16, 185, 129, 0.5)" 
+                : "0 0 8px rgba(255, 255, 255, 0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.boxShadow = "none";
+            }}
+          >
+            <div style={{
+              position: "absolute",
+              top: "2px",
+              left: editMode ? "22px" : "2px",
+              width: "16px",
+              height: "16px",
+              borderRadius: "50%",
+              background: "#fff",
+              transition: "all 0.3s ease",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+            }} />
+          </button>
+        </div>
+      )}
+
       {/* Кнопка входа для неавторизованных */}
       {!isOwner && (
         <div style={{
@@ -417,21 +470,28 @@ export default function ArtistPage() {
         </div>
       )}
 
-      <ArtistHeader artist={artist} isOwner={isOwner} onUpdate={refreshArtist} />
+      <ArtistHeader artist={artist} isOwner={isOwner && editMode} onUpdate={refreshArtist} />
 
-      <AddTrackSection 
-        artist={artist} 
-        isOwner={isOwner}
-        onTrackAdded={refreshArtist}
-      />
+      {isOwner && editMode && showAddTrack && (
+        <AddTrackSection 
+          artist={artist} 
+          isOwner={isOwner}
+          onTrackAdded={() => {
+            refreshArtist();
+            setShowAddTrack(false);
+          }}
+          onClose={() => setShowAddTrack(false)}
+        />
+      )}
 
       <div className="a-content">
         <ArtistTracks 
           artist={artist} 
-          isOwner={isOwner}
+          isOwner={isOwner && editMode}
           onShare={() => setShareOpen(true)}
           onUpdate={refreshArtist}
           tracks={tracks}
+          onAddTrack={() => setShowAddTrack(true)}
           onCopyLink={async () => {
             const artistUrl = `${window.location.origin}/a/${slug}`;
             try {
