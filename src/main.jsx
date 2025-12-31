@@ -1,10 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import * as THREE from "three";
 
 import App from "./App.jsx";
 import "./styles/variables.css";
 import "./styles/globals.css";
+
+// Make THREE global for Vanta.js
+window.THREE = THREE;
 
 // Игнорируем ошибки загрузки favicon от внешних доменов (Google OAuth и т.д.)
 // Это не критичные ошибки, они не влияют на работу приложения

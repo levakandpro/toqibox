@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import * as THREE from "three";
-import CLOUDS from "vanta/dist/vanta.clouds.min.js";
+import VANTA from "vanta/dist/vanta.clouds.min.js";
 
 const SLOGANS = [
   "Место, где треки получают свою страницу",
@@ -178,9 +178,9 @@ export default function HomePage() {
   useEffect(() => {
     if (!vantaRef.current) return;
 
-    vantaEffect.current = CLOUDS({
+    vantaEffect.current = VANTA({
       el: vantaRef.current,
-      THREE: THREE,
+      THREE: window.THREE || THREE,
       mouseControls: true,
       touchControls: true,
       gyroControls: false,
