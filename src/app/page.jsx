@@ -216,14 +216,14 @@ export default function HomePage() {
             touchControls: true,
             gyroControls: false,
             speed: 0.15, // Минимальная скорость для медленного движения
-            backgroundColor: 0x0a0e1a, // Фон контейнера
-            // Сумеречное/ночное небо - тёмные цвета
-            skyColor: 0x0a0e1a,        // Глубокий тёмно-синий/графит
-            cloudColor: 0x1a1f2e,      // Почти невидимые тёмные облака
-            cloudShadowColor: 0x050810, // Очень тёмные тени
-            sunColor: 0x0a0e1a,        // Тёмное солнце (почти невидимо)
-            sunGlareColor: 0x0a0e1a,   // Минимальные блики (тёмные)
-            sunlightColor: 0x0f1419,   // Очень слабый свет
+            backgroundColor: 0xffffff, // Белый/прозрачный фон - убираем черноту
+            // Сумеречное/ночное небо - тёмные цвета, но без черного фона
+            skyColor: 0x2a3a5a,        // Тёмно-синий (не черный!)
+            cloudColor: 0x3a4a6a,      // Тёмные облака, но видимые
+            cloudShadowColor: 0x1a2a3a, // Тени облаков
+            sunColor: 0x2a3a5a,        // Тёмное солнце
+            sunGlareColor: 0x1a2a3a,   // Минимальные блики
+            sunlightColor: 0x2a3a5a,   // Слабый свет
           });
         } catch (error) {
           console.error("Error initializing Vanta.js CLOUDS:", error);
