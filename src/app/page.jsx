@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import * as THREE from "three";
+import CLOUDS from "vanta/dist/vanta.clouds.min.js";
 
 const SLOGANS = [
   "Место, где треки получают свою страницу",
@@ -170,11 +172,37 @@ function RotatingSlogan({
 
 export default function HomePage() {
   const slogans = useMemo(() => SLOGANS, []);
+  const vantaRef = useRef(null);
+  const vantaEffect = useRef(null);
+
+  useEffect(() => {
+    if (!vantaRef.current) return;
+
+    vantaEffect.current = CLOUDS({
+      el: vantaRef.current,
+      THREE: THREE,
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      speed: 0.90,
+    });
+
+    return () => {
+      if (vantaEffect.current) {
+        vantaEffect.current.destroy();
+        vantaEffect.current = null;
+      }
+    };
+  }, []);
 
   return (
     <main style={styles.body}>
       <style>{css}</style>
 
+      {/* Vanta.js фон */}
+      <div ref={vantaRef} style={styles.vantaContainer} />
+
+      {/* Контент поверх фона */}
       <div style={styles.wrap}>
         <h1 style={styles.logo}>TOQIBOX</h1>
 
@@ -198,15 +226,24 @@ const styles = {
     minHeight: "100vh",
     display: "grid",
     placeItems: "center",
-    background: `
-      radial-gradient(900px 700px at 18% 18%, rgba(200,160,120,0.16), transparent 60%),
-      radial-gradient(900px 700px at 82% 26%, rgba(140,170,210,0.14), transparent 58%),
-      linear-gradient(165deg, #fbf6ef, #f6f1ea 48%, #eef1f6)
-    `,
+    position: "relative",
     color: "rgba(0,0,0,0.92)",
+    overflow: "hidden",
+  },
+
+  vantaContainer: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    zIndex: 0,
+    pointerEvents: "none",
   },
 
   wrap: {
+    position: "relative",
+    zIndex: 1,
     width: "min(820px, 92vw)",
     display: "grid",
     justifyItems: "center",
