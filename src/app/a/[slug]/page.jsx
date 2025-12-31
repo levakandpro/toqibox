@@ -1,7 +1,7 @@
 // FILE: src/app/a/[slug]/page.jsx
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 
 import ArtistHeader from "../../../features/artist/ArtistHeader.jsx";
 import ArtistTracks from "../../../features/artist/ArtistTracks.jsx";
@@ -14,6 +14,7 @@ import { setArtistOgTags, clearOgTags } from "../../../utils/ogTags.js";
 
 export default function ArtistPage() {
   const { slug = "artist" } = useParams();
+  const navigate = useNavigate();
 
   const [shareOpen, setShareOpen] = useState(false);
   const [artist, setArtist] = useState(null);
@@ -22,6 +23,17 @@ export default function ArtistPage() {
   const [isOwner, setIsOwner] = useState(false);
   const [devEditEnabled, setDevEditEnabled] = useState(false);
   const [showCopyNotification, setShowCopyNotification] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  
+  // Поля редактирования артиста
+  const [displayName, setDisplayName] = useState("");
+  const [socInstagram, setSocInstagram] = useState("");
+  const [socTiktok, setSocTiktok] = useState("");
+  const [socYoutube, setSocYoutube] = useState("");
+  const [headerYoutubeUrl, setHeaderYoutubeUrl] = useState("");
+  const [headerStartSec, setHeaderStartSec] = useState("0");
+  const [saving, setSaving] = useState(false);
+  const [saveNote, setSaveNote] = useState("");
 
   const refreshArtist = async () => {
     try {
@@ -99,16 +111,92 @@ export default function ArtistPage() {
     return host === "localhost" || host === "127.0.0.1" || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.");
   }, []);
 
-  // Загружаем состояние dev режима из localStorage и обновляем isOwner
+  // Проверяем, является ли текущий пользователь владельцем артиста
   useEffect(() => {
-    if (isLocalDev) {
-      const enabled = localStorage.getItem("toqibox:dev:enableEdit") === "true";
-      setDevEditEnabled(enabled);
-      setIsOwner(enabled); // Просто включаем/выключаем редактирование
-    } else {
-      setIsOwner(false); // На продакшене редактирование выключено
+    const checkOwnership = async () => {
+      if (!artist?.id) {
+        setIsOwner(false);
+        return;
+      }
+
+      try {
+        // Проверяем сессию пользователя
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData?.session;
+        
+        if (!session) {
+          setIsOwner(false);
+          return;
+        }
+
+        const userId = session.user.id;
+        
+        // Сравниваем user_id артиста с текущим пользователем
+        if (artist.user_id === userId) {
+          setIsOwner(true);
+          console.log("✅ Пользователь является владельцем артиста");
+        } else {
+          setIsOwner(false);
+          console.log("❌ Пользователь не является владельцем артиста");
+        }
+      } catch (e) {
+        console.error("Ошибка при проверке владельца:", e);
+        setIsOwner(false);
+      }
+    };
+
+    checkOwnership();
+  }, [artist?.id, artist?.user_id]);
+
+  // Заполняем поля редактирования данными артиста
+  useEffect(() => {
+    if (artist && isOwner) {
+      setDisplayName(artist.display_name || "");
+      setSocInstagram(artist.soc_instagram || "");
+      setSocTiktok(artist.soc_tiktok || "");
+      setSocYoutube(artist.soc_youtube || "");
+      setHeaderYoutubeUrl(artist.header_youtube_url || "");
+      setHeaderStartSec(String(artist.header_start_sec || 0));
     }
-  }, [isLocalDev, artist]);
+  }, [artist, isOwner]);
+
+  // Функция сохранения данных артиста
+  const handleSaveArtist = async () => {
+    if (!artist?.id) return;
+
+    setSaving(true);
+    setSaveNote("");
+
+    try {
+      const patch = {
+        display_name: String(displayName || "").trim(),
+        soc_instagram: String(socInstagram || "").trim(),
+        soc_tiktok: String(socTiktok || "").trim(),
+        soc_youtube: String(socYoutube || "").trim(),
+        header_youtube_url: String(headerYoutubeUrl || "").trim(),
+        header_start_sec: Number.isFinite(Number(headerStartSec)) ? Number(headerStartSec) : 0,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: updated, error } = await supabase
+        .from("artists")
+        .update(patch)
+        .eq("id", artist.id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setArtist(updated);
+      setSaveNote("Сохранено");
+      await refreshArtist(); // Обновляем данные
+    } catch (e) {
+      setSaveNote(e?.message || "Ошибка сохранения");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSaveNote(""), 2500);
+    }
+  };
 
   // Функция для переключения dev режима редактирования
   const toggleDevEdit = () => {
@@ -223,13 +311,7 @@ export default function ArtistPage() {
         
         setLoading(false);
 
-        // Проверяем только dev режим из localStorage (никаких проверок auth)
-        if (artistData && isLocalDev) {
-          const devMode = localStorage.getItem("toqibox:dev:enableEdit") === "true";
-          setIsOwner(devMode);
-        } else {
-          setIsOwner(false);
-        }
+        // Проверка владельца будет выполнена в отдельном useEffect после загрузки артиста
       } catch (e) {
         if (timeoutId) {
           clearTimeout(timeoutId);
@@ -311,20 +393,77 @@ export default function ArtistPage() {
 
   console.log("🎨 Rendering ArtistPage:", { slug, hasArtist: !!artist, isOwner, artistId: artist?.id });
 
+  const handleEditClick = async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      
+      if (!session) {
+        // Если не авторизован, редиректим на логин
+        localStorage.setItem("toqibox:returnTo", `/a/${slug}`);
+        navigate("/login", { replace: false });
+        return;
+      }
+
+      // Если авторизован, редиректим на /author (который потом редиректит на страницу артиста)
+      navigate("/author", { replace: false });
+    } catch (e) {
+      console.error("Ошибка при переходе в редактирование:", e);
+      localStorage.setItem("toqibox:returnTo", `/a/${slug}`);
+      navigate("/login", { replace: false });
+    }
+  };
+
   return (
     <div className="a-page">
-      <ArtistHeader artist={artist} isOwner={isOwner} onUpdate={refreshArtist} />
+      {/* Кнопка редактирования для владельца или неавторизованных */}
+      {!isOwner && (
+        <div style={{
+          position: "fixed",
+          top: "12px",
+          right: "12px",
+          zIndex: 1000,
+        }}>
+          <button
+            onClick={handleEditClick}
+            style={{
+              padding: "10px 20px",
+              borderRadius: "999px",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              background: "rgba(0, 0, 0, 0.6)",
+              color: "#fff",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+              backdropFilter: "blur(10px)",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "rgba(139, 92, 246, 0.8)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "rgba(0, 0, 0, 0.6)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+            }}
+          >
+            {artist ? "Войти в кабинет" : "Войти"}
+          </button>
+        </div>
+      )}
+
+      <ArtistHeader artist={artist} isOwner={isOwner && editMode} onUpdate={refreshArtist} />
 
       <AddTrackSection 
         artist={artist} 
-        isOwner={isOwner}
+        isOwner={isOwner && editMode}
         onTrackAdded={refreshArtist}
       />
 
       <div className="a-content">
         <ArtistTracks 
           artist={artist} 
-          isOwner={isOwner}
+          isOwner={isOwner && editMode}
           onShare={() => setShareOpen(true)}
           onUpdate={refreshArtist}
           tracks={tracks}

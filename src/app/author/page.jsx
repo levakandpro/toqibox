@@ -131,9 +131,11 @@ export default function AuthorPage() {
           return;
         }
 
-        // Если артист есть - редиректим на его публичную страницу
-        redirected = true;
-        navigate(`/a/${a.slug}`, { replace: true });
+        // Если артист есть - показываем страницу редактирования (не редиректим)
+        // Редактирование происходит прямо на /author
+        if (!alive || redirected) return;
+        setArtist(a);
+        setLoading(false);
       } catch (e) {
         if (!alive || redirected) return;
         setFatal(e?.message || "Ошибка загрузки кабинета");
@@ -147,6 +149,18 @@ export default function AuthorPage() {
       alive = false;
     };
   }, [navigate]);
+
+  // Заполняем поля формы данными артиста при загрузке
+  useEffect(() => {
+    if (artist) {
+      setDisplayName(artist.display_name || "");
+      setSocInstagram(artist.soc_instagram || "");
+      setSocTiktok(artist.soc_tiktok || "");
+      setSocYoutube(artist.soc_youtube || "");
+      setHeaderYoutubeUrl(artist.header_youtube_url || "");
+      setHeaderStartSec(String(artist.header_start_sec || 0));
+    }
+  }, [artist]);
 
   const onCreate = async () => {
     setSaving(true);
