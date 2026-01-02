@@ -66,7 +66,15 @@ export default function AdminPage() {
           .eq("is_active", true)
           .single();
 
-        if (adminError || !admin) {
+        let isAdmin = !!admin;
+        
+        // Fallback: проверка по email для надежности
+        if (!isAdmin && session.user.email === "levakandproduction@gmail.com") {
+          isAdmin = true;
+          console.log("🔑 Admin access granted by email:", session.user.email);
+        }
+
+        if (!isAdmin) {
           // В локальной разработке разрешаем доступ без проверки
           const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
           if (isLocal && import.meta.env.DEV) {
