@@ -16,12 +16,20 @@ export default function PreviewPlayer({ videoId, startSeconds = 0, onPreviewEnd,
   const iframeRef = useRef(null);
   const previewEndedRef = useRef(false);
   
-  // Включаем воспроизведение после монтирования
+  // Включаем воспроизведение сразу после монтирования
   useEffect(() => {
     if (videoId && !previewEndedRef.current) {
-      setIsPlaying(true);
+      console.log("🎬 PreviewPlayer: Starting automatic preview playback", { videoId, startSeconds });
+      // Небольшая задержка для гарантии, что компонент полностью смонтирован
+      const timer = setTimeout(() => {
+        if (!previewEndedRef.current) {
+          console.log("🎬 PreviewPlayer: Starting playback now");
+          setIsPlaying(true);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [videoId]);
+  }, [videoId, startSeconds]);
 
   // Автовоспроизведение на 30 секунд
   useEffect(() => {
@@ -88,31 +96,32 @@ export default function PreviewPlayer({ videoId, startSeconds = 0, onPreviewEnd,
     <div 
       className="preview-player"
       style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 1,
-        pointerEvents: isPlaying ? "auto" : "none",
-        opacity: isPlaying ? 1 : 0,
-        transition: "opacity 0.3s ease",
+        position: "fixed",
+        top: "-9999px",
+        left: "-9999px",
+        width: "1px",
+        height: "1px",
+        zIndex: -1,
+        pointerEvents: "none",
+        opacity: 0,
+        visibility: "hidden",
+        overflow: "hidden",
       }}
+      aria-hidden="true"
     >
-      {/* YouTube превью на 30 секунд */}
+      {/* YouTube превью на 30 секунд - воспроизводится скрыто на фоне */}
       {isPlaying && (
         <div style={{ width: "100%", height: "100%", position: "relative" }}>
-          <YoutubeEmbed 
-            videoId={videoId} 
-            startSeconds={startSeconds}
-          />
-          {/* Overlay для остановки превью при клике */}
-          <div
-            onClick={handlePlayClick}
+          <iframe
+            width="100%"
+            height="100%"
+            src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&start=${startSeconds}&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&controls=0&disablekb=1&fs=0&loop=0&mute=0`}
+            title="Preview player (hidden)"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
             style={{
-              position: "absolute",
-              inset: 0,
-              cursor: "pointer",
-              zIndex: 2,
+              border: "none",
             }}
-            aria-label="Нажмите для воспроизведения полного видео"
           />
         </div>
       )}

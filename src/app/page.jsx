@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import * as THREE from "three";
+import Text3DEffect from "../features/ui/Text3DEffect.jsx";
+import TextScrambleEffect from "../features/ui/TextScramble.jsx";
 
 const SLOGANS = [
   "Место, где треки получают свою страницу",
@@ -81,8 +83,6 @@ function RotatingSlogan({
 }) {
   const prefersReduced = usePrefersReducedMotion();
   const [current, setCurrent] = useState(() => items[0] || "");
-  const [next, setNext] = useState("");
-  const [phase, setPhase] = useState("idle"); // idle | anim
 
   const queueRef = useRef([]);
   const lastRef = useRef(current);
@@ -133,14 +133,7 @@ function RotatingSlogan({
       const n = queueRef.current.shift();
       if (!n) return;
 
-      setNext(n);
-      setPhase("anim");
-
-      timersRef.current.swap = setTimeout(() => {
-        setCurrent(n);
-        setNext("");
-        setPhase("idle");
-      }, animMs);
+      setCurrent(n);
     }, intervalMs);
 
     return clearTimers;
@@ -152,19 +145,7 @@ function RotatingSlogan({
       aria-live="polite"
       aria-atomic="true"
     >
-      <span
-        className={`line current ${
-          prefersReduced ? "reduced" : phase === "anim" ? "out" : "in"
-        }`}
-      >
-        {current}
-      </span>
-
-      {!prefersReduced && (
-        <span className={`line next ${phase === "anim" ? "in" : "idle"}`}>
-          {next}
-        </span>
-      )}
+      <TextScrambleEffect text={current} />
     </div>
   );
 }
@@ -251,7 +232,7 @@ export default function HomePage() {
 
       {/* Контент поверх фона */}
       <div style={styles.wrap}>
-        <h1 style={styles.logo}>TOQIBOX</h1>
+        <Text3DEffect text="TOQIBOX" />
 
         <RotatingSlogan
           items={slogans}
@@ -260,7 +241,7 @@ export default function HomePage() {
           className="toqibox-slogan--home"
         />
 
-        <Link to="/create" style={styles.btn}>
+        <Link to="/login" style={styles.btn}>
           СОЗДАТЬ
         </Link>
       </div>
@@ -419,6 +400,8 @@ body:has(main[style*="position: relative"])::before {
   transform: translateY(110%);
   opacity: 0;
 }
+
+
 
 /* hover feel for button */
 a[style]{

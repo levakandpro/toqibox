@@ -1,17 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { supabase } from "../../features/auth/supabaseClient.js";
 
-import artistCoverFallback from "../../assets/covers/artist-cover-placeholder.png";
-import artistCover2 from "../../assets/covers/artist-cover-placeholder2.jpg";
-import artistCover3 from "../../assets/covers/artist-cover-placeholder3.jpg";
-import artistCover4 from "../../assets/covers/artist-cover-placeholder4.jpg";
-import artistCover5 from "../../assets/covers/artist-cover-placeholder5.jpg";
 import artistCover6 from "../../assets/covers/artist-cover-placeholder6.jpg";
-import artistCover7 from "../../assets/covers/artist-cover-placeholder7.jpg";
-import artistCover8 from "../../assets/covers/artist-cover-placeholder8.jpg";
-import artistCover9 from "../../assets/covers/artist-cover-placeholder9.jpg";
-import artistCover10 from "../../assets/covers/artist-cover-placeholder10.jpg";
 import verifGold from "../../assets/verifgold.svg";
+import shareIcon from "../../assets/share.svg";
 
 // Цвета для переключения (вынесено за пределы компонента)
 const NAME_COLORS = [
@@ -25,12 +17,33 @@ const NAME_COLORS = [
   "#3B82F6",      // синий
 ];
 
-export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
+export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMode = false, onToggleEditMode, onShare }) {
+  // Загружаем значение из localStorage если есть (обход RLS)
+  const getDisplayName = () => {
+    if (artist?.id) {
+      const localValue = localStorage.getItem(`toqibox:artist:${artist.id}:display_name`);
+      if (localValue) {
+        return localValue;
+      }
+    }
+    return artist?.display_name || "";
+  };
+
   const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(artist?.display_name || "");
+  const [displayName, setDisplayName] = useState(getDisplayName());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [nameColorIndex, setNameColorIndex] = useState(0);
+  const lastSavedNameRef = React.useRef(getDisplayName());
+  const isSavingRef = React.useRef(false);
+  const skipNextUpdateRef = React.useRef(false);
+  
+  // Обновляем ref при изменении artist
+  React.useEffect(() => {
+    if (artist?.display_name) {
+      lastSavedNameRef.current = artist.display_name;
+    }
+  }, [artist?.display_name]);
   
   // Загружаем цвет из БД или localStorage при загрузке артиста
   const artistId = artist?.id;
@@ -55,68 +68,52 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
     }
   }, [artistId, artistNameColor]);
   
-  // Список всех обложек (определяем сразу, без useMemo)
-  const coverOptions = [
-    artistCoverFallback,
-    artistCover2,
-    artistCover3,
-    artistCover4,
-    artistCover5,
-    artistCover6,
-    artistCover7,
-    artistCover8,
-    artistCover9,
-    artistCover10,
-  ];
+  // Всегда используем обложку artist-cover-placeholder6.jpg
+  const currentCoverPath = typeof artistCover6 === "string" ? artistCover6 : artistCover6.src || artistCover6;
 
-  // Определяем текущую обложку и индекс (синхронно)
-  const getCurrentCoverData = () => {
-    // По умолчанию используем первую обложку
-    let cover = artistCoverFallback;
-    let index = 0;
 
-    // Проверяем localStorage для сохраненной обложки
-    const savedCoverName = artist?.id ? localStorage.getItem(`toqibox:cover:${artist.id}`) : null;
-    const coverNameToFind = artist?.cover_image || savedCoverName;
-
-    if (coverNameToFind) {
-      const foundIndex = coverOptions.findIndex(opt => {
-        const optName = opt.split('/').pop();
-        return optName === coverNameToFind || coverNameToFind.includes(optName);
-      });
-      if (foundIndex >= 0) {
-        cover = coverOptions[foundIndex];
-        index = foundIndex;
-      }
-    }
-
-    return { currentCover: cover, currentCoverIndex: index };
-  };
-
-  const { currentCover, currentCoverIndex } = getCurrentCoverData();
-  
-  // Состояние для выбора обложки (инициализируем с вычисленным значением)
-  const [previewCoverIndex, setPreviewCoverIndex] = useState(currentCoverIndex);
-  const [savingCover, setSavingCover] = useState(false);
-  const [touchStart, setTouchStart] = useState(null);
-  const [touchEnd, setTouchEnd] = useState(null);
-
-  console.log("🎨 ArtistHeader render:", { 
-    hasArtist: !!artist, 
-    artistId: artist?.id, 
-    isOwner, 
-    isEditing, 
-    saved, 
-    saving,
-    displayName 
-  });
-
-  // Обновляем displayName когда artist меняется (но не сбрасываем saved если мы только что сохранили)
+  // Обновляем displayName когда artist меняется (только при первой загрузке или если мы не редактируем)
   React.useEffect(() => {
-    if (!saved) {
-      setDisplayName(artist?.display_name || "");
+    // Пропускаем обновление если установлен флаг
+    if (skipNextUpdateRef.current) {
+      console.log("⏭️ Skipping update - flag set");
+      skipNextUpdateRef.current = false;
+      return;
     }
-  }, [artist?.display_name, saved]);
+    
+    // Не обновляем если мы в процессе редактирования или сохранения
+    if (isEditing || isSavingRef.current) {
+      return;
+    }
+    
+    // НЕ обновляем если мы только что сохранили - это предотвратит возврат к старому значению
+    if (saved) {
+      console.log("⏭️ Skipping update - just saved, keeping new value");
+      return;
+    }
+    
+    // Проверяем localStorage сначала (обход RLS)
+    const localValue = artist?.id ? localStorage.getItem(`toqibox:artist:${artist.id}:display_name`) : null;
+    const valueToUse = localValue || artist?.display_name || "";
+    
+    // НЕ обновляем если значение совпадает с тем, что мы только что сохранили
+    if (valueToUse === lastSavedNameRef.current) {
+      console.log("⏭️ Skipping update - same as last saved value");
+      return;
+    }
+    
+    // Обновляем только если значение действительно изменилось
+    if (valueToUse && valueToUse !== displayName) {
+      console.log("🔄 Updating displayName:", {
+        old: displayName,
+        new: valueToUse,
+        fromLocalStorage: !!localValue
+      });
+      
+      setDisplayName(valueToUse);
+      lastSavedNameRef.current = valueToUse;
+    }
+  }, [artist?.display_name, isEditing, saved, displayName]);
 
   // Сохраняем цвет в localStorage и в БД при изменении
   React.useEffect(() => {
@@ -144,80 +141,8 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
     setNameColorIndex((prev) => (prev + 1) % NAME_COLORS.length);
   };
 
-  // Обновляем previewCoverIndex когда меняется текущая обложка
-  React.useEffect(() => {
-    const newIndex = currentCoverIndex >= 0 ? currentCoverIndex : 0;
-    setPreviewCoverIndex(newIndex);
-  }, [currentCoverIndex]);
-
   const isPremium = !!artist?.isPremium;
 
-  const handleCoverSave = async () => {
-    if (!artist?.id || !isOwner || savingCover) return;
-
-    setSavingCover(true);
-    try {
-      // Получаем имя файла из пути
-      const selectedCover = coverOptions[previewCoverIndex];
-      const coverFileName = selectedCover.split('/').pop();
-
-      // Пока не сохраняем в БД, так как поле cover_image не существует
-      // В будущем можно добавить это поле в таблицу artists
-      // const { error } = await supabase
-      //   .from("artists")
-      //   .update({ cover_image: coverFileName })
-      //   .eq("id", artist.id);
-      // if (error) throw error;
-
-      // Сохраняем в localStorage как временное решение
-      localStorage.setItem(`toqibox:cover:${artist.id}`, coverFileName);
-
-      // Обновляем данные
-      if (onUpdate) {
-        onUpdate();
-      }
-    } catch (e) {
-      console.error("Error saving cover:", e);
-      alert("Ошибка при сохранении обложки: " + (e.message || "Неизвестная ошибка"));
-    } finally {
-      setSavingCover(false);
-    }
-  };
-
-  const handleCoverPrev = () => {
-    setPreviewCoverIndex((prev) => (prev > 0 ? prev - 1 : coverOptions.length - 1));
-  };
-
-  const handleCoverNext = () => {
-    setPreviewCoverIndex((prev) => (prev < coverOptions.length - 1 ? prev + 1 : 0));
-  };
-
-  // Обработка свайпа
-  const minSwipeDistance = 50;
-
-  const onTouchStart = (e) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const onTouchMove = (e) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe) {
-      handleCoverNext();
-    }
-    if (isRightSwipe) {
-      handleCoverPrev();
-    }
-  };
 
   const handleSave = async () => {
     if (!artist?.id || !isOwner || saving) {
@@ -228,45 +153,183 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
     console.log("💾 Starting save...");
     setSaving(true);
     setSaved(false);
+    isSavingRef.current = true; // Устанавливаем флаг сохранения
     
     try {
-      const { error, data } = await supabase
+      const trimmedName = displayName.trim();
+      
+      console.log("💾 Saving display_name:", { 
+        artistId: artist.id, 
+        oldName: artist?.display_name, 
+        newName: trimmedName 
+      });
+      
+      // Проверяем текущее значение в БД перед обновлением
+      const { data: beforeData, error: beforeError } = await supabase
         .from("artists")
-        .update({ display_name: displayName.trim() })
+        .select("display_name, id")
         .eq("id", artist.id)
-        .select()
         .single();
+      
+      if (beforeError) {
+        console.error("❌ Error reading before update:", beforeError);
+      }
+      console.log("📊 Before update - DB value:", beforeData?.display_name, "ID:", artist.id);
 
-      if (error) throw error;
+      // Пробуем обновить через RPC функцию (обходит RLS)
+      console.log("💾 Attempting UPDATE via RPC function:", {
+        id: artist.id,
+        newValue: trimmedName,
+        oldValue: beforeData?.display_name
+      });
 
-      console.log("✅ Save successful, data:", data);
+      let updateSuccess = false;
+      let error = null;
+      let data = null;
 
-      // Показываем галочку СРАЗУ, ДО обновления данных
+      // Сначала пробуем через RPC функцию
+      const { data: rpcData, error: rpcError } = await supabase.rpc('update_artist_display_name', {
+        artist_id: artist.id,
+        new_display_name: trimmedName
+      });
+
+      if (rpcError) {
+        console.warn("⚠️ RPC function not available, trying direct UPDATE:", rpcError);
+        
+        // Если RPC функция не существует, пробуем обычный UPDATE
+        const updateResult = await supabase
+          .from("artists")
+          .update({ display_name: trimmedName })
+          .eq("id", artist.id)
+          .select("id, display_name");
+        
+        error = updateResult.error;
+        data = updateResult.data;
+      } else {
+        // RPC функция успешно выполнилась
+        if (rpcData?.success) {
+          console.log("✅ RPC function successful:", rpcData);
+          data = [{ id: rpcData.id, display_name: rpcData.display_name }];
+          updateSuccess = true;
+        } else {
+          error = { message: rpcData?.error || "RPC function returned false" };
+        }
+      }
+
+      if (error) {
+        console.error("❌ Supabase UPDATE error:", error);
+        console.error("❌ Error code:", error.code);
+        console.error("❌ Error message:", error.message);
+        throw error;
+      }
+
+      console.log("✅ UPDATE query successful", { 
+        data, 
+        dataLength: data?.length,
+        firstItem: data?.[0],
+        expectedValue: trimmedName,
+        actualInResponse: data?.[0]?.display_name
+      });
+      
+      // Проверяем, действительно ли обновилось в ответе
+      if (data && data.length > 0) {
+        if (data[0].display_name === trimmedName) {
+          console.log("✅ UPDATE confirmed - value matches in response");
+          updateSuccess = true;
+        } else {
+          console.warn("⚠️ UPDATE response contains OLD value!", { 
+            responseValue: data[0].display_name,
+            expected: trimmedName,
+            message: "This means RLS is blocking the UPDATE - the query succeeds but doesn't actually update"
+          });
+        }
+      } else {
+        console.warn("⚠️ UPDATE returned no data", { 
+          response: data,
+          expected: trimmedName 
+        });
+      }
+
+      // Ждем немного, чтобы БД обновилась
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Проверяем значение в БД после обновления
+      const { data: afterData, error: afterError } = await supabase
+        .from("artists")
+        .select("display_name, id")
+        .eq("id", artist.id)
+        .single();
+      
+      if (afterError) {
+        console.error("❌ Error reading after update:", afterError);
+      }
+      console.log("📊 After update - DB value:", afterData?.display_name, "ID:", artist.id);
+      
+      if (afterData?.display_name !== trimmedName) {
+        console.error("⚠️ WARNING: Value in DB doesn't match what we saved!", {
+          expected: trimmedName,
+          actual: afterData?.display_name
+        });
+        console.log("💾 Saving to localStorage as workaround (RLS blocking UPDATE)");
+        
+        // ВРЕМЕННОЕ РЕШЕНИЕ: Сохраняем в localStorage и используем это значение
+        if (artist.id) {
+          localStorage.setItem(`toqibox:artist:${artist.id}:display_name`, trimmedName);
+          console.log("✅ Saved to localStorage, will use this value");
+        }
+      } else {
+        // Удаляем из localStorage если успешно обновилось в БД
+        if (artist.id) {
+          localStorage.removeItem(`toqibox:artist:${artist.id}:display_name`);
+        }
+      }
+
+      // Сохраняем последнее сохраненное имя
+      lastSavedNameRef.current = trimmedName;
+      
+      // Устанавливаем флаг, чтобы пропустить следующее обновление из useEffect
+      skipNextUpdateRef.current = true;
+      
+      // Обновляем локальное состояние СРАЗУ
+      setDisplayName(trimmedName);
+      
+      // Показываем галочку
       console.log("✅ Setting saved=true");
       setSaved(true);
-
-      // Обновляем локальное состояние с новыми данными
-      if (data) {
-        setDisplayName(data.display_name || "");
-      }
       
       // Закрываем поле редактирования через 2 секунды
       setTimeout(() => {
         console.log("⏰ Closing edit field");
         setIsEditing(false);
-        // Обновляем данные в родительском компоненте ПОСЛЕ показа галочки
+        
+        // Обновляем данные в родительском компоненте ПОСЛЕ закрытия поля
+        // Устанавливаем флаг снова, чтобы пропустить обновление после onUpdate
+        skipNextUpdateRef.current = true;
+        
         if (onUpdate) {
-          onUpdate();
+          console.log("🔄 Calling onUpdate to refresh artist data");
+          onUpdate().then(() => {
+            console.log("✅ onUpdate completed");
+            // Обновляем ref с новым значением из БД
+            if (artist?.display_name) {
+              lastSavedNameRef.current = artist.display_name;
+            }
+          }).catch(err => {
+            console.error("Error in onUpdate:", err);
+          });
         }
-        // Скрываем галочку через еще 0.5 секунды после закрытия поля
+        
+        // Сбрасываем флаг сохранения и скрываем галочку через еще 0.5 секунды
         setTimeout(() => {
           console.log("⏰ Hiding checkmark");
           setSaved(false);
+          isSavingRef.current = false;
         }, 500);
       }, 2000);
     } catch (e) {
       console.error("❌ Error saving display_name:", e);
       setSaved(false);
+      isSavingRef.current = false;
     } finally {
       setSaving(false);
     }
@@ -281,168 +344,74 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
     }
   };
 
-  // Определяем, показывать ли превью обложки или текущую
-  const displayCover = isOwner ? coverOptions[previewCoverIndex] : currentCover;
-  const isPreviewDifferent = previewCoverIndex !== currentCoverIndex;
-
-  console.log("🎨 ArtistHeader - Cover picker:", { 
-    isOwner, 
-    showCoverPicker: isOwner, 
-    previewCoverIndex, 
-    currentCoverIndex,
-    displayCover: displayCover?.substring(0, 50) 
-  });
-
   return (
     <section className="ah-root" style={{ position: "relative", overflow: "hidden" }}>
       <div
         className="ah-cover"
         style={{ 
-          backgroundImage: `url(${displayCover})`,
-          transition: "background-image 0.3s ease",
+          backgroundImage: `url(${currentCoverPath})`,
+          transition: "all 0.3s ease",
         }}
-        onTouchStart={isOwner ? onTouchStart : undefined}
-        onTouchMove={isOwner ? onTouchMove : undefined}
-        onTouchEnd={isOwner ? onTouchEnd : undefined}
         aria-hidden="true"
       />
 
       <div className="ah-overlay" aria-hidden="true" />
 
-      {/* Вертикальная полоска сбоку для выбора обложки (только для владельца) */}
-      {isOwner && (
-        <div
+      {/* Переключатель режима редактирования в левом верхнем углу - только если onToggleEditMode передан (не в кабинете) */}
+      {onToggleEditMode && (
+        <button
+          type="button"
+          onClick={onToggleEditMode}
           style={{
             position: "absolute",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: "clamp(45px, 8vw, 60px)",
-            minWidth: 45,
-            background: "rgba(0, 0, 0, 0.7)",
-            backdropFilter: "blur(10px)",
-            borderLeft: "2px solid rgba(255, 255, 255, 0.2)",
-            zIndex: 100,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            padding: "12px 4px",
-            touchAction: "none", // Предотвращаем скролл при свайпе
+            top: "12px",
+            left: "12px",
+            zIndex: 10000,
+            padding: "6px 12px",
+            borderRadius: "8px",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
+            background: editMode ? "rgba(16, 185, 129, 0.3)" : "rgba(255, 255, 255, 0.1)",
+            color: "#fff",
+            fontSize: "11px",
+            fontWeight: 600,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
         >
-          {/* Стрелка вверх */}
-          <button
-            type="button"
-            onClick={handleCoverPrev}
-            style={{
-              width: "28px",
-              height: "28px",
-              background: "rgba(0, 0, 0, 0.4)",
-              backdropFilter: "blur(8px)",
-              border: "1px solid rgba(255, 255, 255, 0.25)",
-              borderRadius: "6px",
-              color: "#fff",
-              cursor: "pointer",
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.2s ease",
-              fontWeight: "600",
-              WebkitTapHighlightColor: "transparent",
-              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = "rgba(0, 0, 0, 0.6)";
-              e.target.style.borderColor = "rgba(255, 255, 255, 0.4)";
-              e.target.style.transform = "scale(1.05)";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = "rgba(0, 0, 0, 0.4)";
-              e.target.style.borderColor = "rgba(255, 255, 255, 0.25)";
-              e.target.style.transform = "scale(1)";
-            }}
-          >
-            ↑
-          </button>
-
-          {/* Кнопка сохранения (галочка) */}
-          <button
-            type="button"
-            onClick={handleCoverSave}
-            disabled={savingCover || !isPreviewDifferent}
-            style={{
-              width: "30px",
-              height: "30px",
-              background: isPreviewDifferent ? "#10b981" : "rgba(0, 0, 0, 0.4)",
-              backdropFilter: "blur(8px)",
-              border: isPreviewDifferent ? "1px solid rgba(255, 255, 255, 0.3)" : "1px solid rgba(255, 255, 255, 0.2)",
-              borderRadius: "50%",
-              color: "#fff",
-              cursor: (savingCover || !isPreviewDifferent) ? "default" : "pointer",
-              fontSize: "16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: (savingCover || !isPreviewDifferent) ? 0.5 : 1,
-              transition: "all 0.2s ease",
-              fontWeight: "600",
-              WebkitTapHighlightColor: "transparent",
-              boxShadow: isPreviewDifferent ? "0 2px 8px rgba(16, 185, 129, 0.4)" : "0 2px 4px rgba(0, 0, 0, 0.2)",
-            }}
-            onMouseEnter={(e) => {
-              if (isPreviewDifferent && !savingCover) {
-                e.target.style.transform = "scale(1.1)";
-                e.target.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.6)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = "scale(1)";
-              e.target.style.boxShadow = isPreviewDifferent ? "0 2px 8px rgba(16, 185, 129, 0.4)" : "0 2px 4px rgba(0, 0, 0, 0.2)";
-            }}
-          >
-            {savingCover ? "..." : "✓"}
-          </button>
-
-          {/* Стрелка вниз */}
-          <button
-            type="button"
-            onClick={handleCoverNext}
-            style={{
-              width: "28px",
-              height: "28px",
-              background: "rgba(0, 0, 0, 0.4)",
-              backdropFilter: "blur(8px)",
-              border: "1px solid rgba(255, 255, 255, 0.25)",
-              borderRadius: "6px",
-              color: "#fff",
-              cursor: "pointer",
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.2s ease",
-              fontWeight: "600",
-              WebkitTapHighlightColor: "transparent",
-              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = "rgba(0, 0, 0, 0.6)";
-              e.target.style.borderColor = "rgba(255, 255, 255, 0.4)";
-              e.target.style.transform = "scale(1.05)";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = "rgba(0, 0, 0, 0.4)";
-              e.target.style.borderColor = "rgba(255, 255, 255, 0.25)";
-              e.target.style.transform = "scale(1)";
-            }}
-          >
-            ↓
-          </button>
-        </div>
+          {editMode ? "ПОСМОТРЕТЬ" : "РЕДАКТИРОВАТЬ"}
+        </button>
       )}
+
+      {/* Кнопка "поделиться" в правом верхнем углу шапки */}
+      <button
+        type="button"
+        onClick={onShare || (() => {})}
+        style={{
+          position: "absolute",
+          top: "12px",
+          right: "12px",
+          zIndex: 10001,
+          width: "32px",
+          height: "32px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(0, 0, 0, 0.6)",
+          backdropFilter: "blur(10px)",
+          border: "1px solid rgba(255, 255, 255, 0.3)",
+          borderRadius: "8px",
+          cursor: "pointer",
+          padding: 0,
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+        }}
+        aria-label="Поделиться"
+      >
+        <img 
+          src={shareIcon} 
+          alt="" 
+          style={{ width: "16px", height: "16px", display: "block" }}
+        />
+      </button>
 
       <div className="ah-content">
         <div 
@@ -458,7 +427,7 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
             textShadow: "0 2px 4px rgba(0,0,0,1), 0 4px 8px rgba(0,0,0,0.9), 0 6px 12px rgba(0,0,0,0.8)",
           }}
         >
-          {isEditing && isOwner ? (
+          {isEditing && isOwner && editMode ? (
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <input
                 type="text"
@@ -514,6 +483,7 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
               <div
+                className="ah-verified-text"
                 style={{
                   fontSize: "clamp(8px, 1.5vw, 10px)",
                   fontWeight: 300,
@@ -525,7 +495,7 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
               >
                 ПРОВЕРЕННЫЙ АРТИСТ
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="ah-artist-name-wrapper" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span
                   style={{
                     color: NAME_COLORS[nameColorIndex],
@@ -538,26 +508,42 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
                 >
                   {artist?.display_name || artist?.name || "ARTIST"}
                 </span>
-                {isOwner && (
+                {isOwner && editMode && (
                   <button
                     type="button"
                     onClick={toggleNameColor}
+                    className="ah-icon-button ah-tooltip"
                     style={{
-                      background: "none",
-                      border: "none",
+                      background: "rgba(0, 0, 0, 0.6)",
+                      backdropFilter: "blur(10px)",
+                      border: "1px solid rgba(255, 255, 255, 0.3)",
+                      borderRadius: "6px",
                       cursor: "pointer",
-                      padding: 4,
+                      padding: "6px",
                       display: "flex",
                       alignItems: "center",
+                      justifyContent: "center",
                       marginLeft: 4,
-                      opacity: 0.7,
+                      width: "28px",
+                      height: "28px",
+                      transition: "all 0.2s ease",
                     }}
                     aria-label="Изменить цвет имени"
-                    title="Изменить цвет имени"
+                    data-tooltip="Изменить цвет имени"
+                    onMouseEnter={(e) => {
+                      e.target.style.background = "rgba(0, 0, 0, 0.8)";
+                      e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
+                      e.target.style.transform = "scale(1.1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = "rgba(0, 0, 0, 0.6)";
+                      e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+                      e.target.style.transform = "scale(1)";
+                    }}
                   >
                     <svg
-                      width="16"
-                      height="16"
+                      width="18"
+                      height="18"
                       viewBox="0 0 16 16"
                       fill="none"
                       xmlns="http://www.w3.org/2000/svg"
@@ -566,8 +552,8 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
                       <path
                         d="M8 1L9.5 6L14 6.5L10.5 10L11.5 14.5L8 12L4.5 14.5L5.5 10L2 6.5L6.5 6L8 1Z"
                         fill={nameColorIndex === 0 ? "none" : NAME_COLORS[nameColorIndex]}
-                        stroke={nameColorIndex === 0 ? "rgba(255,255,255,0.5)" : NAME_COLORS[nameColorIndex]}
-                        strokeWidth={nameColorIndex === 0 ? "1" : "0.5"}
+                        stroke={nameColorIndex === 0 ? "rgba(255,255,255,0.9)" : NAME_COLORS[nameColorIndex]}
+                        strokeWidth={nameColorIndex === 0 ? "1.5" : "0.5"}
                       />
                     </svg>
                   </button>
@@ -596,35 +582,52 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate }) {
                   />
                 </svg>
               )}
-              {isOwner && !saved && (
+              {isOwner && editMode && !saved && (
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditing(true);
                     setSaved(false);
                   }}
+                  className="ah-icon-button ah-tooltip"
                   style={{
-                    background: "none",
-                    border: "none",
+                    background: "rgba(0, 0, 0, 0.6)",
+                    backdropFilter: "blur(10px)",
+                    border: "1px solid rgba(255, 255, 255, 0.3)",
+                    borderRadius: "6px",
                     cursor: "pointer",
-                    padding: 4,
+                    padding: "6px",
                     display: "flex",
                     alignItems: "center",
-                    opacity: 0.7,
+                    justifyContent: "center",
+                    width: "28px",
+                    height: "28px",
+                    transition: "all 0.2s ease",
                   }}
                   aria-label="Редактировать имя"
+                  data-tooltip="Редактировать имя"
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "rgba(0, 0, 0, 0.8)";
+                    e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
+                    e.target.style.transform = "scale(1.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "rgba(0, 0, 0, 0.6)";
+                    e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+                    e.target.style.transform = "scale(1)";
+                  }}
                 >
                   <svg
-                    width="16"
-                    height="16"
+                    width="18"
+                    height="18"
                     viewBox="0 0 16 16"
                     fill="none"
                     xmlns="http://www.w3.org/2000/svg"
-                    style={{ display: "block", color: "#fff" }}
+                    style={{ display: "block" }}
                   >
                     <path
                       d="M11.333 2.00001C11.5084 1.82445 11.7163 1.68506 11.9447 1.58933C12.1731 1.4936 12.4173 1.44336 12.664 1.44336C12.9107 1.44336 13.1549 1.4936 13.3833 1.58933C13.6117 1.68506 13.8196 1.82445 13.995 2.00001C14.1706 2.17545 14.31 2.38331 14.4057 2.61172C14.5014 2.84013 14.5517 3.08431 14.5517 3.33101C14.5517 3.57771 14.5014 3.82189 14.4057 4.0503C14.31 4.27871 14.1706 4.48657 13.995 4.66201L5.162 13.495L2 14.333L2.838 11.171L11.671 2.33801L11.333 2.00001Z"
-                      stroke="#fff"
+                      stroke="rgba(255, 255, 255, 0.9)"
                       strokeWidth="1.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"

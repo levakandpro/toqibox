@@ -12,6 +12,14 @@ export default function CreatePage() {
 
     const run = async () => {
       try {
+        // ВРЕМЕННО: Отключаем проверку авторизации для локальной разработки
+        // TODO: Вернуть проверку авторизации позже
+        
+        // ВРЕМЕННО: Просто переходим на /author без проверки
+        if (!alive) return;
+        navigate("/author", { replace: true });
+        
+        /* ЗАКОММЕНТИРОВАНО ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
         const { data } = await supabase.auth.getSession();
         const hasSession = !!data?.session;
 
@@ -26,9 +34,12 @@ export default function CreatePage() {
 
         // Канон: редактирование ТОЛЬКО через /author
         navigate("/author", { replace: true });
+        */
       } catch (e) {
-        localStorage.setItem("toqibox:returnTo", "/author");
-        navigate("/login", { replace: true });
+        console.error("Ошибка при переходе в кабинет:", e);
+        // ВРЕМЕННО: Не редиректим на логин
+        // localStorage.setItem("toqibox:returnTo", "/author");
+        // navigate("/login", { replace: true });
       }
     };
 

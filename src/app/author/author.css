@@ -2,6 +2,12 @@
 
 /* Scope: only /author (edit mode). Public /a/:slug stays untouched. */
 
+.is-edit .ah-root {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
 .is-edit .a-content {
   position: relative;
 }

@@ -13,6 +13,16 @@ import play8 from "../assets/play/play (8).svg";
 import play9 from "../assets/play/play (9).svg";
 import play10 from "../assets/play/play (10).svg";
 import play11 from "../assets/play/play (11).svg";
+import premiumplay1 from "../assets/play/premium/premiumplay (1).svg";
+import premiumplay2 from "../assets/play/premium/premiumplay (2).svg";
+import premiumplay3 from "../assets/play/premium/premiumplay (3).svg";
+import premiumplay4 from "../assets/play/premium/premiumplay (4).svg";
+import premiumplay5 from "../assets/play/premium/premiumplay (5).svg";
+import premiumplay6 from "../assets/play/premium/premiumplay (6).svg";
+import premiumplay7 from "../assets/play/premium/premiumplay (7).svg";
+import premiumplay8 from "../assets/play/premium/premiumplay (8).svg";
+import premiumplay9 from "../assets/play/premium/premiumplay (9).svg";
+import premiumplay10 from "../assets/play/premium/premiumplay (10).svg";
 import tubeteika from "../assets/tubeteika.svg";
 
 // Дефолтная иконка (tubeteika)
@@ -32,6 +42,16 @@ export const PLAY_ICONS = [
   { id: "play9", name: "Play 9", icon: play9 },
   { id: "play10", name: "Play 10", icon: play10 },
   { id: "play11", name: "Play 11", icon: play11 },
+  { id: "premiumplay1", name: "Premium Play 1", icon: premiumplay1, premium: true },
+  { id: "premiumplay2", name: "Premium Play 2", icon: premiumplay2, premium: true },
+  { id: "premiumplay3", name: "Premium Play 3", icon: premiumplay3, premium: true },
+  { id: "premiumplay4", name: "Premium Play 4", icon: premiumplay4, premium: true },
+  { id: "premiumplay5", name: "Premium Play 5", icon: premiumplay5, premium: true },
+  { id: "premiumplay6", name: "Premium Play 6", icon: premiumplay6, premium: true },
+  { id: "premiumplay7", name: "Premium Play 7", icon: premiumplay7, premium: true },
+  { id: "premiumplay8", name: "Premium Play 8", icon: premiumplay8, premium: true },
+  { id: "premiumplay9", name: "Premium Play 9", icon: premiumplay9, premium: true },
+  { id: "premiumplay10", name: "Premium Play 10", icon: premiumplay10, premium: true },
 ];
 
 /**

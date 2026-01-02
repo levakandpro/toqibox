@@ -1,11 +1,15 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import TrackCard from "../track/TrackCard.jsx";
 import { getMockTracksByArtistSlug } from "../track/track.mock.js";
-import BackgroundSelector from "../track/BackgroundSelector.jsx";
+import ArtistPageBackground from "./ArtistPageBackground.jsx";
+import ArtistPageBackgroundLeft from "./ArtistPageBackgroundLeft.jsx";
+import { getR2Url } from "../../utils/r2Upload.js";
+import coverDefault from "../../assets/cover.png";
+import tqVideo from "../../assets/covers/tq.mp4";
 
-import shareIcon from "../../assets/share.svg";
+import copyIcon from "../../assets/copy.svg";
 import { supabase } from "../../features/auth/supabaseClient.js";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
 
@@ -24,16 +28,11 @@ export default function ArtistTracks({
   editMode = false,
   onToggleEditMode,
 }) {
-  const navigate = useNavigate();
   const [editingSocial, setEditingSocial] = useState(null); // 'youtube', 'tiktok', 'instagram' или null
   const [socialUrl, setSocialUrl] = useState("");
   const [saving, setSaving] = useState(false);
-  const [localSelectedTrack, setLocalSelectedTrack] = useState(selectedTrack);
-  
-  // Обновляем локальный выбранный трек при изменении пропса
-  useEffect(() => {
-    setLocalSelectedTrack(selectedTrack);
-  }, [selectedTrack]);
+  const cardsGridRef = useRef(null);
+
 
   const handleEditTrack = async (trackId, data) => {
     if (!onUpdate) return;
@@ -61,6 +60,11 @@ export default function ArtistTracks({
       // Если передан preview_start_seconds, обновляем его
       if (data.preview_start_seconds !== undefined) {
         updateData.preview_start_seconds = Number(data.preview_start_seconds) || 0;
+      }
+
+      // Если передан shadertoy_background_id, обновляем его
+      if (data.shadertoy_background_id !== undefined) {
+        updateData.shadertoy_background_id = data.shadertoy_background_id;
       }
 
       console.log("📝 Обновление трека:", { trackId, updateData, playIconData });
@@ -247,108 +251,235 @@ export default function ArtistTracks({
     navigate(first ? `/t/${first}` : "/t/test");
   };
 
+  // Обработчик горизонтального скролла колесиком мыши
+  useEffect(() => {
+    const container = cardsGridRef.current;
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      // Проверяем, что событие происходит на контейнере или его дочерних элементах
+      if (!container.contains(e.target) && e.target !== container) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      container.scrollLeft += e.deltaY;
+    };
+
+    // Используем capture phase для более надежного перехвата
+    container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel, { capture: true });
+    };
+  }, [tracks.length]); // Переподключаем при изменении количества треков
 
   return (
     <section className="at-root">
-      <div className="at-head">
-        <div className="at-title">
-          <span>Релизы</span>
-
-          {/* Переключатель режимов (только на мобильных, только для владельца) */}
-          {isOwner && onToggleEditMode && (
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              marginLeft: "12px",
-            }}>
-              <span style={{
-                fontSize: "10px",
-                color: "rgba(255, 255, 255, 0.6)",
-                fontWeight: 600,
-                letterSpacing: "0.5px",
-              }}>
-                {editMode ? "РЕД" : "ПРОСМ"}
-              </span>
-              <button
-                type="button"
-                onClick={onToggleEditMode}
-                style={{
-                  width: "32px",
-                  height: "18px",
-                  borderRadius: "9px",
-                  background: editMode ? "#10b981" : "rgba(255, 255, 255, 0.2)",
-                  border: "none",
-                  cursor: "pointer",
-                  position: "relative",
-                  transition: "all 0.3s ease",
-                  outline: "none",
-                  padding: 0,
-                }}
-                aria-label={editMode ? "Режим редактирования" : "Режим просмотра"}
-              >
-                <div style={{
-                  position: "absolute",
-                  top: "2px",
-                  left: editMode ? "16px" : "2px",
-                  width: "14px",
-                  height: "14px",
-                  borderRadius: "50%",
-                  background: "#fff",
-                  transition: "all 0.3s ease",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
-                }} />
-              </button>
-            </div>
-          )}
-
-          {/* Стильная кнопка "Добавить трек" (только в режиме редактирования) */}
-          {isOwner && editMode && onAddTrack && (
-            <button
-              type="button"
-              onClick={onAddTrack}
-              style={{
-                marginLeft: "12px",
-                padding: "6px 12px",
-                borderRadius: "8px",
-                border: "1px solid rgba(255, 255, 255, 0.3)",
-                background: "rgba(139, 92, 246, 0.2)",
-                backdropFilter: "blur(10px)",
-                color: "#fff",
-                fontSize: "11px",
-                fontWeight: 600,
-                letterSpacing: "0.5px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = "rgba(139, 92, 246, 0.4)";
-                e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = "rgba(139, 92, 246, 0.2)";
-                e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
-              }}
-              aria-label="Добавить трек"
-              title="Добавить трек"
-            >
-              <span>+</span>
-              <span>Добавить трек</span>
-            </button>
-          )}
-
+      {/* "РЕЛИЗЫ" над каруселью */}
+      <div className="at-releases-title">
+        <button className="releases-button">
+          РЕЛИЗЫ
+        </button>
+        {/* Кнопка "+" для добавления трека (только в режиме редактирования) */}
+        {isOwner === true && editMode === true && onAddTrack && (
           <button
             type="button"
-            className="at-share"
-            onClick={onShare}
-            aria-label="Поделиться"
+            onClick={onAddTrack}
+            style={{
+              width: "28px",
+              height: "28px",
+              padding: 0,
+              borderRadius: "50%",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              background: "rgba(139, 92, 246, 0.2)",
+              backdropFilter: "blur(10px)",
+              color: "#fff",
+              fontSize: "18px",
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "rgba(139, 92, 246, 0.4)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
+              e.target.style.transform = "scale(1.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "rgba(139, 92, 246, 0.2)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+              e.target.style.transform = "scale(1)";
+            }}
+            aria-label="Добавить трек"
+            title="Добавить трек"
           >
-            <img src={shareIcon} alt="" aria-hidden="true" />
+            +
           </button>
+        )}
+      </div>
 
+      {/* Блок с треками - карточки с 3D эффектом */}
+      <div className="at-grid-wrapper">
+        {tracks.length === 0 ? (
+          <div style={{ 
+            textAlign: "center", 
+            padding: "40px 20px",
+            opacity: 0.6,
+            fontSize: "14px"
+          }}>
+            Пока нет треков
+          </div>
+        ) : (
+          <div 
+            ref={cardsGridRef}
+            className="at-cards-grid"
+          >
+            {tracks.map((t, index) => {
+              // Получаем обложку трека для лицевой стороны
+              const coverUrl = t.cover_key ? getR2Url(t.cover_key) : (t.coverUrl || coverDefault);
+              
+              // Получаем превью YouTube для обратной стороны
+              const getYoutubeThumbnail = (youtubeId) => {
+                if (!youtubeId) return coverDefault;
+                // Используем maxresdefault для лучшего качества
+                return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+              };
+              const youtubeThumbnail = getYoutubeThumbnail(t.youtubeId);
+              
+              return (
+                <a 
+                  key={t.slug} 
+                  href={`/t/${t.slug}`}
+                  className="card"
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div className="content">
+                    <div 
+                      className="back"
+                      style={{
+                        backgroundImage: `url(${youtubeThumbnail})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                        backgroundRepeat: "no-repeat"
+                      }}
+                    >
+                    </div>
+                    <div className="front">
+                      <div className="img">
+                        <video
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          preload="auto"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            objectPosition: "center",
+                            pointerEvents: "none"
+                          }}
+                          onLoadedData={(e) => {
+                            e.target.play().catch(() => {});
+                          }}
+                        >
+                          <source src={tqVideo} type="video/mp4" />
+                        </video>
+                      </div>
+                      <div className="front-content">
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", width: "100%" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "#ffffff" }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff3b5c" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                            <span style={{ fontWeight: 600 }}>{t.likes_count || 0} Тюбитеек</span>
+                          </div>
+                        </div>
+                        <div className="description">
+                          <div className="title">
+                            <p className="title">
+                              <strong>{t.title}</strong>
+                            </p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const trackUrl = `${window.location.origin}/t/${t.slug}`;
+                                // Копируем ссылку в буфер обмена
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  navigator.clipboard.writeText(trackUrl).catch(() => {});
+                                } else {
+                                  // Fallback для старых браузеров
+                                  const input = document.createElement("input");
+                                  input.value = trackUrl;
+                                  document.body.appendChild(input);
+                                  input.select();
+                                  document.execCommand("copy");
+                                  document.body.removeChild(input);
+                                }
+                              }}
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                                padding: "4px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                opacity: 0.7,
+                                transition: "opacity 0.2s",
+                              }}
+                              onMouseEnter={(e) => e.target.style.opacity = "1"}
+                              onMouseLeave={(e) => e.target.style.opacity = "0.7"}
+                              aria-label="Копировать ссылку"
+                              title="Копировать ссылку на трек"
+                            >
+                              <img 
+                                src={copyIcon} 
+                                alt="" 
+                                style={{ width: "12px", height: "12px", display: "block" }}
+                              />
+                            </button>
+                          </div>
+                          <div style={{ 
+                            display: "flex", 
+                            alignItems: "center", 
+                            justifyContent: "space-between",
+                            marginTop: "4px"
+                          }}>
+                            <p className="card-footer" style={{ margin: 0 }}>
+                              {t.source || "Трек"}
+                            </p>
+                            <div style={{ 
+                              display: "flex", 
+                              alignItems: "center", 
+                              gap: "4px", 
+                              fontSize: "10px", 
+                              color: "#ffffff",
+                              fontWeight: 700,
+                              textShadow: "0 1px 2px rgba(0, 0, 0, 0.8)"
+                            }}>
+                              <span style={{ opacity: 0.9 }}>ПРОСМОТРОВ</span>
+                              <span style={{ fontWeight: 800, color: "#ffffff" }}>{t.views_count || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Иконки соцсетей под каруселью */}
+      <div className="at-head">
+        <div className="at-title" style={{ gap: "2px" }}>
           <div className="at-socials" aria-label="Соцсети артиста">
             {socials.map((s) => {
               const isEditing = editingSocial === s.key;
@@ -452,7 +583,7 @@ export default function ArtistTracks({
                   title={isOwner ? `Нажмите, чтобы ${hasUrl ? "изменить" : "добавить"} ссылку` : s.label}
                 >
                   <img src={s.icon} alt="" aria-hidden="true" />
-                  {isOwner && (
+                  {isOwner === true && editMode === true && (
                     <div
                       style={{
                         position: "absolute",
@@ -469,7 +600,7 @@ export default function ArtistTracks({
                       ✏️
                     </div>
                   )}
-                  {hasUrl && isOwner && (
+                  {hasUrl && isOwner && editMode && (
                     <div
                       style={{
                         position: "absolute",
@@ -488,105 +619,28 @@ export default function ArtistTracks({
             })}
           </div>
         </div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            type="button"
-            className="at-back"
-            onClick={handleBack}
-            aria-label="Назад"
-          >
-            ← назад
-          </button>
-        </div>
       </div>
 
-      {/* Блок с треками - ограничен 3 рядами, остальные с прокруткой */}
-      <div className="at-grid-wrapper">
-        <div className="at-grid">
-          {tracks.length === 0 ? (
-            <div style={{ 
-              gridColumn: "1 / -1", 
-              textAlign: "center", 
-              padding: "40px 20px",
-              opacity: 0.6,
-              fontSize: "14px"
-            }}>
-              Пока нет треков
-            </div>
-          ) : (
-            tracks.map((t) => (
-              <div
-                key={t.slug}
-                onClick={() => {
-                  if (isOwner && editMode) {
-                    setLocalSelectedTrack(t);
-                    if (onTrackClick) {
-                      onTrackClick(t);
-                    }
-                  }
-                }}
-                style={{
-                  cursor: isOwner && editMode ? "pointer" : "default",
-                  position: "relative",
-                }}
-              >
-                <TrackCard 
-                  track={t} 
-                  isOwner={isOwner && editMode}
-                  onEdit={handleEditTrack}
-                  onDelete={handleDeleteTrack}
-                />
-                {isOwner && editMode && (localSelectedTrack?.id === t.id || selectedTrack?.id === t.id) && (
-                  <div style={{
-                    position: "absolute",
-                    top: "8px",
-                    left: "8px",
-                    background: "rgba(16, 185, 129, 0.9)",
-                    color: "#fff",
-                    fontSize: "9px",
-                    fontWeight: 700,
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    zIndex: 100,
-                    pointerEvents: "none",
-                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
-                  }}>
-                    Выбран для настройки
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Разделитель */}
-      <div className="at-divider" />
-
-      {/* Секция выбора фона главной страницы трека */}
-      {isOwner && editMode && (localSelectedTrack || selectedTrack) && (
-        <div className="at-background-selector">
-          <BackgroundSelector
-            track={localSelectedTrack || selectedTrack}
-            isOwner={isOwner && editMode}
-            onApply={onApplyBackground}
-          />
-        </div>
+      {/* Блок выбора фона страницы артиста (справа) */}
+      {isOwner === true && editMode === true && (
+        <ArtistPageBackground
+          artist={artist}
+          isOwner={isOwner}
+          editMode={editMode}
+          onUpdate={onUpdate}
+        />
       )}
-      
-      {isOwner && editMode && !localSelectedTrack && !selectedTrack && (
-        <div className="at-background-selector">
-          <div style={{
-            padding: "20px",
-            textAlign: "center",
-            opacity: 0.7,
-            fontSize: "14px",
-          }}>
-            Выберите трек для настройки фона
-          </div>
-        </div>
+
+      {/* Блок выбора фона страницы артиста (слева, из backgrounds.css) */}
+      {isOwner === true && editMode === true && (
+        <ArtistPageBackgroundLeft
+          artist={artist}
+          isOwner={isOwner}
+          editMode={editMode}
+          onUpdate={onUpdate}
+        />
       )}
+
     </section>
   );
 }

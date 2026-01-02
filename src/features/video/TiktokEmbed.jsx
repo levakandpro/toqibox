@@ -9,6 +9,8 @@ export default function TiktokEmbed({ videoId }) {
       src={src}
       allow="encrypted-media; picture-in-picture"
       allowFullScreen
+      scrolling="no"
+      style={{ overflow: "hidden", backgroundColor: "#000000" }}
     />
   );
 }

@@ -1,4 +1,4 @@
-import artistCover from "../../assets/covers/artist-cover-placeholder.png";
+import artistCover from "../../assets/covers/artist-cover-placeholder6.jpg";
 
 import { getMockTrackBySlug } from "../track/track.mock.js";
 

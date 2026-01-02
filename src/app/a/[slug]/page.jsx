@@ -10,8 +10,10 @@ import AddTrackSection from "../../../features/artist/AddTrackSection.jsx";
 import ShareSheet from "../../../features/share/ShareSheet.jsx";
 import CopyNotification from "../../../ui/CopyNotification.jsx";
 import PremiumLoader from "../../../ui/PremiumLoader.jsx";
+import ShaderToyBackground from "../../../features/track/ShaderToyBackground.jsx";
 import { supabase } from "../../../features/auth/supabaseClient.js";
 import { setArtistOgTags, clearOgTags } from "../../../utils/ogTags.js";
+import shareIcon from "../../../assets/share.svg";
 
 export default function ArtistPage() {
   const { slug = "artist" } = useParams();
@@ -26,7 +28,6 @@ export default function ArtistPage() {
   const [devEditEnabled, setDevEditEnabled] = useState(false);
   const [showCopyNotification, setShowCopyNotification] = useState(false);
   const [showAddTrack, setShowAddTrack] = useState(false);
-  const [selectedTrackForBackground, setSelectedTrackForBackground] = useState(null);
 
   const refreshArtist = async () => {
     try {
@@ -57,6 +58,10 @@ export default function ArtistPage() {
           // Функция для извлечения YouTube ID из ссылки
           const extractYoutubeId = (url) => {
             if (!url) return null;
+            // Поддержка Shorts: youtube.com/shorts/VIDEO_ID
+            const shortsMatch = url.match(/youtube\.com\/shorts\/([^"&?\/\s]{11})/);
+            if (shortsMatch) return shortsMatch[1];
+            // Обычные ссылки YouTube
             const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
             const match = url.match(regex);
             return match ? match[1] : null;
@@ -65,6 +70,24 @@ export default function ArtistPage() {
           // Преобразуем треки из БД в формат для TrackCard
           const formattedTracks = (tracksData || []).map(track => {
             const youtubeId = extractYoutubeId(track.link);
+            console.log("🎵 Processing track:", { 
+              id: track.id, 
+              title: track.title, 
+              link: track.link, 
+              youtubeId,
+              hasLink: !!track.link,
+              play_icon: track.play_icon,
+              hasPlayIcon: !!track.play_icon
+            });
+            
+            if (!track.link) {
+              console.warn("⚠️ Track without link:", track.id);
+            }
+            
+            if (!youtubeId && track.link) {
+              console.warn("⚠️ Could not extract YouTube ID from link:", track.link);
+            }
+            
             return {
               id: track.id,
               slug: track.slug,
@@ -72,17 +95,21 @@ export default function ArtistPage() {
               link: track.link,
               cover_key: track.cover_key, // Ключ обложки в R2
               play_icon: track.play_icon || null, // Иконка плеера
+              preview_start_seconds: track.preview_start_seconds || 0, // Время начала превью
+              shadertoy_background_id: track.shadertoy_background_id || null, // ShaderToy фон
               source: track.source || "youtube",
               variant: "video", // По умолчанию video, так как поле variant не существует в БД
               coverUrl: null, // null для fallback в TrackCard
               artistSlug: artistData.slug,
               artistName: artistData.display_name || artistData.name,
               youtubeId: youtubeId,
-              startSeconds: 0,
+              startSeconds: track.preview_start_seconds || 0,
               createdAt: track.created_at,
+              views_count: track.views_count || 0, // Количество просмотров
+              likes_count: track.likes_count || 0, // Количество лайков (Тюбитеек)
             };
           });
-          console.log("🎨 Formatted tracks:", formattedTracks.length);
+          console.log("🎨 Formatted tracks:", formattedTracks.length, formattedTracks);
           setTracks(formattedTracks);
         }
       }
@@ -104,8 +131,18 @@ export default function ArtistPage() {
     return host === "localhost" || host === "127.0.0.1" || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.");
   }, []);
 
-  // Проверяем, является ли текущий пользователь владельцем артиста
+  // ВРЕМЕННО: Отключаем проверку авторизации для локальной разработки
+  // TODO: Вернуть проверку авторизации позже
   useEffect(() => {
+    // ВРЕМЕННО: Всегда делаем пользователя владельцем для локальной разработки
+    if (artist?.id) {
+      setIsOwner(true);
+      console.log("⚠️ ВРЕМЕННО: Режим разработки - пользователь считается владельцем");
+    } else {
+      setIsOwner(false);
+    }
+    
+    /* ЗАКОММЕНТИРОВАНО ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
     const checkOwnership = async () => {
       if (!artist?.id) {
         setIsOwner(false);
@@ -148,6 +185,7 @@ export default function ArtistPage() {
     };
 
     checkOwnership();
+    */
   }, [artist?.id, artist?.user_id]);
 
 
@@ -236,6 +274,10 @@ export default function ArtistPage() {
             // Функция для извлечения YouTube ID из ссылки
             const extractYoutubeId = (url) => {
               if (!url) return null;
+              // Поддержка Shorts: youtube.com/shorts/VIDEO_ID
+              const shortsMatch = url.match(/youtube\.com\/shorts\/([^"&?\/\s]{11})/);
+              if (shortsMatch) return shortsMatch[1];
+              // Обычные ссылки YouTube
               const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
               const match = url.match(regex);
               return match ? match[1] : null;
@@ -244,22 +286,44 @@ export default function ArtistPage() {
             // Преобразуем треки из БД в формат для TrackCard
             const formattedTracks = (tracksData || []).map(track => {
               const youtubeId = extractYoutubeId(track.link);
+              console.log("🎵 Processing track (initial load):", { 
+                id: track.id, 
+                title: track.title, 
+                link: track.link, 
+                youtubeId,
+                hasLink: !!track.link 
+              });
+              
+              if (!track.link) {
+                console.warn("⚠️ Track without link:", track.id);
+              }
+              
+              if (!youtubeId && track.link) {
+                console.warn("⚠️ Could not extract YouTube ID from link:", track.link);
+              }
+              
               return {
                 id: track.id,
                 slug: track.slug,
                 title: track.title,
                 link: track.link,
                 cover_key: track.cover_key, // Ключ обложки в R2
+                play_icon: track.play_icon || null, // Иконка плеера
+                preview_start_seconds: track.preview_start_seconds || 0, // Время начала превью
+                shadertoy_background_id: track.shadertoy_background_id || null, // ShaderToy фон
                 source: track.source || "youtube",
                 variant: "video", // По умолчанию video, так как поле variant не существует в БД
                 coverUrl: null, // null для fallback в TrackCard
                 artistSlug: artistData.slug,
                 artistName: artistData.display_name || artistData.name,
                 youtubeId: youtubeId,
-                startSeconds: 0,
+                startSeconds: track.preview_start_seconds || 0,
                 createdAt: track.created_at,
+                views_count: track.views_count || 0, // Количество просмотров
+                likes_count: track.likes_count || 0, // Количество лайков (Тюбитеек)
               };
             });
+            console.log("🎨 Formatted tracks (initial):", formattedTracks.length, formattedTracks);
             setTracks(formattedTracks);
           }
         } else {
@@ -351,6 +415,13 @@ export default function ArtistPage() {
 
   const handleEditClick = async () => {
     try {
+      // ВРЕМЕННО: Отключаем проверку авторизации для локальной разработки
+      // TODO: Вернуть проверку авторизации позже
+      
+      // ВРЕМЕННО: Просто переходим на /author без проверки
+      navigate("/author", { replace: false });
+      
+      /* ЗАКОММЕНТИРОВАНО ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData?.session;
       
@@ -363,76 +434,29 @@ export default function ArtistPage() {
 
       // Если авторизован, редиректим на /author (который потом редиректит на страницу артиста)
       navigate("/author", { replace: false });
+      */
     } catch (e) {
       console.error("Ошибка при переходе в редактирование:", e);
-      localStorage.setItem("toqibox:returnTo", `/a/${slug}`);
-      navigate("/login", { replace: false });
+      // ВРЕМЕННО: Не редиректим на логин
+      // localStorage.setItem("toqibox:returnTo", `/a/${slug}`);
+      // navigate("/login", { replace: false });
     }
   };
 
+  // Получаем фон из первого трека (последний созданный)
+  const backgroundId = useMemo(() => {
+    if (tracks.length > 0) {
+      // Берем фон из первого трека (самый последний созданный)
+      return tracks[0]?.shadertoy_background_id || null;
+    }
+    return null;
+  }, [tracks]);
+
   return (
     <div className="a-page">
-
-      {/* Переключатель режимов редактирования (только для владельца) */}
-      {isOwner && (
-        <div style={{
-          position: "fixed",
-          top: "12px",
-          right: "12px",
-          zIndex: 1000,
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          background: "rgba(0, 0, 0, 0.7)",
-          backdropFilter: "blur(10px)",
-          padding: "6px 12px",
-          borderRadius: "20px",
-          border: "1px solid rgba(255, 255, 255, 0.2)",
-        }}>
-          <span style={{
-            fontSize: "12px",
-            color: "rgba(255, 255, 255, 0.7)",
-            fontWeight: 600,
-            letterSpacing: "0.5px",
-          }}>
-            {editMode ? "РЕДАКТИРОВАНИЕ" : "ПРОСМОТР"}
-          </span>
-          <button
-            type="button"
-            onClick={() => setEditMode(!editMode)}
-            style={{
-              width: "40px",
-              height: "20px",
-              borderRadius: "10px",
-              background: editMode ? "#10b981" : "rgba(255, 255, 255, 0.2)",
-              border: "none",
-              cursor: "pointer",
-              position: "relative",
-              transition: "all 0.3s ease",
-              outline: "none",
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.boxShadow = editMode 
-                ? "0 0 8px rgba(16, 185, 129, 0.5)" 
-                : "0 0 8px rgba(255, 255, 255, 0.2)";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.boxShadow = "none";
-            }}
-          >
-            <div style={{
-              position: "absolute",
-              top: "2px",
-              left: editMode ? "22px" : "2px",
-              width: "16px",
-              height: "16px",
-              borderRadius: "50%",
-              background: "#fff",
-              transition: "all 0.3s ease",
-              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
-            }} />
-          </button>
-        </div>
+      {/* ShaderToy фон из первого трека (если выбран) */}
+      {backgroundId && (
+        <ShaderToyBackground backgroundId={backgroundId} />
       )}
 
       {/* Кнопка входа для неавторизованных */}
@@ -471,7 +495,15 @@ export default function ArtistPage() {
         </div>
       )}
 
-      <ArtistHeader artist={artist} isOwner={isOwner && editMode} onUpdate={refreshArtist} />
+
+      <ArtistHeader 
+        artist={artist} 
+        isOwner={isOwner} 
+        onUpdate={refreshArtist} 
+        editMode={editMode}
+        onToggleEditMode={() => setEditMode(!editMode)}
+        onShare={() => setShareOpen(true)}
+      />
 
       {/* Модальное окно для добавления трека */}
       {isOwner && editMode && showAddTrack && (
@@ -529,34 +561,6 @@ export default function ArtistPage() {
           onUpdate={refreshArtist}
           tracks={tracks}
           onAddTrack={() => setShowAddTrack(true)}
-          selectedTrack={selectedTrackForBackground}
-          onApplyBackground={async (backgroundId) => {
-            if (!selectedTrackForBackground?.id) return;
-            
-            try {
-              const { error } = await supabase
-                .from("tracks")
-                .update({ shadertoy_background_id: backgroundId })
-                .eq("id", selectedTrackForBackground.id);
-              
-              if (error) throw error;
-              
-              await refreshArtist();
-              // Обновляем selectedTrack
-              const updatedTrack = tracks.find(t => t.id === selectedTrackForBackground.id);
-              if (updatedTrack) {
-                setSelectedTrackForBackground({ ...updatedTrack, shadertoy_background_id: backgroundId });
-              }
-            } catch (error) {
-              console.error("Error applying background:", error);
-              throw error;
-            }
-          }}
-          onTrackClick={(track) => {
-            if (isOwner && editMode) {
-              setSelectedTrackForBackground(track);
-            }
-          }}
           onCopyLink={async () => {
             const artistUrl = `${window.location.origin}/a/${slug}`;
             try {
@@ -590,7 +594,7 @@ export default function ArtistPage() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         url={shareUrl}
-        title="TOQIBOX"
+        title={artist?.display_name || artist?.name || "TOQIBOX"}
       />
 
       <CopyNotification 

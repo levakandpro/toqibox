@@ -7,7 +7,9 @@ import deleteIcon from "../../assets/icons/delete.svg";
 import CopyNotification from "../../ui/CopyNotification.jsx";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import { uploadCover, getR2Url } from "../../utils/r2Upload.js";
-import { PLAY_ICONS, DEFAULT_PLAY_ICON, getPlayIconObject } from "../../utils/playIcons.js";
+import { PLAY_ICONS, DEFAULT_PLAY_ICON, getPlayIcon, getPlayIconObject } from "../../utils/playIcons.js";
+import { SHADERTOY_BACKGROUNDS } from "../../utils/shadertoyBackgrounds.js";
+import ShaderToyPreview from "./ShaderToyPreview.jsx";
 
 export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) {
   const [showNotification, setShowNotification] = useState(false);
@@ -18,10 +20,18 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
   const [editCoverPreview, setEditCoverPreview] = useState(null);
   const [editPlayIcon, setEditPlayIcon] = useState(track.play_icon || DEFAULT_PLAY_ICON);
   const [editPreviewStartSeconds, setEditPreviewStartSeconds] = useState(track.preview_start_seconds || 0);
+  const [editBackground, setEditBackground] = useState(track.shadertoy_background_id || null);
   const [saving, setSaving] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [coverLoadError, setCoverLoadError] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Закрываем форму редактирования, если вышли из режима редактирования
+  useEffect(() => {
+    if (!isOwner && showEditForm) {
+      setShowEditForm(false);
+    }
+  }, [isOwner, showEditForm]);
 
   // Получаем обложку: сначала превью, потом кастомная из R2, потом cover.png по умолчанию
   const coverUrl = useMemo(() => {
@@ -95,6 +105,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
     setEditTitle(track.title);
     setEditLink(track.link || "");
     setEditPlayIcon(track.play_icon || DEFAULT_PLAY_ICON);
+    setEditBackground(track.shadertoy_background_id || null);
   };
 
   const handleSaveEdit = async (e) => {
@@ -132,6 +143,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
         cover_key: coverKey,
         play_icon: editPlayIcon,
         preview_start_seconds: Number(editPreviewStartSeconds) || 0,
+        shadertoy_background_id: editBackground || null,
       });
       
       setShowEditForm(false);
@@ -275,6 +287,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
           cover_key: uploadResult.key,
           play_icon: editPlayIcon,
           preview_start_seconds: Number(editPreviewStartSeconds) || 0,
+          shadertoy_background_id: editBackground || null,
         });
         console.log("✅ cover_key обновлен в БД");
       }
@@ -295,6 +308,7 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
               cover_key: tempKey,
               play_icon: editPlayIcon,
               preview_start_seconds: Number(editPreviewStartSeconds) || 0,
+              shadertoy_background_id: editBackground || null,
             });
             console.log("✅ cover_key сохранен в БД (локальная разработка)");
             // Превью остается видимым, так как файл не загружен в R2
@@ -647,6 +661,106 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
               })}
             </div>
           </div>
+
+          {/* Выбор фона главной страницы трека */}
+          <div>
+            <label style={{ 
+              fontSize: "11px", 
+              fontWeight: 600,
+              color: "rgba(255, 255, 255, 0.85)",
+              marginBottom: "8px",
+              display: "block",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}>
+              Фон главной страницы трека
+            </label>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
+              gap: "8px",
+              padding: "10px",
+              background: "rgba(0, 0, 0, 0.3)",
+              borderRadius: "12px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              maxHeight: "200px",
+              overflowY: "auto",
+            }}>
+              {SHADERTOY_BACKGROUNDS.map((bg) => {
+                const isSelected = editBackground === bg.id;
+                return (
+                  <button
+                    key={bg.id}
+                    type="button"
+                    onClick={() => setEditBackground(isSelected ? null : bg.id)}
+                    disabled={saving}
+                    style={{
+                      position: "relative",
+                      aspectRatio: "16 / 9",
+                      borderRadius: "6px",
+                      overflow: "hidden",
+                      border: isSelected 
+                        ? "2px solid #10b981" 
+                        : "1px solid rgba(255, 255, 255, 0.2)",
+                      cursor: saving ? "not-allowed" : "pointer",
+                      transition: "all 0.2s ease",
+                      opacity: saving ? 0.5 : 1,
+                      background: "#000",
+                    }}
+                    title={bg.name}
+                  >
+                    {/* Превью ShaderToy - реальное превью через WebGL */}
+                    <ShaderToyPreview 
+                      backgroundId={bg.id}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                      }}
+                    />
+                    {isSelected && (
+                      <div style={{
+                        position: "absolute",
+                        top: "4px",
+                        right: "4px",
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "50%",
+                        background: "#10b981",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                        color: "#fff",
+                        fontWeight: "bold",
+                        zIndex: 10,
+                      }}>
+                        ✓
+                      </div>
+                    )}
+                    <div style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      background: "linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 100%)",
+                      padding: "4px",
+                      fontSize: "8px",
+                      color: "#fff",
+                      fontWeight: 600,
+                      textOverflow: "ellipsis",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {bg.name}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           
           {/* Кнопки - компактные */}
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "8px" }}>
@@ -742,7 +856,6 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
           cursor: "pointer",
           textDecoration: "none",
           display: "flex",
-          backgroundImage: `url(${coverUrl})`,
           position: "relative",
           zIndex: 1,
         }}
@@ -769,36 +882,19 @@ export default function TrackCard({ track, isOwner = false, onEdit, onDelete }) 
           </div>
         )}
 
-        {/* Круглая обложка сверху */}
-        <div
+        {/* Обложка трека */}
+        <div 
           className="tc-cover"
-          style={{ 
+          style={{
             backgroundImage: `url(${coverUrl})`,
           }}
-          aria-hidden="true"
-        >
-          {/* Скрытое изображение для проверки загрузки R2 URL */}
-          {track.cover_key && !editCoverPreview && (
-            <img
-              src={getR2Url(track.cover_key)}
-              alt=""
-              style={{ display: "none" }}
-              onError={() => {
-                console.warn("⚠️ Ошибка загрузки обложки из R2, используем дефолт:", getR2Url(track.cover_key));
-                setCoverLoadError(true);
-              }}
-              onLoad={() => {
-                setCoverLoadError(false);
-              }}
-            />
-          )}
-        </div>
+          onError={() => {
+            setCoverLoadError(true);
+          }}
+        />
 
         <div className="tc-right">
-          {/* Название артиста под аватаркой */}
-          <div className="tc-artist">{track.artistName}</div>
-          
-          {/* Название трека ниже */}
+          {/* Название трека */}
           <div className="tc-title">{track.title}</div>
         </div>
       </Link>

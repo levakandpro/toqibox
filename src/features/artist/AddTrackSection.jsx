@@ -12,6 +12,11 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
 
   // Функция для извлечения YouTube ID из ссылки
   const extractYoutubeId = (url) => {
+    if (!url) return null;
+    // Поддержка Shorts: youtube.com/shorts/VIDEO_ID
+    const shortsMatch = url.match(/youtube\.com\/shorts\/([^"&?\/\s]{11})/);
+    if (shortsMatch) return shortsMatch[1];
+    // Обычные ссылки YouTube
     const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const match = url.match(regex);
     return match ? match[1] : null;
@@ -37,20 +42,30 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
         .replace(/^-|-$/g, "");
       const slug = `${slugBase}-${Date.now()}`;
 
-      const { error } = await supabase
+      // Собираем данные для вставки только с существующими полями
+      const insertData = {
+        artist_id: artist.id,
+        title: newTrack.title.trim(),
+        source: "youtube",
+        link: newTrack.link.trim(),
+        slug: slug,
+      };
+
+      console.log("📤 Inserting track data:", insertData);
+
+      const { error, data } = await supabase
         .from("tracks")
-        .insert({
-          artist_id: artist.id,
-          title: newTrack.title.trim(),
-          source: "youtube",
-          link: newTrack.link.trim(), // Сохраняем полную ссылку
-          slug: slug,
-        });
+        .insert(insertData);
 
       if (error) {
         console.error("❌ Supabase insert error:", error);
+        console.error("❌ Error details:", JSON.stringify(error, null, 2));
+        console.error("❌ Error code:", error.code);
+        console.error("❌ Error message:", error.message);
         throw error;
       }
+
+      console.log("✅ Insert successful, data:", data);
 
       console.log("✅ Track added successfully");
 

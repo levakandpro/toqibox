@@ -13,6 +13,13 @@ CREATE TABLE tracks (
   source TEXT NOT NULL DEFAULT 'youtube',
   link TEXT NOT NULL,
   cover_key TEXT,
+  play_icon TEXT DEFAULT NULL,
+  preview_start_seconds INTEGER DEFAULT 0,
+  shadertoy_background_id TEXT DEFAULT NULL,
+  shorts_link TEXT DEFAULT NULL,
+  tiktok_link TEXT DEFAULT NULL,
+  reels_link TEXT DEFAULT NULL,
+  vertical_video_source TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

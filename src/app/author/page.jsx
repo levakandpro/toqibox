@@ -86,6 +86,7 @@ export default function AuthorPage() {
   const [fatal, setFatal] = useState("");
   const [showAddTrack, setShowAddTrack] = useState(false);
   const [tracks, setTracks] = useState([]);
+  const [editMode, setEditMode] = useState(true); // На странице /author всегда режим редактирования
 
   const [saving, setSaving] = useState(false);
 
@@ -117,6 +118,10 @@ export default function AuthorPage() {
       // Функция для извлечения YouTube ID из ссылки
       const extractYoutubeId = (url) => {
         if (!url) return null;
+        // Поддержка Shorts: youtube.com/shorts/VIDEO_ID
+        const shortsMatch = url.match(/youtube\.com\/shorts\/([^"&?\/\s]{11})/);
+        if (shortsMatch) return shortsMatch[1];
+        // Обычные ссылки YouTube
         const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
         const match = url.match(regex);
         return match ? match[1] : null;
@@ -154,6 +159,27 @@ export default function AuthorPage() {
   // Функция для обновления данных артиста и треков
   const refreshArtist = async () => {
     try {
+      // ВРЕМЕННО: Отключаем проверку авторизации для локальной разработки
+      if (!artist?.id) return;
+      
+      // ВРЕМЕННО: Загружаем артиста по ID без проверки пользователя
+      const { data: artistData, error: artistError } = await supabase
+        .from("artists")
+        .select("*")
+        .eq("id", artist.id)
+        .maybeSingle();
+
+      if (artistError) {
+        console.error("Error refreshing artist:", artistError);
+        return;
+      }
+
+      if (artistData) {
+        setArtist(artistData);
+        await loadTracks(artistData.id);
+      }
+      
+      /* ЗАКОММЕНТИРОВАНО ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData?.session;
       if (!session?.user) return;
@@ -163,6 +189,7 @@ export default function AuthorPage() {
         setArtist(a);
         await loadTracks(a.id);
       }
+      */
     } catch (e) {
       console.error("Error refreshing artist:", e);
     }
@@ -189,20 +216,22 @@ export default function AuthorPage() {
         }
 
         const user = session.user;
-        const a = await getArtistForUser(user);
+        
+        // Ищем артиста для этого пользователя
+        let a = await getArtistForUser(user);
 
         if (!alive || redirected) return;
 
-        // Если артиста нет - показываем заглушку
+        // Если артиста нет - создаем автоматически
         if (!a) {
-          setArtist(null);
-          setLoading(false);
-          return;
+          console.log("🎨 Артист не найден, создаем автоматически для пользователя:", user.id);
+          a = await createArtistForUser(user);
+          console.log("✅ Артист создан:", a.slug);
         }
 
-        // Если артист есть - показываем страницу редактирования (не редиректим)
-        // Редактирование происходит прямо на /author
         if (!alive || redirected) return;
+
+        // Показываем страницу редактирования
         setArtist(a);
         await loadTracks(a.id);
         setLoading(false);
@@ -228,10 +257,22 @@ export default function AuthorPage() {
       const session = sessionData?.session;
       if (!session) {
         setSaving(false);
+        navigate("/login", { replace: true });
         return;
       }
 
       const user = session.user;
+      
+      // Проверяем, нет ли уже артиста
+      const existing = await getArtistForUser(user);
+      if (existing) {
+        // Если артист уже есть, просто редиректим на его страницу
+        navigate(`/a/${existing.slug}`, { replace: true });
+        setSaving(false);
+        return;
+      }
+
+      // Создаем нового артиста
       const created = await createArtistForUser(user);
 
       // Редиректим на публичную страницу артиста
@@ -259,12 +300,15 @@ export default function AuthorPage() {
           <button
             className="author-fatal__btn"
             onClick={() => {
-              localStorage.setItem("toqibox:returnTo", "/author");
-              navigate("/login", { replace: true });
+              // ВРЕМЕННО: Отключаем редирект на логин для локальной разработки
+              // localStorage.setItem("toqibox:returnTo", "/author");
+              // navigate("/login", { replace: true });
+              // ВРЕМЕННО: Просто перезагружаем страницу
+              window.location.reload();
             }}
             type="button"
           >
-            Войти заново
+            Обновить страницу
           </button>
         </div>
       </div>
@@ -330,7 +374,14 @@ export default function AuthorPage() {
   // EDIT PAGE (CANON) - если артист есть
   return (
     <div className="a-page is-edit">
-      <ArtistHeader artistSlug={artist.slug} artist={artist} isOwner={true} onUpdate={refreshArtist} />
+      <ArtistHeader 
+        artistSlug={artist.slug} 
+        artist={artist} 
+        isOwner={true} 
+        onUpdate={refreshArtist}
+        editMode={editMode}
+        onToggleEditMode={() => setEditMode(!editMode)}
+      />
 
       {showAddTrack && (
         <AddTrackSection 
@@ -349,6 +400,7 @@ export default function AuthorPage() {
           artistSlug={artist.slug}
           artist={artist}
           isOwner={true}
+          editMode={true} // В кабинете всегда режим редактирования
           onShare={() => setShareOpen(true)}
           onUpdate={refreshArtist}
           tracks={tracks}

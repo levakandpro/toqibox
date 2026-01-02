@@ -1,0 +1,181 @@
+/* PaymentPage.css */
+:root {
+  --accent: #00ffa3;
+  --bg-dark: #080808;
+  --card-bg: rgba(18, 18, 18, 0.8);
+  --border: rgba(255, 255, 255, 0.08);
+  --text-main: #ffffff;
+  --text-secondary: #86868b;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pay-root { min-height: 100vh; }
+
+.container {
+  position: relative;
+  min-height: 100vh;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Абстрактный дорогой фон */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(0, 255, 163, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(80, 120, 255, 0.05) 0%, transparent 40%);
+  z-index: 0;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  animation: fadeIn 1s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Хедер */
+.header { text-align: center; margin-bottom: 32px; }
+.header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 0; }
+.header p { color: var(--text-secondary); font-size: 15px; margin-top: 8px; }
+
+/* Тариф и сумма */
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+.badge {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(0, 255, 163, 0.1);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.amount { font-size: 18px; font-weight: 700; }
+
+/* QR Секция - СТРОГИЙ КВАДРАТ */
+.qr-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(30px);
+  border-radius: 24px;
+  padding: 30px;
+  text-align: center;
+  position: relative;
+}
+
+.qr-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #fff;
+  border-radius: 16px;
+  padding: 10px;
+  margin: 0 auto 20px;
+  box-shadow: 0 0 40px rgba(0, 255, 163, 0.1);
+  overflow: hidden;
+}
+
+.qr-frame img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Эффект лазерного сканирования */
+.scanner-line {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 15px var(--accent);
+  animation: scan 3s linear infinite;
+  z-index: 2;
+}
+@keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+
+.muted { color: var(--text-secondary); font-size: 13px; margin: 0; }
+
+/* Загрузка чека */
+.upload-area {
+  margin-top: 20px;
+  border: 1px dashed var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.02);
+}
+.upload-area:active { background: rgba(0, 255, 163, 0.05); border-color: var(--accent); }
+.upload-area label { display: block; cursor: pointer; }
+.upload-icon { font-size: 24px; margin-bottom: 8px; display: block; }
+.upload-text { font-size: 14px; font-weight: 500; color: var(--text-main); }
+
+input[type="file"] { display: none; }
+
+/* Статус чека */
+.preview-box {
+  margin-top: 16px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  animation: popIn 0.3s ease-out;
+}
+@keyframes popIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.preview-box img { width: 100%; display: block; }
+
+/* Кнопка */
+.main-btn {
+  width: 100%;
+  background: var(--text-main);
+  color: var(--bg-dark);
+  border: none;
+  height: 60px;
+  border-radius: 18px;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 24px;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.main-btn:active { transform: scale(0.96); }
+
+.main-btn:active {
+  transform: scale(0.97) translateY(2px);
+  box-shadow: inset 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.main-btn.is-green { background: var(--accent); }
+
+.warning {
+  margin-top: 32px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 0 20px;
+}
+.warning b { color: #ff3b30; }

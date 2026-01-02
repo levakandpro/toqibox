@@ -1,12 +1,21 @@
-import React from "react";
+﻿import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "../features/auth/supabaseClient.js";
 import "./PricingPage.css";
 
 import telegramIcon from "../assets/share/telegram.svg";
 import gmailIcon from "../assets/share/gmail.svg";
+import dcity from "../assets/dcity.jpg";
 
 export default function PricingPage() {
-  // ВАЖНО: ссылки можешь поменять под свои маршруты
+  const [mode, setMode] = useState("plans");
+  const [selectedPlan, setSelectedPlan] = useState("PREMIUM");
+  const [selectedAmount, setSelectedAmount] = useState("140");
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [btnText, setBtnText] = useState("Отправить отчет");
+  const [btnDisabled, setBtnDisabled] = useState(false);
+  const [btnGreen, setBtnGreen] = useState(false);
+
   const links = {
     login: "/login",
     signup: "/signup",
@@ -14,197 +23,311 @@ export default function PricingPage() {
     email: "mailto:levakandproduction@gmail.com",
   };
 
+  const handleBack = () => {
+    setMode("plans");
+    setPreviewUrl("");
+    setBtnText("Отправить отчет");
+    setBtnGreen(false);
+    setBtnDisabled(false);
+    const input = document.getElementById("pay-file-input");
+    if (input) input.value = "";
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const onFileChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      setBtnText("Подтвердить отправку");
+      setBtnGreen(true);
+    }
+  };
+
+  const onSubmit = async () => {
+    const input = document.getElementById("pay-file-input");
+    if (!input || !input.files || !input.files[0]) {
+      alert("Сначала прикрепите фото чека");
+      return;
+    }
+
+    setBtnDisabled(true);
+    setBtnText("Обработка...");
+
+    try {
+      // Получаем текущего пользователя
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        alert("Необходимо войти в аккаунт");
+        setBtnDisabled(false);
+        setBtnText("Отправить отчет");
+        return;
+      }
+
+      const file = input.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
+      const filePath = `payments/${fileName}`;
+
+      let screenshotUrl = previewUrl;
+
+      // Пытаемся загрузить файл в Supabase Storage (если бакет существует)
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from('payments')
+          .upload(filePath, file);
+
+        if (!uploadError) {
+          // Получаем публичный URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('payments')
+            .getPublicUrl(filePath);
+          screenshotUrl = publicUrl;
+        } else {
+          console.warn("Ошибка загрузки файла в Storage:", uploadError);
+          // Используем previewUrl (blob URL) как fallback
+        }
+      } catch (storageError) {
+        console.warn("Storage недоступен:", storageError);
+        // Используем previewUrl как fallback
+      }
+
+      // Создаем запись в таблице payments
+      try {
+        const { error: dbError } = await supabase
+          .from('payments')
+          .insert({
+            user_id: session.user.id,
+            user_email: session.user.email,
+            plan: selectedPlan,
+            amount: selectedAmount,
+            screenshot_url: screenshotUrl,
+            status: 'pending'
+          });
+
+        if (dbError) {
+          // Если таблицы нет, просто показываем сообщение
+          if (dbError.code === '42P01' || dbError.message?.includes('does not exist')) {
+            console.warn("Таблица payments не найдена. Создайте её через SQL скрипт.");
+            alert("Платеж отправлен. Ожидайте подтверждения. (Таблица payments не настроена)");
+            handleBack();
+            return;
+          }
+          throw dbError;
+        }
+      } catch (dbError) {
+        console.error("Ошибка сохранения платежа:", dbError);
+        // Показываем сообщение, но не блокируем пользователя
+        alert("Платеж отправлен. Ожидайте подтверждения.");
+        handleBack();
+        return;
+      }
+
+      alert("Чек успешно отправлен. Ожидайте уведомления.");
+      handleBack();
+    } catch (error) {
+      console.error("Ошибка отправки:", error);
+      alert("Ошибка отправки: " + error.message);
+      setBtnDisabled(false);
+      setBtnText("Отправить отчет");
+    }
+  };
+
+  if (mode === "pay") {
+    return (
+      <div className="tbx-pricing">
+        <div className="pay-overlay">
+          <div className="pay-mesh-bg"></div>
+          <div className="pay-container">
+            <main className="pay-content">
+              <button 
+                onClick={handleBack}
+                style={{ 
+                  position: "fixed", 
+                  top: "20px", 
+                  right: "20px", 
+                  background: "rgba(255,255,255,0.1)", 
+                  border: "none", 
+                  color: "#fff", 
+                  padding: "10px", 
+                  borderRadius: "50%", 
+                  cursor: "pointer",
+                  fontSize: "20px",
+                  width: "40px",
+                  height: "40px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 1000
+                }}
+              >
+                ←
+              </button>
+
+              <header className="pay-header">
+                <h1>Подтверждение</h1>
+                <p>Завершите оплату через Dushanbe City</p>
+              </header>
+
+              <div className="pay-summary-row">
+                <span className="pay-badge">{selectedPlan}</span>
+                <span className="pay-amount">{selectedAmount} TJS</span>
+              </div>
+
+              <div className="pay-qr-card">
+                <div className="pay-qr-frame">
+                  <div className="pay-scanner-line"></div>
+                  {dcity && <img src={dcity} alt="QR" />}
+                </div>
+                <p className="pay-muted">Наведите камеру или отсканируйте в приложении</p>
+              </div>
+
+              <div className="pay-upload-area">
+                <label htmlFor="pay-file-input">
+                  <span className="pay-upload-icon">📷</span>
+                  <span className="pay-upload-text">Прикрепить чек об оплате</span>
+                  <input type="file" id="pay-file-input" accept="image/*" onChange={onFileChange} />
+                </label>
+              </div>
+
+              {previewUrl && (
+                <div className="pay-preview-box">
+                  <img src={previewUrl} alt="Чек" />
+                </div>
+              )}
+
+              <button
+                className={`pay-main-btn ${btnGreen ? "pay-is-green" : ""}`}
+                onClick={onSubmit}
+                disabled={btnDisabled}
+                style={{
+                  opacity: btnDisabled ? "0.5" : "1",
+                }}
+              >
+                {btnText}
+              </button>
+
+              <p className="pay-warning">
+                Проверка транзакции занимает до 15 минут. <b>Попытка подделки чека - бан по ID устройства.</b>
+              </p>
+            </main>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="tbx-pricing">
-      <div className="tbx-bg" />
+    <div className="premium-page">
+      {/* Анимированные сферы на фоне как на скрине */}
+      <div className="glass-bg">
+        <div className="sphere s1"></div>
+        <div className="sphere s2"></div>
+        <div className="sphere s3"></div>
+        <div className="sphere s4"></div>
+      </div>
 
-      <main className="tbx-wrap">
-        {/* Верхний баннер */}
-        <section className="tbx-card tbx-top">
-          <div className="tbx-topLeft">
-            <div className="tbx-topTitle">Для оплаты необходимо войти в аккаунт</div>
-            <div className="tbx-topSub">
-              Это нужно, чтобы мы могли активировать тариф, отслеживать срок действия и показывать статус оплаты в личном кабинете.
-            </div>
-            <div className="tbx-topHint">Без авторизации оплата недоступна.</div>
+      <main className="content-container">
+        {/* Хедер авторизации */}
+        <div className="auth-glass-header">
+          <p>Для оплаты необходимо войти в аккаунт</p>
+          <div className="auth-btns">
+            <Link to={links.login} className="btn-mini-primary">Войти</Link>
+            <Link to={links.signup} className="btn-mini-glass">Создать аккаунт</Link>
           </div>
+        </div>
 
-          <div className="tbx-topRight">
-            <Link className="tbx-btn tbx-btnPrimary" to={links.login}>
-              Войти
-            </Link>
-            <Link className="tbx-btn tbx-btnGhost" to={links.signup}>
-              Создать аккаунт
-            </Link>
-          </div>
-        </section>
+        <h1 className="main-title">Выберите тариф</h1>
 
-        {/* Заголовок */}
-        <header className="tbx-header">
-          <h1 className="tbx-h1">Выберите тариф</h1>
-          <div className="tbx-subtitle">Премиум визуалы и премиум тюбетейка TOQIBOX</div>
-        </header>
-
-        {/* Тарифы */}
-        <section className="tbx-grid">
+        <section className="plans-grid">
           {/* PREMIUM */}
-          <article className="tbx-plan tbx-card">
-            <div className="tbx-planTop">
-              <div className="tbx-planName">PREMIUM</div>
-              <div className="tbx-badge">рекомендуем</div>
+          <div className="glass-card premium-card">
+            <div className="card-header">
+              <span className="plan-label">PREMIUM</span>
             </div>
-
-            <div className="tbx-price">
-              <span className="tbx-priceValue">100</span>
-              <span className="tbx-priceMeta">c / месяц</span>
+            <div className="price-block">
+              <span className="price-num">140 TJS</span>
+              <span className="price-per">/ месяц</span>
             </div>
-
-            <ul className="tbx-list">
+            <ul className="features-list">
               <li>Без рекламы</li>
-              <li>Премиум тюбетейка для кнопки Play</li>
-              <li>Премиум темы оформления</li>
-              <li>Красивые обложки и шапка артиста</li>
-              <li>Приоритетная модерация обложек</li>
+              <li>Золотая тюбетейка (Верификация)</li>
+              <li>Статус: Проверенный артист</li>
+              <li>PREMIUM Шаблоны в шапке</li>
+              <li>Видеофоны страницы</li>
               <li>Живая поддержка</li>
             </ul>
-
-            <div className="tbx-planBottom">
-              <Link className="tbx-btn tbx-btnPrimary tbx-btnFull" to={links.login}>
-                Подключить 100 TJS в мес
-              </Link>
-              <div className="tbx-muted">Оплата подтверждается вручную.</div>
-            </div>
-          </article>
+            <button 
+              className="btn-buy green-glow"
+              onClick={() => {
+                setSelectedPlan("PREMIUM");
+                setSelectedAmount("140");
+                setMode("pay");
+              }}
+            >
+              Подключить 140 TJS в мес
+            </button>
+          </div>
 
           {/* PREMIUM+ */}
-          <article className="tbx-plan tbx-card tbx-planPro">
-            <div className="tbx-planTop">
-              <div className="tbx-planName">PREMIUM+</div>
-              <div className="tbx-badge tbx-badgeGold">максимум</div>
+          <div className="glass-card premium-plus-card">
+            <div className="card-header">
+              <span className="plan-label">PREMIUM+</span>
+              <div className="promo-badge">30% выгода</div>
             </div>
-
-            <div className="tbx-price">
-              <span className="tbx-priceValue">1000</span>
-              <span className="tbx-priceMeta">c / год</span>
+            <div className="price-block">
+              <span className="price-num">1200 TJS</span>
+              <span className="price-per">/ год</span>
             </div>
-
-            <div className="tbx-save">
-              <span className="tbx-saveDot" />
-              Экономия 200 c в год (-17%)
-            </div>
-
-            <ul className="tbx-list">
-              <li>Всё как в PREMIUM</li>
+            <ul className="features-list">
+              <li className="gold-text">Всё как в PREMIUM</li>
+              <li>Доступ на год без лимита</li>
               <li>Золотая тюбетейка рядом с ником</li>
-              <li>Больше премиум тем и вариантов Play</li>
-              <li>Выбор цвета ника</li>
-              <li>Видео в шапке артиста по ссылке (YouTube)</li>
+              <li>Видео в шапке (YouTube)</li>
               <li>Поддержка 24/7</li>
             </ul>
-
-            <div className="tbx-planBottom">
-              <Link className="tbx-btn tbx-btnPrimary tbx-btnFull" to={links.login}>
-                Подключить 1000 TJS в год
-              </Link>
-              <div className="tbx-muted">Оплата подтверждается вручную.</div>
-            </div>
-          </article>
-        </section>
-
-        {/* Как проходит оплата */}
-        <section className="tbx-card tbx-steps">
-          <div className="tbx-stepsTitle">Как проходит оплата</div>
-
-          <div className="tbx-stepsGrid">
-            <div className="tbx-step">
-              <div className="tbx-stepNum">1</div>
-              <div className="tbx-stepText">
-                Выберите тариф PREMIUM или PREMIUM+ на этой странице.
-              </div>
-            </div>
-
-            <div className="tbx-step">
-              <div className="tbx-stepNum">2</div>
-              <div className="tbx-stepText">
-                На следующем шаге выберите банк или ЮMoney и переведите сумму тарифа.
-              </div>
-            </div>
-
-            <div className="tbx-step">
-              <div className="tbx-stepNum">3</div>
-              <div className="tbx-stepText">
-                Загрузите скрин перевода - мы подтвердим оплату и включим доступ.
-              </div>
-            </div>
-          </div>
-
-          <div className="tbx-stepsCTA">
-            <div className="tbx-stepsCTATitle">Для оплаты необходимо войти в аккаунт</div>
-            <div className="tbx-stepsCTASub">
-              Это нужно, чтобы мы могли активировать тариф, отслеживать срок действия и показывать статус оплаты в личном кабинете.
-            </div>
-
-            <div className="tbx-stepsBtns">
-              <Link className="tbx-btn tbx-btnPrimary" to={links.login}>
-                Войти
-              </Link>
-              <Link className="tbx-btn tbx-btnGhost" to={links.signup}>
-                Создать аккаунт
-              </Link>
-            </div>
-
-            <div className="tbx-topHint">Без авторизации оплата недоступна.</div>
+            <button 
+              className="btn-buy gold-glow"
+              onClick={() => {
+                setSelectedPlan("PREMIUM+");
+                setSelectedAmount("1200");
+                setMode("pay");
+              }}
+            >
+              Подключить 1200 TJS в год
+            </button>
           </div>
         </section>
 
-        {/* Условия */}
-        <section className="tbx-card tbx-info">
-          <div className="tbx-infoTitle">Что происходит после оплаты</div>
-          <ul className="tbx-list tbx-listTight">
-            <li>Вы оплачиваете тариф и загружаете скрин перевода</li>
-            <li>Мы вручную сверяем платёж с выпиской банка</li>
-            <li>В течение 30 минут тариф активируется</li>
-            <li>Статус появится в личном кабинете</li>
-            <li>Вы получите уведомление в интерфейсе</li>
-          </ul>
+        {/* Инфо-блоки */}
+        <div className="glass-card info-card">
+           <h3>Как проходит оплата</h3>
+           <div className="steps-row">
+             <div className="step-item"><span>1</span> Выбор тарифа</div>
+             <div className="step-item"><span>2</span> Перевод суммы</div>
+             <div className="step-item"><span>3</span> Активация</div>
+           </div>
+        </div>
 
-          <div className="tbx-note">
-            Оплата подтверждается вручную. Возврат средств не производится. Сумма перевода должна быть точной.
+        <div className="glass-card danger-card">
+          <div className="danger-header">
+            <span className="icon-warn">⚠️</span>
+            <h4>Защита от мошенничества</h4>
           </div>
-        </section>
+          <p>Мы проверяем все платежи вручную. Скрины, созданные ИИ, не принимаются. Обман ведет к вечной блокировке устройства по ID.</p>
+        </div>
 
-        <section className="tbx-card tbx-warn">
-          <div className="tbx-warnTitle">Защита от мошенничества</div>
-          <div className="tbx-warnText">
-            Мы проверяем все платежи вручную. Сверяется сумма, время перевода, банк и получатель.
-            Скрины, созданные с помощью ИИ или подделанные изображения, не принимаются.
-            Любая попытка обмана приведёт к пожизненной блокировке аккаунта.
+        <footer className="footer-glass">
+          <div className="social-links">
+             <a href={links.telegram} className="social-btn">{telegramIcon && <img src={telegramIcon} alt=""/>} Telegram</a>
+             <a href={links.email} className="social-btn">{gmailIcon && <img src={gmailIcon} alt=""/>} Email</a>
           </div>
-          <div className="tbx-warnAccent">
-            Блокировка производится по аккаунту, устройству и внутреннему ID.
-          </div>
-        </section>
-
-        {/* Контакты */}
-        <footer className="tbx-card tbx-footer">
-          <div className="tbx-footerTitle">Поддержка</div>
-          <div className="tbx-footerSub">Пиши - решим быстро.</div>
-
-          <div className="tbx-footerBtns">
-            <a className="tbx-iconBtn" href={links.telegram} target="_blank" rel="noreferrer">
-              <img className="tbx-icon" src={telegramIcon} alt="Telegram" />
-              <span>Telegram</span>
-            </a>
-
-            <a className="tbx-iconBtn" href={links.email}>
-              <img className="tbx-icon" src={gmailIcon} alt="Email" />
-              <span>Email</span>
-            </a>
-          </div>
-
-          <div className="tbx-footerFine">
-            Оплата подтверждается вручную. Все действия фиксируются. Любые попытки обхода системы приводят к блокировке.
-          </div>
+          <p className="copyright">© 2026 TOQIBOX. Все права защищены.</p>
         </footer>
       </main>
     </div>

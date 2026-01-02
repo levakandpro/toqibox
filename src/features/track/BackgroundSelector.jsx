@@ -1,18 +1,31 @@
-import React, { useState } from "react";
-import { SHADERTOY_BACKGROUNDS, getShaderToyEmbedUrl } from "../../utils/shadertoyBackgrounds.js";
+import React, { useState, useEffect } from "react";
+import { SHADERTOY_BACKGROUNDS } from "../../utils/shadertoyBackgrounds.js";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
+import ShaderToyPreview from "./ShaderToyPreview.jsx";
 
-export default function BackgroundSelector({ track, isOwner = false, onApply }) {
+export default function BackgroundSelector({ track = null, isOwner = false, onApply, selectedBackgroundId, onSelect, title = "Фон страницы трека" }) {
   const [applying, setApplying] = useState(false);
-  const [selectedBackground, setSelectedBackground] = useState(track?.shadertoy_background_id || null);
+  const [selectedBackground, setSelectedBackground] = useState(selectedBackgroundId || (track?.shadertoy_background_id ?? null));
   
-  // Обновляем выбранный фон при изменении трека
+  // Обновляем выбранный фон при изменении трека или пропса
   useEffect(() => {
-    setSelectedBackground(track?.shadertoy_background_id || null);
-  }, [track?.shadertoy_background_id]);
+    setSelectedBackground(selectedBackgroundId || (track?.shadertoy_background_id ?? null));
+  }, [track?.shadertoy_background_id, selectedBackgroundId]);
 
   const handleApply = async (backgroundId) => {
-    if (!onApply || applying) return;
+    if (applying) return;
+    
+    // Если есть onSelect (для TrackEditForm), просто вызываем его
+    if (onSelect) {
+      onSelect(backgroundId);
+      setSelectedBackground(backgroundId);
+      return;
+    }
+    
+    // Иначе используем onApply (для старого API)
+    if (!onApply || !track) {
+      return;
+    }
     
     setApplying(true);
     try {
@@ -29,27 +42,87 @@ export default function BackgroundSelector({ track, isOwner = false, onApply }) 
   if (!isOwner) return null;
 
   return (
-    <div style={{
-      padding: "20px 0",
-    }}>
-      <div style={{
-        fontSize: "14px",
-        fontWeight: 600,
-        color: "rgba(255, 255, 255, 0.9)",
-        marginBottom: "16px",
-        textTransform: "uppercase",
-        letterSpacing: "0.5px",
-      }}>
-        Выбор фона главной страницы трека
-      </div>
-
+    <div>
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-        gap: "12px",
+        gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
+        gap: "8px",
+        maxHeight: "200px",
+        overflowY: "auto",
       }}>
+        {/* Кнопка "Нет" для сброса фона */}
+        <button
+          type="button"
+          onClick={() => handleApply(null)}
+          style={{
+            aspectRatio: "1",
+            padding: "4px",
+            background: selectedBackground === null
+              ? "linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(124, 58, 237, 0.4) 100%)"
+              : "rgba(255, 255, 255, 0.05)",
+            border: selectedBackground === null
+              ? "2px solid rgba(139, 92, 246, 0.9)"
+              : "1px solid rgba(255, 255, 255, 0.15)",
+            borderRadius: "8px",
+            boxShadow: selectedBackground === null
+              ? "0 0 0 2px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
+              : "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.2s",
+            position: "relative",
+          }}
+          onMouseEnter={(e) => {
+            if (selectedBackground !== null) {
+              e.target.style.background = "rgba(255, 255, 255, 0.1)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
+              e.target.style.transform = "scale(1.05)";
+              e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.3)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (selectedBackground !== null) {
+              e.target.style.background = "rgba(255, 255, 255, 0.05)";
+              e.target.style.borderColor = "rgba(255, 255, 255, 0.15)";
+              e.target.style.transform = "scale(1)";
+              e.target.style.boxShadow = "none";
+            }
+          }}
+          title="Без фона"
+        >
+          <div style={{
+            fontSize: "10px",
+            color: selectedBackground === null ? "#fff" : "rgba(255, 255, 255, 0.6)",
+            fontWeight: 600,
+          }}>
+            Нет
+          </div>
+          {selectedBackground === null && (
+            <div style={{
+              position: "absolute",
+              top: "2px",
+              right: "2px",
+              width: "14px",
+              height: "14px",
+              borderRadius: "50%",
+              background: "rgba(139, 92, 246, 1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "9px",
+              color: "#fff",
+              fontWeight: "bold",
+            }}>
+              ✓
+            </div>
+          )}
+        </button>
+
+        {/* Карточки фонов */}
         {SHADERTOY_BACKGROUNDS.map((bg) => {
-          const isActive = selectedBackground === bg.id;
+          const isSelected = selectedBackground === bg.id;
           const isApplying = applying && selectedBackground === bg.id;
 
           return (
@@ -57,45 +130,73 @@ export default function BackgroundSelector({ track, isOwner = false, onApply }) 
               key={bg.id}
               style={{
                 position: "relative",
-                aspectRatio: "16 / 9",
+                aspectRatio: "1",
                 borderRadius: "8px",
                 overflow: "hidden",
                 background: "rgba(0, 0, 0, 0.4)",
-                border: isActive 
-                  ? "2px solid #10b981" 
-                  : "1px solid rgba(255, 255, 255, 0.2)",
+                border: isSelected
+                  ? "2px solid rgba(139, 92, 246, 0.9)"
+                  : "1px solid rgba(255, 255, 255, 0.15)",
+                boxShadow: isSelected
+                  ? "0 0 0 2px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
+                  : "none",
                 cursor: "pointer",
-                transition: "all 0.2s ease",
+                transition: "all 0.2s",
+                opacity: isApplying ? 0.5 : 1,
               }}
-              onClick={() => !isApplying && handleApply(bg.id)}
+              onMouseEnter={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.background = "rgba(0, 0, 0, 0.5)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.3)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.background = "rgba(0, 0, 0, 0.4)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.boxShadow = "none";
+                }
+              }}
+              onClick={() => handleApply(bg.id)}
             >
               {/* Превью ShaderToy */}
-              <iframe
-                src={getShaderToyEmbedUrl(bg.shaderId)}
+              <div
                 style={{
                   width: "100%",
                   height: "100%",
-                  border: "none",
-                  pointerEvents: "none",
-                  opacity: isApplying ? 0.5 : 1,
+                  position: "relative",
+                  overflow: "hidden",
                 }}
-                title={bg.name}
-              />
+              >
+                <ShaderToyPreview 
+                  backgroundId={bg.id}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                  }}
+                />
+              </div>
 
-              {/* Overlay с названием и кнопкой */}
+              {/* Overlay с названием и статусом/кнопкой */}
               <div style={{
                 position: "absolute",
                 bottom: 0,
                 left: 0,
                 right: 0,
-                background: "linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 100%)",
-                padding: "8px",
+                background: "linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, transparent 100%)",
+                padding: "6px",
                 display: "flex",
                 flexDirection: "column",
                 gap: "4px",
               }}>
                 <div style={{
-                  fontSize: "10px",
+                  fontSize: "9px",
                   fontWeight: 600,
                   color: "#fff",
                   textOverflow: "ellipsis",
@@ -105,17 +206,15 @@ export default function BackgroundSelector({ track, isOwner = false, onApply }) 
                   {bg.name}
                 </div>
 
-                {isActive && (
+                {isSelected ? (
                   <div style={{
-                    fontSize: "9px",
-                    color: "#10b981",
+                    fontSize: "8px",
+                    color: "rgba(139, 92, 246, 1)",
                     fontWeight: 600,
                   }}>
                     Активно
                   </div>
-                )}
-
-                {!isActive && (
+                ) : (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -124,26 +223,43 @@ export default function BackgroundSelector({ track, isOwner = false, onApply }) 
                     }}
                     disabled={isApplying}
                     style={{
-                      padding: "4px 8px",
-                      fontSize: "10px",
+                      padding: "3px 6px",
+                      fontSize: "8px",
                       fontWeight: 600,
                       background: "rgba(139, 92, 246, 0.8)",
                       border: "none",
                       borderRadius: "4px",
                       color: "#fff",
-                      cursor: isApplying ? "default" : "pointer",
-                      opacity: isApplying ? 0.6 : 1,
+                      cursor: isApplying ? "not-allowed" : "pointer",
+                      opacity: isApplying ? 0.5 : 1,
                       transition: "all 0.2s ease",
                     }}
                   >
-                    {isApplying ? (
-                      <PremiumLoader size="tiny" message="saving" />
-                    ) : (
-                      "Применить"
-                    )}
+                    {isApplying ? "..." : "Применить"}
                   </button>
                 )}
               </div>
+
+              {/* Индикатор выбора */}
+              {isSelected && (
+                <div style={{
+                  position: "absolute",
+                  top: "2px",
+                  right: "2px",
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "50%",
+                  background: "rgba(139, 92, 246, 1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "9px",
+                  color: "#fff",
+                  fontWeight: "bold",
+                }}>
+                  ✓
+                </div>
+              )}
             </div>
           );
         })}
