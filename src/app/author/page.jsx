@@ -35,7 +35,7 @@ function randSuffix(len = 6) {
 async function getArtistForUser(user) {
   const { data: existing, error: selErr } = await supabase
     .from("artists")
-    .select("*")
+    .select("*, premium_type, premium_until, created_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -87,6 +87,7 @@ export default function AuthorPage() {
   const [showAddTrack, setShowAddTrack] = useState(false);
   const [tracks, setTracks] = useState([]);
   const [editMode, setEditMode] = useState(true); // На странице /author всегда режим редактирования
+  const [userEmail, setUserEmail] = useState("");
 
   const [saving, setSaving] = useState(false);
 
@@ -163,6 +164,7 @@ export default function AuthorPage() {
       const session = sessionData?.session;
       if (!session?.user) return;
 
+      // Загружаем артиста с полями premium
       const a = await getArtistForUser(session.user);
       if (a) {
         setArtist(a);
@@ -194,6 +196,7 @@ export default function AuthorPage() {
         }
 
         const user = session.user;
+        setUserEmail(user.email || "");
         
         // Ищем артиста для этого пользователя
         let a = await getArtistForUser(user);
@@ -346,9 +349,106 @@ export default function AuthorPage() {
     );
   }
 
+  // Определяем тариф
+  const getTariffInfo = () => {
+    if (!artist) return { type: "БЕСПЛАТНЫЙ", icon: "∞", dates: null };
+    
+    const premiumType = artist.premium_type;
+    const premiumUntil = artist.premium_until;
+    
+    if (!premiumType || !premiumUntil) {
+      return { type: "БЕСПЛАТНЫЙ", icon: "∞", dates: null };
+    }
+    
+    const untilDate = new Date(premiumUntil);
+    const now = new Date();
+    
+    if (untilDate <= now) {
+      return { type: "БЕСПЛАТНЫЙ", icon: "∞", dates: null };
+    }
+    
+    // Находим дату начала - используем created_at артиста
+    // (в будущем можно найти первый платеж из таблицы payments)
+    const createdDate = artist.created_at ? new Date(artist.created_at) : new Date();
+    
+    const type = premiumType === "premium_plus" ? "PREMIUM+" : "PREMIUM";
+    return {
+      type,
+      icon: null,
+      dates: {
+        from: createdDate.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }),
+        to: untilDate.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }),
+      },
+    };
+  };
+
+  const tariffInfo = getTariffInfo();
+
   // EDIT PAGE (CANON) - если артист есть
   return (
     <div className="a-page is-edit">
+      {/* Блок с email и тарифом */}
+      <div style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 1001,
+        background: "rgba(0, 0, 0, 0.85)",
+        backdropFilter: "blur(10px)",
+        borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+        padding: "12px 16px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        flexWrap: "wrap",
+      }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          fontSize: "12px",
+          color: "rgba(255, 255, 255, 0.9)",
+        }}>
+          <span style={{ opacity: 0.7 }}>Email:</span>
+          <span style={{ fontWeight: 600 }}>{userEmail}</span>
+        </div>
+        
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: "12px",
+          color: "rgba(255, 255, 255, 0.9)",
+        }}>
+          <span style={{ opacity: 0.7 }}>Тариф:</span>
+          <span style={{
+            fontWeight: 700,
+            letterSpacing: "0.05em",
+            color: tariffInfo.type === "БЕСПЛАТНЫЙ" ? "rgba(255, 255, 255, 0.8)" : "#C8A24A",
+          }}>
+            {tariffInfo.type}
+          </span>
+          {tariffInfo.icon && (
+            <span style={{
+              fontSize: "16px",
+              marginLeft: "4px",
+              opacity: 0.8,
+            }}>
+              {tariffInfo.icon}
+            </span>
+          )}
+          {tariffInfo.dates && (
+            <span style={{
+              fontSize: "11px",
+              opacity: 0.7,
+              marginLeft: "8px",
+            }}>
+              {tariffInfo.dates.from} - {tariffInfo.dates.to}
+            </span>
+          )}
+        </div>
+      </div>
+
       <ArtistHeader 
         artistSlug={artist.slug} 
         artist={artist} 
