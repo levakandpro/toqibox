@@ -617,6 +617,52 @@ export default function ArtistTracks({
                 </button>
               );
             })}
+            {/* Кнопка выхода - только для владельца на странице /author */}
+            {isOwner === true && editMode === true && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  window.location.href = "/";
+                }}
+                className="at-social"
+                aria-label="Выйти"
+                title="Выйти из аккаунта"
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  position: "relative",
+                  opacity: 0.7,
+                  transition: "opacity 0.2s",
+                  marginLeft: "8px",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.opacity = "1";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.opacity = "0.7";
+                }}
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{ display: "block" }}
+                >
+                  <path
+                    d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9M16 17L21 12M21 12L16 7M21 12H9"
+                    stroke="rgba(255, 255, 255, 0.9)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
