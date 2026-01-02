@@ -1,4 +1,5 @@
-// src/app/create/page.jsx  (ПАТЧ: канон-гейт, /create кидает в /author)
+// src/app/create/page.jsx
+// Страница создания: проверяет авторизацию и редиректит на /author или /login
 
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,34 +13,25 @@ export default function CreatePage() {
 
     const run = async () => {
       try {
-        // ВРЕМЕННО: Отключаем проверку авторизации для локальной разработки
-        // TODO: Вернуть проверку авторизации позже
-        
-        // ВРЕМЕННО: Просто переходим на /author без проверки
-        if (!alive) return;
-        navigate("/author", { replace: true });
-        
-        /* ЗАКОММЕНТИРОВАНО ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
         const { data } = await supabase.auth.getSession();
         const hasSession = !!data?.session;
 
         if (!alive) return;
 
         if (!hasSession) {
-          // вернёмся после логина
+          // Сохраняем путь для возврата после логина
           localStorage.setItem("toqibox:returnTo", "/author");
           navigate("/login", { replace: true });
           return;
         }
 
-        // Канон: редактирование ТОЛЬКО через /author
+        // Если авторизован - редиректим на страницу артиста
         navigate("/author", { replace: true });
-        */
       } catch (e) {
-        console.error("Ошибка при переходе в кабинет:", e);
-        // ВРЕМЕННО: Не редиректим на логин
-        // localStorage.setItem("toqibox:returnTo", "/author");
-        // navigate("/login", { replace: true });
+        console.error("Ошибка при проверке авторизации:", e);
+        // При ошибке тоже редиректим на логин
+        localStorage.setItem("toqibox:returnTo", "/author");
+        navigate("/login", { replace: true });
       }
     };
 
@@ -52,7 +44,7 @@ export default function CreatePage() {
 
   return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 20 }}>
-      <div style={{ opacity: 0.85 }}>Открываю кабинет артиста...</div>
+      <div style={{ opacity: 0.85 }}>Проверяю авторизацию...</div>
     </div>
   );
 }

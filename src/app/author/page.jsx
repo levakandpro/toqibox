@@ -159,27 +159,6 @@ export default function AuthorPage() {
   // Функция для обновления данных артиста и треков
   const refreshArtist = async () => {
     try {
-      // ВРЕМЕННО: Отключаем проверку авторизации для локальной разработки
-      if (!artist?.id) return;
-      
-      // ВРЕМЕННО: Загружаем артиста по ID без проверки пользователя
-      const { data: artistData, error: artistError } = await supabase
-        .from("artists")
-        .select("*")
-        .eq("id", artist.id)
-        .maybeSingle();
-
-      if (artistError) {
-        console.error("Error refreshing artist:", artistError);
-        return;
-      }
-
-      if (artistData) {
-        setArtist(artistData);
-        await loadTracks(artistData.id);
-      }
-      
-      /* ЗАКОММЕНТИРОВАНО ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData?.session;
       if (!session?.user) return;
@@ -189,7 +168,6 @@ export default function AuthorPage() {
         setArtist(a);
         await loadTracks(a.id);
       }
-      */
     } catch (e) {
       console.error("Error refreshing artist:", e);
     }
@@ -300,15 +278,12 @@ export default function AuthorPage() {
           <button
             className="author-fatal__btn"
             onClick={() => {
-              // ВРЕМЕННО: Отключаем редирект на логин для локальной разработки
-              // localStorage.setItem("toqibox:returnTo", "/author");
-              // navigate("/login", { replace: true });
-              // ВРЕМЕННО: Просто перезагружаем страницу
-              window.location.reload();
+              localStorage.setItem("toqibox:returnTo", "/author");
+              navigate("/login", { replace: true });
             }}
             type="button"
           >
-            Обновить страницу
+            Войти снова
           </button>
         </div>
       </div>

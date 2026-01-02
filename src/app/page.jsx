@@ -241,7 +241,7 @@ export default function HomePage() {
           className="toqibox-slogan--home"
         />
 
-        <Link to="/login" style={styles.btn}>
+        <Link to="/create" style={styles.btn}>
           СОЗДАТЬ
         </Link>
       </div>
