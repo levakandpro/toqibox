@@ -430,9 +430,10 @@ export default function AuthorPage() {
           </span>
           {tariffInfo.icon && (
             <span style={{
-              fontSize: "16px",
+              fontSize: "14px",
               marginLeft: "4px",
-              opacity: 0.8,
+              opacity: 0.7,
+              lineHeight: 1,
             }}>
               {tariffInfo.icon}
             </span>

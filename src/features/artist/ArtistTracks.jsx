@@ -583,23 +583,6 @@ export default function ArtistTracks({
                   title={isOwner ? `Нажмите, чтобы ${hasUrl ? "изменить" : "добавить"} ссылку` : s.label}
                 >
                   <img src={s.icon} alt="" aria-hidden="true" />
-                  {isOwner === true && editMode === true && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: -4,
-                        right: -4,
-                        fontSize: 12,
-                        color: "#ffffff",
-                        textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-                        zIndex: 10,
-                        pointerEvents: "none",
-                      }}
-                      title="Редактировать"
-                    >
-                      ✏️
-                    </div>
-                  )}
                   {hasUrl && isOwner && editMode && (
                     <div
                       style={{
