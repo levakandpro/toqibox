@@ -1,0 +1,573 @@
+/* =========================
+   /t page
+========================= */
+.t-page{
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+
+
+.t-page::after{
+  content: "";
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.6) 0%,
+    rgba(0,0,0,0.3) 40%,
+    transparent 100%
+  );
+}
+
+/* Track header - minimal service bar */
+.t-header{
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  min-height: 36px;
+}
+
+/* Кнопка "Добавить трек" с SVG иконкой в шапке */
+.add-track-btn {
+  flex: 0 0 auto;
+  cursor: pointer;
+  outline: none;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+  width: 24px;
+  height: 24px;
+}
+
+.add-track-btn:hover {
+  transform: rotate(90deg);
+}
+
+.add-track-svg {
+  stroke: #4ade80; /* green-400 */
+  fill: none;
+  transition: fill 0.3s ease, stroke 0.3s ease;
+  width: 24px;
+  height: 24px;
+}
+
+.add-track-btn:hover .add-track-svg {
+  fill: #166534; /* green-800 */
+}
+
+.add-track-btn:active .add-track-svg {
+  stroke: #86efac; /* green-200 */
+  fill: #16a34a; /* green-600 */
+  transition-duration: 0s;
+}
+
+/* Старый класс для обратной совместимости */
+.t-addTrack {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  color: #fff;
+  text-decoration: none;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  opacity: 1;
+  white-space: nowrap;
+}
+.t-addTrack:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 1) 0%, rgba(124, 58, 237, 1) 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 3px 10px rgba(139, 92, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.t-header::after{
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255,255,255,0.08) 20%,
+    rgba(255,255,255,0.08) 80%,
+    transparent
+  );
+}
+
+.t-share{
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 160ms ease;
+}
+.t-share:hover{
+  opacity: 0.85;
+}
+.t-share:active{
+  opacity: 1;
+}
+
+.t-shareIcon{
+  width: 14px;
+  height: 14px;
+  filter: brightness(0) invert(1);
+  display: block;
+  opacity: 1;
+}
+
+.t-headerRight{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.t-source{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  color: #fff;
+  opacity: 1;
+  text-transform: uppercase;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 200ms ease;
+}
+
+.t-source:hover{
+  opacity: 0.9;
+}
+
+.t-formatIcon{
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  filter: 
+    drop-shadow(0 0 3px rgba(144, 238, 144, 0.5))
+    drop-shadow(0 0 6px rgba(144, 238, 144, 0.3));
+  animation: 
+    formatGlow 2s ease-in-out infinite,
+    formatPoint 1.5s ease-in-out infinite;
+  transition: filter 200ms ease;
+}
+
+.t-source:hover .t-formatIcon{
+  filter: 
+    drop-shadow(0 0 5px rgba(144, 238, 144, 0.7))
+    drop-shadow(0 0 10px rgba(144, 238, 144, 0.4))
+    drop-shadow(0 0 15px rgba(144, 238, 144, 0.2));
+}
+
+@keyframes formatPulse{
+  0%{ 
+    transform: scale(1); 
+  }
+  50%{ 
+    transform: scale(1.1); 
+  }
+  100%{ 
+    transform: scale(1); 
+  }
+}
+
+@keyframes formatGlow{
+  0%, 100%{ 
+    filter: 
+      drop-shadow(0 0 3px rgba(144, 238, 144, 0.5))
+      drop-shadow(0 0 6px rgba(144, 238, 144, 0.3));
+    opacity: 0.85;
+  }
+  50%{ 
+    filter: 
+      drop-shadow(0 0 5px rgba(144, 238, 144, 0.7))
+      drop-shadow(0 0 10px rgba(144, 238, 144, 0.4))
+      drop-shadow(0 0 12px rgba(144, 238, 144, 0.2));
+    opacity: 1;
+  }
+}
+
+@keyframes formatPoint{
+  0%, 100%{ 
+    transform: translateX(0) scale(1);
+  }
+  50%{ 
+    transform: translateX(4px) scale(1.05);
+  }
+}
+
+/* Track center */
+.t-center{
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 20px 18px 10px;
+  min-height: 0;
+}
+
+/* Track bottom */
+.t-bottom{
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 18px 22px;
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 -12px 40px rgba(0, 0, 0, 0.5),
+    0 -4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+
+.t-bottom::after{
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    to top,
+    transparent 0%,
+    rgba(0, 0, 0, 0.1) 15%,
+    rgba(0, 0, 0, 0.15) 35%,
+    rgba(0, 0, 0, 0.1) 50%,
+    rgba(0, 0, 0, 0.08) 65%,
+    rgba(0, 0, 0, 0.05) 85%,
+    transparent 100%
+  );
+  animation: bottomGlow 10s ease-in-out infinite;
+  transform: translateY(30px);
+  filter: blur(20px);
+}
+
+
+.t-title{
+  font-size: clamp(20px, 3.2vw, 34px);
+  font-weight: 800;
+  line-height: 1.05;
+  margin-bottom: 3px;
+  color: #fff;
+}
+
+.t-artistRow{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.t-artist{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  font-size: 14px;
+  opacity: 0.88;
+  text-decoration: none;
+  color: #fff;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+.t-artist:hover{
+  opacity: 1;
+  border-bottom-color: rgba(255,255,255,0.3);
+}
+
+.t-desc{
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: 0.62;
+  max-width: 58ch;
+}
+
+.t-debug{
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  z-index: 3;
+  opacity: 0.18;
+  font-size: 11px;
+}
+
+/* Gold verification — track bottom */
+.t-verifGold{
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  opacity: 0.85;
+  transform: translateY(1px);
+  filter:
+    drop-shadow(0 0 6px rgba(255, 210, 120, 0.35))
+    drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+}
+
+/* =========================
+   TrackPlayer
+========================= */
+.tp-root{
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+/* Фон для кнопки плеера (анимированные кнопки из uiverse.io) */
+.tp-play-button-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  z-index: 1;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Убеждаемся, что иконка всегда видна поверх фона */
+.tp-play {
+  position: relative;
+  z-index: 2;
+}
+
+.tp-play:hover{ transform: scale(1.02); opacity: 0.98; }
+.tp-play:active{ transform: scale(0.99); opacity: 1; }
+
+
+
+/* icon wrapper — STRICT center */
+.tp-iconWrap{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10; /* Выше фона ShaderToy и анимированной кнопки */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Убираем фон, границы и тени - только иконка */
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* Убираем все круги и эффекты вокруг иконки */
+.tp-iconWrap::before,
+.tp-iconWrap::after {
+  display: none;
+}
+
+.tp-icon{
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  object-position: center;
+  opacity: 0.95;
+  filter: drop-shadow(0 10px 25px rgba(0,0,0,0.55));
+  animation: tpPulse 2.8s ease-in-out infinite;
+  display: block;
+}
+
+@keyframes tpPulse{
+  0%{ transform: translateY(0) scale(1); opacity: 0.92; }
+  50%{ transform: translateY(-2px) scale(1.03); opacity: 1; }
+  100%{ transform: translateY(0) scale(1); opacity: 0.92; }
+}
+
+.tp-hint{
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 3;
+  margin: 0;
+
+  font-size: 11px;
+  letter-spacing: 0.38em;
+  opacity: 0.35;
+}
+
+.tp-media{
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  animation: tpMediaFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: opacity 0.3s ease-in;
+}
+
+.tp-media--closing{
+  opacity: 0;
+  transition: opacity 0.3s ease-in;
+}
+
+@keyframes tpMediaFadeIn{
+  from{
+    opacity: 0;
+  }
+  to{
+    opacity: 1;
+  }
+}
+
+.tp-embedWrapper{
+  cursor: default;
+  position: relative;
+  animation: tpVideoScaleOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center center;
+}
+
+.tp-embedWrapper::before,
+.tp-embedWrapper::after{
+  content: "";
+  position: absolute;
+  inset: -40px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  filter: blur(20px);
+}
+
+.tp-embedWrapper::before{
+  background: radial-gradient(circle at 30% 30%, rgba(70, 255, 200, 0.15) 0%, rgba(70, 255, 200, 0.08) 20%, transparent 50%);
+  animation: tpParticlesOut 1.2s ease-out 0.1s forwards;
+}
+
+.tp-embedWrapper::after{
+  background: radial-gradient(circle at 70% 70%, rgba(100, 180, 255, 0.12) 0%, rgba(100, 180, 255, 0.06) 20%, transparent 50%);
+  animation: tpParticlesOut 1.2s ease-out 0.2s forwards;
+}
+
+.tp-media--closing .tp-embedWrapper{
+  animation: tpVideoScaleIn 0.3s ease-in forwards;
+}
+
+.tp-media--closing .tp-embedWrapper::before,
+.tp-media--closing .tp-embedWrapper::after{
+  animation: tpParticlesIn 0.3s ease-in forwards;
+}
+
+@keyframes tpVideoScaleOut{
+  from{
+    transform: scale(0.15);
+    opacity: 0;
+  }
+  to{
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes tpVideoScaleIn{
+  from{
+    transform: scale(1);
+    opacity: 1;
+  }
+  to{
+    transform: scale(0.15);
+    opacity: 0;
+  }
+}
+
+@keyframes tpParticlesOut{
+  0%{
+    transform: scale(0.2) translate(0, 0);
+    opacity: 0;
+  }
+  20%{
+    opacity: 0.4;
+  }
+  50%{
+    opacity: 0.25;
+  }
+  100%{
+    transform: scale(2.5) translate(15px, -10px);
+    opacity: 0;
+  }
+}
+
+@keyframes tpParticlesIn{
+  0%{
+    transform: scale(2.5) translate(15px, -10px);
+    opacity: 0;
+  }
+  100%{
+    transform: scale(0.2) translate(0, 0);
+    opacity: 0;
+  }
+}
+
+/* Embeds */
+.v-iframe{
+  border: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 20px 70px rgba(0,0,0,0.60);
+  background: #000000;
+}
+.v-iframe--wide{
+  width: min(980px, 94vw);
+  aspect-ratio: 16/9;
+}
+.v-iframe--tall{
+  width: 100vw !important;
+  height: calc(100vw * 16 / 9) !important;
+  max-height: 100vh !important;
+  aspect-ratio: 9/16;
+  border: 0;
+  display: block;
+  overflow: hidden;
+}

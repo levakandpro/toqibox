@@ -52,6 +52,12 @@ export default function ShaderToyBackground({ backgroundId }) {
       return () => {};
     }
 
+    // Включаем расширение для fwidth (если нужно)
+    const ext = gl.getExtension('OES_standard_derivatives');
+    if (!ext) {
+      console.warn('OES_standard_derivatives extension not available');
+    }
+
     glRef.current = gl;
 
     // Устанавливаем размер canvas

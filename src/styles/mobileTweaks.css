@@ -1,0 +1,139 @@
+/* =========================
+   Mobile tweaks
+========================= */
+@media (max-width: 520px){
+  .t-header{ padding: 6px 10px; min-height: 32px; }
+  .t-center{ padding: 16px 14px 8px; min-height: calc(100vh - 170px); }
+  .t-bottom{ padding: 0 14px 18px; }
+  .t-meta{
+    padding: 14px 0 0;
+  }
+
+  .v-iframe{ border-radius: 14px; }
+
+  .tp-play{ width: min(260px, 82vw); }
+  .tp-hint{ bottom: 18px; }
+
+  .a-content{ padding: 6px 10px; }
+  .ah-content{ padding: 16px; min-height: 200px; }
+  .ah-socialGlyph{ width: 18px; height: 18px; }
+
+  .tc-cover{ width: 52px; height: 52px; flex: 0 0 52px; border-radius: 12px; }
+}
+@media (max-width: 520px){
+  .tc-card {
+    padding: 8px 4px 4px 4px;
+    gap: 6px;
+  }
+  
+  .tc-cover {
+    width: 56px;
+    height: 56px;
+  }
+  
+  .tc-title {
+    font-size: 10px;
+    line-height: 1.2;
+    -webkit-line-clamp: 2;
+  }
+  
+  .tc-artist {
+    font-size: 9px;
+    line-height: 1.2;
+  }
+  
+  .tc-chip {
+    font-size: 7px;
+    padding: 2px 5px;
+    top: 6px;
+    left: 6px;
+  }
+  
+  .tc-right {
+    gap: 4px;
+    padding-top: 4px;
+  }
+  
+  .ah-content{ 
+    height: 140px; /* Такая же высота как на десктопе */
+    padding-bottom: 70px !important; /* Подняли имя еще выше */
+  }
+  
+  .ah-name{
+    font-size: clamp(18px, 4vw, 28px) !important; /* Уменьшили размер на мобильных */
+    color: #ffffff !important;
+    z-index: 100 !important;
+    position: relative !important;
+  }
+  
+  .ah-overlay{
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.00) 0%,
+        rgba(0,0,0,0.00) 40%,
+        rgba(0,0,0,0.60) 75%,
+        rgba(0,0,0,0.90) 100%
+      ) !important;
+  }
+
+  /* Скрываем переключатель режимов на мобильных (он теперь рядом с "Релизы") */
+  .desktop-edit-toggle {
+    display: none !important;
+  }
+}
+/* === RESTORE LIKE POSITION: RIGHT SIDE INLINE === */
+
+/* убираем фиксированное позиционирование */
+.t-actions{
+  position: static !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: flex-end !important;
+}
+
+/* лайк встраивается в правый край строки */
+.t-artistRow{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+/* контейнер лайка справа */
+.t-like{
+  display: inline-flex;
+  align-items: center;
+}
+
+/* лайк: иконка + цифра аккуратно */
+.t-actions .tr-wrap{
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+/* оригинальный вид иконки */
+.t-actions .tr-icon{
+  width: 28px !important;
+  height: 28px !important;
+  opacity: 0.85 !important;
+  filter: none !important;
+}
+
+/* кнопка не вмешивается в SVG */
+.t-actions .tr-btn{
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+}
+.t-page::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(820px 680px at 50% 45%, rgba(170,140,255,.14), transparent 80%);
+}

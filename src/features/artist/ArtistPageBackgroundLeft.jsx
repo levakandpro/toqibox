@@ -1,18 +1,31 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../features/auth/supabaseClient.js";
 import "../../styles/backgrounds.css";
+import crownIcon from "../../assets/crown.png";
 
 // Список фонов из backgrounds.css
+// Первые 5 - бесплатные, остальные - премиум
 const BACKGROUND_OPTIONS = Array.from({ length: 37 }, (_, i) => ({
   id: `bg-${i + 1}`,
   name: `Фон ${i + 1}`,
   className: `bg-${i + 1}`,
+  premium: i >= 5, // Первые 5 (0-4) бесплатные, остальные премиум
 }));
 
 export default function ArtistPageBackgroundLeft({ artist, isOwner = false, editMode = false, onUpdate }) {
   const [selectedBackground, setSelectedBackground] = useState(null);
   const [saving, setSaving] = useState(false);
   const [previewBackground, setPreviewBackground] = useState(null);
+
+  // Проверяем премиум статус артиста
+  const isPremium = useMemo(() => {
+    if (!artist) return false;
+    return !!(
+      artist.premium_type && 
+      artist.premium_until && 
+      new Date(artist.premium_until) > new Date()
+    );
+  }, [artist]);
 
   // Загружаем сохраненный фон
   useEffect(() => {
@@ -36,16 +49,30 @@ export default function ArtistPageBackgroundLeft({ artist, isOwner = false, edit
     }
   }, [artist?.id, artist?.page_background_left_id]);
 
-  // Применяем фон к фону страницы
+  // Применяем фон строго только к контенту страницы (НЕ к шапке!)
   useEffect(() => {
+    // Применяем фон к .a-content, а НЕ к .a-page, чтобы шапка не получала фон
+    const contentElement = document.querySelector('.a-content');
     const pageElement = document.querySelector('.a-page');
-    if (!pageElement) return;
+    if (!contentElement || !pageElement) return;
 
+    // Также проверяем, что классы не применяются к шапке и её элементам
+    const headerRoot = document.querySelector('.ah-root');
+    const headerCover = document.querySelector('.ah-cover');
+    
     // Функция для очистки всех классов фонов
     const cleanupBackgroundStructures = () => {
-      // Удаляем все классы фонов со страницы
+      // Удаляем все классы фонов с контента И со страницы
       BACKGROUND_OPTIONS.forEach(option => {
+        contentElement.classList.remove(option.className);
         pageElement.classList.remove(option.className);
+        // Также удаляем из шапки и её корня, если они там есть
+        if (headerRoot) {
+          headerRoot.classList.remove(option.className);
+        }
+        if (headerCover) {
+          headerCover.classList.remove(option.className);
+        }
       });
     };
 
@@ -55,21 +82,68 @@ export default function ArtistPageBackgroundLeft({ artist, isOwner = false, edit
         // Очищаем все предыдущие фоны
         cleanupBackgroundStructures();
         
-        // Добавляем класс выбранного фона к странице
-        pageElement.classList.add(bg.className);
+        // Добавляем класс выбранного фона ТОЛЬКО к контенту (НЕ к странице и НЕ к шапке!)
+        contentElement.classList.add(bg.className);
+        
+        // Убеждаемся, что класс НЕ применяется к шапке и её элементам
+        if (headerRoot && headerRoot.classList.contains(bg.className)) {
+          headerRoot.classList.remove(bg.className);
+        }
+        if (headerCover && headerCover.classList.contains(bg.className)) {
+          headerCover.classList.remove(bg.className);
+        }
+        if (pageElement && pageElement.classList.contains(bg.className)) {
+          pageElement.classList.remove(bg.className);
+        }
       }
     } else {
       // Удаляем фон если не выбран
       cleanupBackgroundStructures();
     }
 
+    // СТРОГО запрещаем применение классов к шапке и странице - проверяем постоянно
+    const checkInterval = setInterval(() => {
+      if (headerRoot || headerCover || pageElement) {
+        BACKGROUND_OPTIONS.forEach(option => {
+          // Удаляем из корня шапки
+          if (headerRoot && headerRoot.classList.contains(option.className)) {
+            headerRoot.classList.remove(option.className);
+          }
+          // Удаляем из обложки шапки
+          if (headerCover && headerCover.classList.contains(option.className)) {
+            headerCover.classList.remove(option.className);
+          }
+          // Удаляем из страницы (фоны должны быть только в контенте)
+          if (pageElement && pageElement.classList.contains(option.className)) {
+            pageElement.classList.remove(option.className);
+          }
+          // Удаляем из ВСЕХ дочерних элементов шапки
+          if (headerRoot) {
+            const childrenWithBg = headerRoot.querySelectorAll(`.${option.className}`);
+            childrenWithBg.forEach(el => el.classList.remove(option.className));
+          }
+          if (headerCover) {
+            const childrenWithBg = headerCover.querySelectorAll(`.${option.className}`);
+            childrenWithBg.forEach(el => el.classList.remove(option.className));
+          }
+        });
+      }
+    }, 50); // Проверяем каждые 50ms для максимальной защиты
+
     return () => {
+      clearInterval(checkInterval);
       // Очистка при размонтировании компонента
       cleanupBackgroundStructures();
     };
   }, [previewBackground]);
 
   const handleSelectBackground = (bgId) => {
+    const bg = BACKGROUND_OPTIONS.find(b => b.id === bgId);
+    // Блокируем выбор премиум фонов для бесплатных пользователей
+    if (bg?.premium && !isPremium) {
+      alert('Этот фон доступен только для премиум пользователей. Обратитесь к администратору для получения доступа.');
+      return;
+    }
     setPreviewBackground(bgId);
   };
 
@@ -144,24 +218,39 @@ export default function ArtistPageBackgroundLeft({ artist, isOwner = false, edit
   }
 
   return (
-    <div className="apb-left-root">
+    <div className="apb-left-root" data-visible="true">
       <div className="apb-left-title">ФОНЫ</div>
       <div className="apb-left-grid">
         {BACKGROUND_OPTIONS.map((bg) => {
           const isSelected = previewBackground === bg.id;
           const isActive = selectedBackground === bg.id;
+          const isPremiumBg = bg.premium === true;
+          const isLocked = isPremiumBg && !isPremium;
           
           return (
             <button
               key={bg.id}
               type="button"
-              className={`apb-left-item ${isSelected ? 'apb-left-item-selected' : ''} ${isActive ? 'apb-left-item-active' : ''}`}
+              className={`apb-left-item ${isSelected ? 'apb-left-item-selected' : ''} ${isActive ? 'apb-left-item-active' : ''} ${isLocked ? 'apb-left-item-locked' : ''}`}
               onClick={() => handleSelectBackground(bg.id)}
-              title={bg.name}
+              disabled={isLocked}
             >
               <div className={`apb-left-preview ${bg.className}`}></div>
               {isActive && (
                 <div className="apb-left-checkmark">✓</div>
+              )}
+              {isLocked && (
+                <>
+                  <div className="apb-premium-badge">
+                    <img src={crownIcon} alt="Premium" />
+                  </div>
+                  <div className="apb-premium-overlay">
+                    <div className="apb-premium-text">
+                      <div>подключите</div>
+                      <div>тариф ПРЕМИУМ</div>
+                    </div>
+                  </div>
+                </>
               )}
             </button>
           );

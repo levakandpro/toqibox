@@ -1,4 +1,4 @@
-import artistCover from "../../assets/covers/artist-cover-placeholder6.jpg";
+import coverDefault from "../../assets/cover.png";
 
 import { getMockTrackBySlug } from "../track/track.mock.js";
 
@@ -7,7 +7,7 @@ const ARTISTS = {
     slug: "toqibox-artist",
     name: "TOQIBOX ARTIST",
     bio: "Короткое описание артиста - V один, мок.",
-    coverUrl: artistCover,
+    coverUrl: coverDefault,
 
     // premium-флаг для будущего gold/вериф
     isPremium: true,

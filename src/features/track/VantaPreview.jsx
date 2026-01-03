@@ -7,9 +7,27 @@ import * as THREE from "three";
  * @param {number} color - Цвет в hex формате (например, 0xe30a0a)
  * @param {number} color1 - Первый цвет для эффектов с двумя цветами (например, cells)
  * @param {number} color2 - Второй цвет для эффектов с двумя цветами (например, cells)
+ * @param {number} shininess - Блеск для waves (например, 52.00)
+ * @param {number} waveSpeed - Скорость волн для waves (например, 0.80)
+ * @param {number} zoom - Зум для waves (например, 1.22)
+ * @param {number} points - Количество точек для net (например, 11.00)
+ * @param {number} maxDistance - Максимальное расстояние для net (например, 21.00)
+ * @param {number} spacing - Расстояние между точками для net (например, 17.00)
  * @param {object} style - Стили для контейнера
  */
-export default function VantaPreview({ effectType = "topology", color = 0xe30a0a, color1 = null, color2 = null, style = {} }) {
+export default function VantaPreview({ 
+  effectType = "topology", 
+  color = 0xe30a0a, 
+  color1 = null, 
+  color2 = null,
+  shininess = null,
+  waveSpeed = null,
+  zoom = null,
+  points = null,
+  maxDistance = null,
+  spacing = null,
+  style = {} 
+}) {
   const vantaRef = useRef(null);
   const vantaEffect = useRef(null);
 
@@ -240,7 +258,21 @@ export default function VantaPreview({ effectType = "topology", color = 0xe30a0a
               config.scaleMobile = 1.00;
               if (color1 !== null && isFinite(color1)) config.color1 = color1;
               if (color2 !== null && isFinite(color2)) config.color2 = color2;
-            } else if (effectType === 'rings' || effectType === 'dots' || effectType === 'birds' || effectType === 'fog' || effectType === 'waves' || effectType === 'net') {
+            } else if (effectType === 'waves') {
+              config.scale = 1.00;
+              config.scaleMobile = 1.00;
+              if (color !== null && isFinite(color)) config.color = color;
+              if (shininess !== null && isFinite(shininess)) config.shininess = shininess;
+              if (waveSpeed !== null && isFinite(waveSpeed)) config.waveSpeed = waveSpeed;
+              if (zoom !== null && isFinite(zoom)) config.zoom = zoom;
+            } else if (effectType === 'net') {
+              config.scale = 1.00;
+              config.scaleMobile = 1.00;
+              if (color !== null && isFinite(color)) config.color = color;
+              if (points !== null && isFinite(points)) config.points = points;
+              if (maxDistance !== null && isFinite(maxDistance)) config.maxDistance = maxDistance;
+              if (spacing !== null && isFinite(spacing)) config.spacing = spacing;
+            } else if (effectType === 'rings' || effectType === 'dots' || effectType === 'birds' || effectType === 'fog') {
               config.scale = 1.00;
               config.scaleMobile = 1.00;
             }
@@ -426,7 +458,21 @@ export default function VantaPreview({ effectType = "topology", color = 0xe30a0a
                 config.scaleMobile = 1.00;
                 if (color1 !== null) config.color1 = color1;
                 if (color2 !== null) config.color2 = color2;
-              } else if (effectType === 'rings' || effectType === 'dots' || effectType === 'birds' || effectType === 'fog' || effectType === 'waves' || effectType === 'net') {
+              } else if (effectType === 'waves') {
+                config.scale = 1.00;
+                config.scaleMobile = 1.00;
+                if (color !== null) config.color = color;
+                if (shininess !== null) config.shininess = shininess;
+                if (waveSpeed !== null) config.waveSpeed = waveSpeed;
+                if (zoom !== null) config.zoom = zoom;
+              } else if (effectType === 'net') {
+                config.scale = 1.00;
+                config.scaleMobile = 1.00;
+                if (color !== null) config.color = color;
+                if (points !== null) config.points = points;
+                if (maxDistance !== null) config.maxDistance = maxDistance;
+                if (spacing !== null) config.spacing = spacing;
+              } else if (effectType === 'rings' || effectType === 'dots' || effectType === 'birds' || effectType === 'fog') {
                 config.scale = 1.00;
                 config.scaleMobile = 1.00;
               }
@@ -455,7 +501,7 @@ export default function VantaPreview({ effectType = "topology", color = 0xe30a0a
         vantaEffect.current = null;
       }
     };
-  }, [effectType, color, color1, color2]);
+  }, [effectType, color, color1, color2, shininess, waveSpeed, zoom, points, maxDistance, spacing]);
 
   return (
     <div

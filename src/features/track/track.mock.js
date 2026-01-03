@@ -1,4 +1,4 @@
-import coverFallback from "../../assets/cover-placeholder.png";
+import coverFallback from "../../assets/cover.png";
 
 // V1 mock: список "созданных страниц треков".
 // Новые должны быть сверху - для этого createdAt обязателен.

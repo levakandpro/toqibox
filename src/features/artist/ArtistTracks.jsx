@@ -576,27 +576,10 @@ export default function ArtistTracks({
                     cursor: isOwner ? "pointer" : "default",
                     padding: 0,
                     position: "relative",
-                    filter: hasUrl && isOwner ? "brightness(1.4) saturate(1.8) hue-rotate(90deg)" : "none",
-                    transition: "filter 0.2s",
-                    boxShadow: hasUrl && isOwner ? "0 0 8px rgba(16, 185, 129, 0.4)" : "none",
                   }}
                   title={isOwner ? `Нажмите, чтобы ${hasUrl ? "изменить" : "добавить"} ссылку` : s.label}
                 >
                   <img src={s.icon} alt="" aria-hidden="true" />
-                  {hasUrl && isOwner && editMode && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: -2,
-                        right: -2,
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: "#10b981",
-                        border: "1px solid rgba(255, 255, 255, 0.3)",
-                      }}
-                    />
-                  )}
                 </button>
               );
             })}
@@ -650,19 +633,19 @@ export default function ArtistTracks({
         </div>
       </div>
 
-      {/* Блок выбора фона страницы артиста (справа) */}
-      {isOwner === true && editMode === true && (
-        <ArtistPageBackground
-          artist={artist}
-          isOwner={isOwner}
-          editMode={editMode}
-          onUpdate={onUpdate}
-        />
-      )}
+      {/* Блок выбора фона страницы артиста (справа) - рендерим всегда для применения фона, панель показываем только в режиме редактирования */}
+      <ArtistPageBackground
+        key={`bg-${artist?.id}`}
+        artist={artist}
+        isOwner={isOwner}
+        editMode={editMode}
+        onUpdate={onUpdate}
+      />
 
-      {/* Блок выбора фона страницы артиста (слева, из backgrounds.css) */}
-      {isOwner === true && editMode === true && (
+      {/* Блок выбора фона страницы артиста (слева, из backgrounds.css) - только в режиме редактирования */}
+      {isOwner && editMode && (
         <ArtistPageBackgroundLeft
+          key={`bg-left-${artist?.id}-${editMode}`}
           artist={artist}
           isOwner={isOwner}
           editMode={editMode}

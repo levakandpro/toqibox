@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { supabase } from "../../features/auth/supabaseClient.js";
 
-import artistCover6 from "../../assets/covers/artist-cover-placeholder6.jpg";
+import coverDefault from "../../assets/cover.png";
 import verifGold from "../../assets/verifgold.svg";
 import shareIcon from "../../assets/share.svg";
 
@@ -68,8 +68,8 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
     }
   }, [artistId, artistNameColor]);
   
-  // Всегда используем обложку artist-cover-placeholder6.jpg
-  const currentCoverPath = typeof artistCover6 === "string" ? artistCover6 : artistCover6.src || artistCover6;
+  // Всегда используем обложку cover.png
+  const currentCoverPath = typeof coverDefault === "string" ? coverDefault : coverDefault.src || coverDefault;
 
 
   // Обновляем displayName когда artist меняется (только при первой загрузке или если мы не редактируем)
@@ -396,13 +396,10 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "rgba(0, 0, 0, 0.6)",
-          backdropFilter: "blur(10px)",
-          border: "1px solid rgba(255, 255, 255, 0.3)",
-          borderRadius: "8px",
+          background: "none",
+          border: "none",
           cursor: "pointer",
           padding: 0,
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
         }}
         aria-label="Поделиться"
       >

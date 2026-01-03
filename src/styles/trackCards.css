@@ -1,0 +1,358 @@
+/* UI card */
+.ui-card{
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.22);
+  backdrop-filter: blur(10px);
+  padding: 12px;
+}
+
+/* TrackCard */
+.tc-link{
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* card shell - вертикальная карточка 9:11 */
+.tc-card{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 12px 12px 12px;
+  width: 100%;
+  height: 100%;
+
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.65) 0%,
+    rgba(30, 25, 45, 0.75) 50%,
+    rgba(0, 0, 0, 0.65) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 24px;
+  backdrop-filter: blur(35px) saturate(180%);
+  -webkit-backdrop-filter: blur(35px) saturate(180%);
+  
+  box-shadow: 
+    0 16px 56px rgba(0, 0, 0, 0.75),
+    0 8px 28px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 2px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45);
+  
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.tc-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 16px 50px rgba(0, 0, 0, 0.7),
+    0 8px 25px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Фон карточки убран */
+
+/* Верхняя полоска при hover */
+.tc-card-hover-line {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%,
+    rgba(139, 92, 246, 0.5) 25%,
+    rgba(6, 182, 212, 0.5) 50%,
+    rgba(139, 92, 246, 0.5) 75%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* Текстура grain */
+.tc-card::after {
+  content:"";
+  position:absolute; 
+  inset:0;
+  border-radius: inherit;
+  background-image: radial-gradient(rgba(255,255,255,.3) 1px, transparent 1px);
+  background-size: 4px 4px;
+  animation: grainFloat 8s ease-in-out infinite;
+  pointer-events:none;
+  opacity: .04;
+  z-index: 1;
+}
+
+@media (hover:hover){
+  .tc-card:hover{
+    transform: none; /* Убираем увеличение карточки в веб-версии */
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 
+      0 28px 80px rgba(0, 0, 0, 0.85),
+      0 14px 40px rgba(139, 92, 246, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.18),
+      inset 0 2px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.6);
+    background: linear-gradient(
+      135deg,
+      rgba(0, 0, 0, 0.75) 0%,
+      rgba(40, 30, 55, 0.85) 50%,
+      rgba(0, 0, 0, 0.75) 100%
+    );
+  }
+  
+  .tc-card:hover::before {
+    opacity: 0.6;
+    filter: blur(35px) brightness(0.7) saturate(1.3);
+  }
+}
+
+/* В веб-версии убираем transform у карточки, оставляем только для аватарки */
+@media (min-width: 601px) {
+  .tc-card:hover {
+    transform: none !important;
+  }
+}
+
+.tc-card:active{
+  transform: translateY(-2px) scale(1.01);
+  transition: transform 150ms ease;
+}
+
+/* subtle grain on card */
+@keyframes grainFloat{
+  0%,100%{opacity:.03;}
+  50%{opacity:.05;}
+}
+/* Текстура grain поверх фона */
+.tc-card::after{
+  content:"";
+  position:absolute; 
+  inset:0;
+  border-radius: inherit;
+  background-image: radial-gradient(rgba(255,255,255,.3) 1px, transparent 1px);
+  background-size: 4px 4px;
+  animation: grainFloat 8s ease-in-out infinite;
+  pointer-events:none;
+  opacity: .04;
+  z-index: 1;
+}
+
+.tc-cover{
+  width: 95px;
+  height: 95px;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+  margin-top: 20px; /* Опускаем обложку ниже */
+
+  border-radius: 50%; /* Круглая обложка */
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+  
+  box-shadow: 
+    0 10px 32px rgba(0, 0, 0, 0.65),
+    0 0 0 4px rgba(255, 255, 255, 0.18),
+    0 0 35px rgba(139, 92, 246, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              filter 0.4s ease;
+  position: relative;
+  z-index: 3;
+  overflow: hidden;
+  isolation: isolate;
+  filter: brightness(1.08) saturate(1.2);
+}
+
+.tc-card:hover .tc-cover {
+  transform: scale(1.15) rotate(4deg);
+  box-shadow: 
+    0 18px 48px rgba(0, 0, 0, 0.75),
+    0 0 0 6px rgba(139, 92, 246, 0.6),
+    0 0 50px rgba(139, 92, 246, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  filter: brightness(1.2) saturate(1.3);
+}
+
+/* Убираем фиолетовый обруч при наведении на карточки в 3D карусели */
+.card-3d-item .tc-card:hover .tc-cover {
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  filter: none !important;
+}
+
+.tc-right{
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  display:flex;
+  flex-direction:column;
+  gap: 4px;
+  align-items: center;
+  text-align: center;
+  justify-content: flex-start;
+  position: relative;
+  z-index: 1;
+  padding-top: 2px;
+}
+
+.tc-titleRow{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.tc-title{
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  margin: 0;
+  font-size: 13px;
+  transform: translateZ(0);
+  color: #fff;
+  text-shadow: 
+    0 2px 5px rgba(0, 0, 0, 0.7),
+    0 4px 10px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(139, 92, 246, 0.25);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+  order: 2;
+  transition: text-shadow 0.3s ease;
+}
+
+.tc-card:hover .tc-title {
+  text-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 0 15px rgba(139, 92, 246, 0.2);
+}
+
+/* Убираем тени и свечение с названий в 3D карусели */
+.card-3d-item .tc-card:hover .tc-title {
+  text-shadow: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+.tc-chip{
+  font-size: 7px;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.3) 0%, 
+    rgba(6, 182, 212, 0.3) 50%,
+    rgba(139, 92, 246, 0.3) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tc-card:hover .tc-chip {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.4) 0%, 
+    rgba(6, 182, 212, 0.4) 50%,
+    rgba(139, 92, 246, 0.4) 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  box-shadow: 
+    0 4px 12px rgba(139, 92, 246, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.tc-artist{
+  margin: 0;
+  opacity: 0.75;
+  font-size: 10px;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  transform: translateZ(0);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  order: 1;
+}
+
+/* Copy icon styles - унифицированные стили для всех иконок копирования */
+.copy-icon,
+img[src*="copy"],
+img[alt*="Копировать"],
+img[alt*="копировать"] {
+  display: block;
+  width: 18px !important;
+  height: 18px !important;
+  object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  opacity: 1;
+}
+
+/* Highlight latest (first card) */
+.at-grid > a:first-child .tc-title{ font-weight: 950; }
+.at-grid > a:first-child .tc-chip{ opacity: 0.62; }
+.at-grid > a:first-child .tc-artist{ opacity: 0.60; }
+
+/* Stub pages */
+.p-stub{
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.p-stubTitle{
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: 22px;
+}
+.p-stubHint{
+  margin-top: 10px;
+  opacity: 0.65;
+  font-size: 13px;
+}

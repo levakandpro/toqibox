@@ -2,25 +2,155 @@ import React, { useEffect, useRef, useState } from "react";
 import { getShaderCode, compileShaderProgram } from "../../utils/webglShaders.js";
 import { getBackgroundById } from "../../utils/shadertoyBackgrounds.js";
 import { getPremiumBackgroundById } from "../../utils/premiumBackgrounds.js";
+import { getArtistHeaderBackgroundById } from "../../utils/artistHeaderBackgrounds.js";
+
+// Глобальная очередь для последовательного рендеринга всех превью
+let renderQueue = [];
+let isRendering = false;
+
+const processRenderQueue = () => {
+  if (isRendering || renderQueue.length === 0) return;
+  
+  isRendering = true;
+  const { canvas, shaderId, callback } = renderQueue.shift();
+  
+  if (!canvas || !canvas.isConnected) {
+    isRendering = false;
+    setTimeout(processRenderQueue, 50);
+    return;
+  }
+  
+  // Устанавливаем размеры
+  canvas.width = 85;
+  canvas.height = 70;
+  
+  const gl = canvas.getContext("webgl", {
+    alpha: true,
+    antialias: false,
+    preserveDrawingBuffer: true,
+    failIfMajorPerformanceCaveat: false,
+  }) || canvas.getContext("experimental-webgl", {
+    alpha: true,
+    preserveDrawingBuffer: true,
+  });
+  
+  if (!gl) {
+    callback(null);
+    isRendering = false;
+    setTimeout(processRenderQueue, 50);
+    return;
+  }
+  
+  gl.getExtension('OES_standard_derivatives');
+  gl.viewport(0, 0, 85, 70);
+  
+  const shaderCode = getShaderCode(shaderId);
+  if (!shaderCode) {
+    callback(null);
+    isRendering = false;
+    setTimeout(processRenderQueue, 50);
+    return;
+  }
+  
+  try {
+    const program = compileShaderProgram(gl, shaderCode);
+    if (!program) {
+      callback(null);
+      isRendering = false;
+      setTimeout(processRenderQueue, 50);
+      return;
+    }
+    
+    gl.useProgram(program);
+    
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    const positions = new Float32Array([
+      -1, -1, 1, -1, -1, 1,
+      -1, 1, 1, -1, 1, 1,
+    ]);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    
+    const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+    const timeLocation = gl.getUniformLocation(program, "u_time");
+    const mouseLocation = gl.getUniformLocation(program, "u_mouse");
+    
+    // Рендерим несколько кадров для анимации
+    let frameCount = 0;
+    const maxFrames = 30;
+    const startTime = performance.now();
+    
+    const render = () => {
+      const elapsed = (performance.now() - startTime) / 1000.0;
+      
+      gl.uniform2f(resolutionLocation, 85, 70);
+      gl.uniform1f(timeLocation, elapsed);
+      gl.uniform2f(mouseLocation, 0, 0);
+      
+      gl.viewport(0, 0, 85, 70);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      
+      frameCount++;
+      
+      if (frameCount >= maxFrames) {
+        // Сохраняем результат как изображение
+        setTimeout(() => {
+          try {
+            const dataURL = canvas.toDataURL('image/png');
+            callback(dataURL && dataURL !== 'data:,' ? dataURL : null);
+          } catch (e) {
+            callback(null);
+          }
+          
+          // Cleanup
+          try {
+            gl.deleteBuffer(positionBuffer);
+            gl.deleteProgram(program);
+          } catch (e) {
+            // Ignore
+          }
+          
+          isRendering = false;
+          setTimeout(processRenderQueue, 100); // Задержка перед следующим
+        }, 100);
+        return;
+      }
+      
+      requestAnimationFrame(render);
+    };
+    
+    render();
+    
+  } catch (err) {
+    callback(null);
+    isRendering = false;
+    setTimeout(processRenderQueue, 50);
+  }
+};
 
 /**
  * Компонент для превью ShaderToy фона (мини-версия)
- * На мобильных устройствах или при отсутствии WebGL показывает статичное превью
+ * Рендерит один раз при загрузке и показывает статичное изображение
  */
 export default function ShaderToyPreview({ backgroundId, style = {} }) {
   const canvasRef = useRef(null);
-  const glRef = useRef(null);
-  const programRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const startTimeRef = useRef(performance.now());
-  const [useFallback, setUseFallback] = useState(false);
-  
-  // Проверяем сначала обычные фоны, потом премиум
-  let background = getBackgroundById(backgroundId);
+  const [imageSrc, setImageSrc] = useState(null);
+  const hasRenderedRef = useRef(false);
+
+  // Проверяем фоны в следующем порядке: артист, обычные, премиум
+  let background = getArtistHeaderBackgroundById(backgroundId);
+  if (!background) {
+    background = getBackgroundById(backgroundId);
+  }
   if (!background) {
     const premiumBg = getPremiumBackgroundById(backgroundId);
     if (premiumBg && premiumBg.type === "shadertoy") {
-      // Создаем объект фона для премиум ShaderToy
       background = {
         id: premiumBg.shaderId,
         name: premiumBg.name,
@@ -28,241 +158,100 @@ export default function ShaderToyPreview({ backgroundId, style = {} }) {
       };
     }
   }
-  
-  // Используем shaderId для получения кода шейдера
+
   const shaderId = background?.shaderId || background?.id || backgroundId;
-  
-  // Логирование для отладки
-  if (!background && backgroundId) {
-    console.warn("ShaderToyPreview: background not found", { backgroundId });
-  }
 
   useEffect(() => {
-    if (!shaderId || !canvasRef.current) {
-      return;
-    }
-
+    if (!shaderId || hasRenderedRef.current) return;
+    
     const canvas = canvasRef.current;
-    
-    // Устанавливаем начальные размеры canvas сразу
-    if (canvas.width === 0 || canvas.height === 0) {
-      canvas.width = 100;
-      canvas.height = 100;
+    if (!canvas) {
+      // Ждем, пока canvas появится
+      const checkCanvas = setInterval(() => {
+        if (canvasRef.current) {
+          clearInterval(checkCanvas);
+          // Добавляем в очередь после небольшой задержки
+          setTimeout(() => {
+            if (!hasRenderedRef.current && canvasRef.current) {
+              renderQueue.push({
+                canvas: canvasRef.current,
+                shaderId,
+                callback: (dataURL) => {
+                  if (dataURL) {
+                    setImageSrc(dataURL);
+                  }
+                  hasRenderedRef.current = true;
+                }
+              });
+              processRenderQueue();
+            }
+          }, 100);
+        }
+      }, 50);
+      
+      return () => clearInterval(checkCanvas);
     }
     
-    // Устанавливаем размер canvas ПЕРЕД созданием WebGL контекста
-    const resizeCanvas = () => {
-      // Используем несколько методов для определения размера
-      const rect = canvas.getBoundingClientRect();
-      let width = 100;
-      let height = 100;
-      
-      // Пробуем разные способы определения размера
-      if (canvas.offsetWidth > 0) {
-        width = canvas.offsetWidth;
-      } else if (rect.width > 0) {
-        width = rect.width;
-      } else {
-        const style = window.getComputedStyle(canvas);
-        const styleWidth = parseInt(style.width);
-        if (styleWidth > 0) width = styleWidth;
+    // Canvas готов - добавляем в очередь
+    renderQueue.push({
+      canvas,
+      shaderId,
+      callback: (dataURL) => {
+        if (dataURL) {
+          setImageSrc(dataURL);
+        }
+        hasRenderedRef.current = true;
       }
-      
-      if (canvas.offsetHeight > 0) {
-        height = canvas.offsetHeight;
-      } else if (rect.height > 0) {
-        height = rect.height;
-      } else {
-        const style = window.getComputedStyle(canvas);
-        const styleHeight = parseInt(style.height);
-        if (styleHeight > 0) height = styleHeight;
-      }
-      
-      // Устанавливаем минимальные размеры
-      width = Math.max(width, 100);
-      height = Math.max(height, 100);
-      
-      // Обновляем размеры только если они изменились
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
-    };
-
-    // Инициализируем размеры canvas сразу
-    resizeCanvas();
-    
-    // Дополнительная проверка через небольшую задержку для случаев, когда размер еще не установлен
-    const initTimeout = setTimeout(() => {
-      resizeCanvas();
-    }, 50);
-    
-    const gl = canvas.getContext("webgl", { 
-      alpha: false, 
-      antialias: false,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: false
-    }) || canvas.getContext("experimental-webgl", { 
-      alpha: false 
     });
     
-    // Используем fallback только если WebGL не поддерживается
-    if (!gl) {
-      clearTimeout(initTimeout);
-      setUseFallback(true);
-      return () => {};
-    }
-    
-    setUseFallback(false);
-    clearTimeout(initTimeout);
-
-    glRef.current = gl;
-    
-    // Устанавливаем viewport после создания контекста
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    
-    // Используем ResizeObserver для отслеживания изменений размера
-    const resizeObserver = new ResizeObserver(() => {
-      resizeCanvas();
-      if (gl) {
-        gl.viewport(0, 0, canvas.width, canvas.height);
-      }
-    });
-    resizeObserver.observe(canvas);
-    
-    // Дополнительная проверка через небольшую задержку для случаев, когда размер еще не установлен
-    const timeoutId = setTimeout(() => {
-      resizeCanvas();
-      if (gl) {
-        gl.viewport(0, 0, canvas.width, canvas.height);
-      }
-    }, 100);
-
-    // Получаем код шейдера
-    const shaderCode = getShaderCode(shaderId);
-    if (!shaderCode) {
-      console.error("ShaderToyPreview: shader code not found for", shaderId);
-      setUseFallback(true);
-      return () => {};
-    }
-
-    let program = null;
-    let positionBuffer = null;
-
-    try {
-      program = compileShaderProgram(gl, shaderCode);
-      if (!program) return;
-      
-      programRef.current = program;
-      gl.useProgram(program);
-
-      // Создаем полноэкранный квад
-      positionBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-      const positions = new Float32Array([
-        -1, -1,
-         1, -1,
-        -1,  1,
-        -1,  1,
-         1, -1,
-         1,  1,
-      ]);
-      gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-
-      const positionLocation = gl.getAttribLocation(program, "a_position");
-      gl.enableVertexAttribArray(positionLocation);
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-      // Получаем uniform локации
-      const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-      const timeLocation = gl.getUniformLocation(program, "u_time");
-      const mouseLocation = gl.getUniformLocation(program, "u_mouse");
-
-      // Функция рендеринга
-      const render = (timestamp) => {
-        if (!gl || !programRef.current) return;
-
-        const elapsed = (timestamp - startTimeRef.current) / 1000.0;
-
-        // Устанавливаем uniform значения
-        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-        gl.uniform1f(timeLocation, elapsed);
-        gl.uniform2f(mouseLocation, 0, 0);
-
-        // Очищаем и рисуем
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-        animationFrameRef.current = requestAnimationFrame(render);
-      };
-
-      startTimeRef.current = performance.now();
-      animationFrameRef.current = requestAnimationFrame(render);
-
-      // Cleanup
-      return () => {
-        if (timeoutId) clearTimeout(timeoutId);
-        if (resizeObserver) resizeObserver.disconnect();
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-          animationFrameRef.current = null;
-        }
-        if (positionBuffer && gl) {
-          gl.deleteBuffer(positionBuffer);
-        }
-        if (program && gl) {
-          gl.deleteProgram(program);
-          programRef.current = null;
-        }
-        glRef.current = null;
-      };
-    } catch (err) {
-      console.error("ShaderToyPreview WebGL error:", err);
-      setUseFallback(true);
-      return () => {};
-    }
-  }, [shaderId]);
-
-  // Fallback для мобильных устройств или при отсутствии WebGL
-  if (useFallback || !background) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 30, 0.8) 100%)",
-          color: "rgba(255, 255, 255, 0.6)",
-          fontSize: "10px",
-          ...style,
-        }}
-        aria-hidden="true"
-      >
-        {background?.name || "Фон"}
-      </div>
-    );
-  }
+    processRenderQueue();
+  }, [shaderId, backgroundId]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "block",
-        minWidth: "100px",
-        minHeight: "100px",
-        ...style,
-      }}
-      width={100}
-      height={100}
-      aria-hidden="true"
-    />
+    <div style={{
+      position: "relative",
+      width: "100%",
+      height: "100%",
+      minWidth: "85px",
+      minHeight: "70px",
+      ...style
+    }}>
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        />
+      ) : (
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "block",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            minWidth: "85px",
+            minHeight: "70px",
+            backgroundColor: "transparent",
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+          width={85}
+          height={70}
+          aria-hidden="true"
+        />
+      )}
+    </div>
   );
 }
-

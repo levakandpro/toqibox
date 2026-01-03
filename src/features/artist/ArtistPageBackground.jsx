@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createRoot } from "react-dom/client";
 import { supabase } from "../../features/auth/supabaseClient.js";
+import { ARTIST_HEADER_BACKGROUNDS } from "../../utils/artistHeaderBackgrounds.js";
+import VantaPreview from "../track/VantaPreview.jsx";
+import VantaHeaderBackground from "./VantaHeaderBackground.jsx";
+import ShaderToyPreview from "../track/ShaderToyPreview.jsx";
+import ShaderToyBackground from "../track/ShaderToyBackground.jsx";
+import crownIcon from "../../assets/crown.png";
 
-// Список фонов с uiverse.io
-const BACKGROUND_OPTIONS = [
+// Список CSS-эффектов с uiverse.io
+const CSS_BACKGROUND_OPTIONS = [
   {
     id: "foolish-badger-92",
     name: "Neon Circuit",
@@ -89,10 +96,30 @@ const BACKGROUND_OPTIONS = [
   },
 ];
 
+// Фоны для шапки страницы автора - ОТДЕЛЬНЫЙ список, НЕ из треков!
+const BACKGROUND_OPTIONS = ARTIST_HEADER_BACKGROUNDS;
+
+
 export default function ArtistPageBackground({ artist, isOwner = false, editMode = false, onUpdate }) {
   const [selectedBackground, setSelectedBackground] = useState(null);
   const [saving, setSaving] = useState(false);
   const [previewBackground, setPreviewBackground] = useState(null);
+  const vantaRootRef = useRef(null);
+  const vantaContainerRef = useRef(null);
+  const videoElementsRef = useRef(new Set()); // Храним ссылки на все видео элементы
+  const isInitializedRef = useRef(false); // Флаг инициализации
+  const lastBackgroundRef = useRef(null); // Последний примененный фон
+  const appliedBackgroundRef = useRef(null); // Фон, который реально применен
+
+  // Проверяем премиум статус артиста
+  const isPremium = useMemo(() => {
+    if (!artist) return false;
+    return !!(
+      artist.premium_type && 
+      artist.premium_until && 
+      new Date(artist.premium_until) > new Date()
+    );
+  }, [artist]);
 
   // Загружаем сохраненный фон
   useEffect(() => {
@@ -104,6 +131,7 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         if (found) {
           setSelectedBackground(found.id);
           setPreviewBackground(found.id);
+          return;
         }
       } else if (artist?.page_background_id) {
         // Если в localStorage нет, проверяем БД
@@ -111,7 +139,15 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         if (found) {
           setSelectedBackground(found.id);
           setPreviewBackground(found.id);
+          return;
         }
+      }
+      
+      // Если ничего не найдено, устанавливаем первый фон по умолчанию (Cobweb)
+      const defaultBackground = BACKGROUND_OPTIONS[0];
+      if (defaultBackground) {
+        setSelectedBackground(defaultBackground.id);
+        setPreviewBackground(defaultBackground.id);
       }
     }
   }, [artist?.id, artist?.page_background_id]);
@@ -119,10 +155,26 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
   // Применяем фон только к шапке артиста
   useEffect(() => {
     const headerCover = document.querySelector('.ah-cover');
-    if (!headerCover) return;
-
+    if (!headerCover) {
+      console.warn('ArtistPageBackground: .ah-cover not found');
+      return;
+    }
+    
+    // Если фон не выбран, используем первый по умолчанию
+    const backgroundToApply = previewBackground || selectedBackground || (BACKGROUND_OPTIONS[0]?.id);
+    
     // Создаем или находим внутренний элемент для фона
     let bgElement = headerCover.querySelector('.ah-cover-background');
+    
+    // СТРОГАЯ РАННЯЯ ПРОВЕРКА: Если фон уже применен, НЕ ДЕЛАЕМ НИЧЕГО
+    if (appliedBackgroundRef.current === backgroundToApply && isInitializedRef.current) {
+      if (vantaContainerRef.current && vantaContainerRef.current.parentNode && document.contains(vantaContainerRef.current)) {
+        console.log('Background already applied, skipping all operations');
+        return; // Выходим полностью
+      }
+    }
+    
+    console.log('ArtistPageBackground: Applying background', backgroundToApply);
     if (!bgElement) {
       bgElement = document.createElement('div');
       bgElement.className = 'ah-cover-background';
@@ -134,10 +186,13 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       headerCover.appendChild(bgElement);
     }
 
-    // Функция для очистки всех структур фонов
+    // Сохраняем текущий фон для проверки изменений
+    const currentBgId = bgElement.getAttribute('data-current-bg');
+    
+    // Функция для очистки всех структур фонов (НО НЕ ВИДЕО!)
     const cleanupBackgroundStructures = () => {
-      // Удаляем все классы фонов
-      BACKGROUND_OPTIONS.forEach(option => {
+      // Удаляем все классы CSS-эффектов
+      CSS_BACKGROUND_OPTIONS.forEach(option => {
         bgElement.classList.remove(option.component);
       });
       
@@ -149,111 +204,291 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       
       const matrixPatterns = bgElement.querySelectorAll('.matrix-pattern');
       matrixPatterns.forEach(p => p.remove());
+      
+      // Удаляем iframe, но НЕ удаляем video элементы - они должны оставаться!
+      const iframes = bgElement.querySelectorAll('iframe');
+      iframes.forEach(iframe => iframe.remove());
+      
+      // НЕ удаляем видео - они должны зацикливаться бесконечно!
+      // const videos = bgElement.querySelectorAll('video');
+      // videos.forEach(video => video.remove());
+      
+      // НИКОГДА не удаляем Vanta/ShaderToy компоненты - они должны оставаться всегда!
+      // Удаление компонентов приводит к исчезновению фонов
+      // if (vantaRootRef.current) {
+      //   ... удалено - не удаляем компоненты
+      // }
+      // if (vantaContainerRef.current) {
+      //   ... удалено - не удаляем контейнеры
+      // }
     };
 
-    if (previewBackground) {
-      const bg = BACKGROUND_OPTIONS.find(b => b.id === previewBackground);
-      if (bg) {
-        // Очищаем все предыдущие фоны
-        cleanupBackgroundStructures();
-        
-        // Добавляем класс выбранного фона к внутреннему элементу
-        bgElement.classList.add(bg.component);
-        // Убираем backgroundImage у основного элемента
-        headerCover.style.backgroundImage = 'none';
-        
-        // Для neon-circuit добавляем SVG фильтр и структуру
-        if (bg.component === 'neon-circuit') {
-          // Добавляем SVG фильтр
-          let svgFilter = document.getElementById('circuit-texture-filter');
-          if (!svgFilter) {
-            svgFilter = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svgFilter.id = 'circuit-texture-filter';
-            svgFilter.setAttribute('class', 'texture-filter');
-            svgFilter.style.position = 'absolute';
-            svgFilter.style.width = '0';
-            svgFilter.style.height = '0';
-            
-            const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-            filter.id = 'circuit-texture';
-            
-            const feTurbulence = document.createElementNS('http://www.w3.org/2000/svg', 'feTurbulence');
-            feTurbulence.setAttribute('type', 'turbulence');
-            feTurbulence.setAttribute('baseFrequency', '0.05');
-            feTurbulence.setAttribute('numOctaves', '2');
-            feTurbulence.setAttribute('result', 'noise');
-            
-            const feDisplacementMap = document.createElementNS('http://www.w3.org/2000/svg', 'feDisplacementMap');
-            feDisplacementMap.setAttribute('in', 'SourceGraphic');
-            feDisplacementMap.setAttribute('in2', 'noise');
-            feDisplacementMap.setAttribute('scale', '10');
-            feDisplacementMap.setAttribute('xChannelSelector', 'R');
-            feDisplacementMap.setAttribute('yChannelSelector', 'G');
-            feDisplacementMap.setAttribute('result', 'displace');
-            
-            const feColorMatrix = document.createElementNS('http://www.w3.org/2000/svg', 'feColorMatrix');
-            feColorMatrix.setAttribute('type', 'matrix');
-            feColorMatrix.setAttribute('values', '0 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0');
-            feColorMatrix.setAttribute('result', 'color');
-            
-            const feComposite = document.createElementNS('http://www.w3.org/2000/svg', 'feComposite');
-            feComposite.setAttribute('in', 'color');
-            feComposite.setAttribute('in2', 'SourceGraphic');
-            feComposite.setAttribute('operator', 'over');
-            feComposite.setAttribute('result', 'final');
-            
-            filter.appendChild(feTurbulence);
-            filter.appendChild(feDisplacementMap);
-            filter.appendChild(feColorMatrix);
-            filter.appendChild(feComposite);
-            svgFilter.appendChild(filter);
-            document.body.appendChild(svgFilter);
-          }
+    // Используем backgroundToApply, который уже определен выше
+    const bg = BACKGROUND_OPTIONS.find(b => b.id === backgroundToApply);
+    if (bg) {
+      // СТРОГАЯ ПРОВЕРКА: Если фон уже применен, НЕ делаем НИЧЕГО
+      if (appliedBackgroundRef.current === backgroundToApply && isInitializedRef.current) {
+        if (vantaContainerRef.current && vantaContainerRef.current.parentNode && document.contains(vantaContainerRef.current)) {
+          console.log('Background already applied and initialized, skipping recreation');
+          return; // Выходим, не пересоздавая ничего
+        }
+      }
+      
+      // НИКОГДА не вызываем cleanupBackgroundStructures - она удаляет компоненты!
+      // Очищаем ТОЛЬКО CSS классы, но НЕ трогаем компоненты
+      if (currentBgId !== backgroundToApply && currentBgId !== null) {
+        console.log('Background changed, cleaning CSS only, NOT touching components');
+        // Очищаем только CSS классы
+        CSS_BACKGROUND_OPTIONS.forEach(option => {
+          bgElement.classList.remove(option.component);
+        });
+        const glowOverlay = bgElement.querySelector('.glow-overlay');
+        if (glowOverlay) {
+          glowOverlay.remove();
+        }
+        const matrixPatterns = bgElement.querySelectorAll('.matrix-pattern');
+        matrixPatterns.forEach(p => p.remove());
+        const iframes = bgElement.querySelectorAll('iframe');
+        iframes.forEach(iframe => iframe.remove());
+        // НЕ вызываем cleanupBackgroundStructures - она удаляет компоненты!
+        // НЕ удаляем видео и НЕ удаляем Vanta/ShaderToy контейнеры!
+      }
+      
+      // Сохраняем текущий фон
+      bgElement.setAttribute('data-current-bg', backgroundToApply);
+      lastBackgroundRef.current = backgroundToApply;
+      appliedBackgroundRef.current = backgroundToApply; // Сохраняем примененный фон
+      isInitializedRef.current = true;
+      
+      // Убираем backgroundImage у основного элемента
+      headerCover.style.backgroundImage = 'none';
+      
+      // ShaderToy WebGL фоны (не iframe, а WebGL рендеринг)
+      if (bg.type === 'shadertoy' && bg.shaderId) {
+          // Создаем контейнер ТОЛЬКО если его еще нет И он не в DOM
+          const containerExists = vantaContainerRef.current && 
+                                  vantaContainerRef.current.parentNode && 
+                                  document.contains(vantaContainerRef.current);
           
-          // Добавляем структуру для neon-circuit
-          let glowOverlay = bgElement.querySelector('.glow-overlay');
-          if (!glowOverlay) {
-            glowOverlay = document.createElement('span');
-            glowOverlay.className = 'glow-overlay';
-            bgElement.appendChild(glowOverlay);
-          }
-        }
-        
-        // Для matrix-container добавляем структуру
-        if (bg.component === 'matrix-container') {
-          // Создаем несколько паттернов с колонками
-          for (let p = 0; p < 5; p++) {
-            const pattern = document.createElement('div');
-            pattern.className = 'matrix-pattern';
-            for (let i = 0; i < 40; i++) {
-              const column = document.createElement('div');
-              column.className = 'matrix-column';
-              column.style.left = `${i * 25}px`;
-              column.style.animationDelay = `${-Math.random() * 4}s`;
-              column.style.animationDuration = `${2.5 + Math.random() * 2}s`;
-              pattern.appendChild(column);
+          if (!containerExists) {
+            const shaderContainer = document.createElement('div');
+            shaderContainer.style.position = 'absolute';
+            shaderContainer.style.top = '0';
+            shaderContainer.style.left = '0';
+            shaderContainer.style.width = '100%';
+            shaderContainer.style.height = '100%';
+            shaderContainer.style.zIndex = '0';
+            bgElement.appendChild(shaderContainer);
+            
+            // Создаем React root и рендерим ShaderToy компонент ТОЛЬКО ОДИН РАЗ
+            if (!vantaRootRef.current) {
+              const shaderRoot = createRoot(shaderContainer);
+              shaderRoot.render(
+                <ShaderToyBackground backgroundId={bg.id} />
+              );
+              
+              // Сохраняем root для cleanup
+              vantaRootRef.current = shaderRoot;
+              console.log('ShaderToy container created and initialized');
+            } else {
+              console.log('ShaderToy root already exists, NOT re-rendering to prevent destruction');
             }
-            bgElement.appendChild(pattern);
+            
+            // Сохраняем контейнер
+            vantaContainerRef.current = shaderContainer;
+          } else {
+            // Если контейнер уже есть, НЕ ДЕЛАЕМ НИЧЕГО - оставляем как есть!
+            console.log('ShaderToy container already exists in DOM, keeping it untouched');
           }
         }
+        // Vanta WebGL фоны
+        else if (bg.type === 'vanta' && bg.effectType) {
+          // Создаем контейнер ТОЛЬКО если его еще нет И он не в DOM
+          const containerExists = vantaContainerRef.current && 
+                                  vantaContainerRef.current.parentNode && 
+                                  document.contains(vantaContainerRef.current);
+          
+          if (!containerExists) {
+            console.log('Creating Vanta background:', bg.effectType);
+            // Создаем контейнер для Vanta компонента
+            vantaContainerRef.current = document.createElement('div');
+            vantaContainerRef.current.style.position = 'absolute';
+            vantaContainerRef.current.style.top = '0';
+            vantaContainerRef.current.style.left = '0';
+            vantaContainerRef.current.style.width = '100%';
+            vantaContainerRef.current.style.height = '100%';
+            vantaContainerRef.current.style.zIndex = '0';
+            bgElement.appendChild(vantaContainerRef.current);
+            console.log('Vanta container created and appended to bgElement');
+            
+            // Создаем React root и рендерим Vanta компонент ТОЛЬКО ОДИН РАЗ
+            if (!vantaRootRef.current) {
+              vantaRootRef.current = createRoot(vantaContainerRef.current);
+              vantaRootRef.current.render(
+                <VantaHeaderBackground
+                  effectType={bg.effectType}
+                  color={bg.color || 0xe30a0a}
+                  color1={bg.color1 || null}
+                  color2={bg.color2 || null}
+                  shininess={bg.shininess || null}
+                  waveSpeed={bg.waveSpeed || null}
+                  zoom={bg.zoom || null}
+                  points={bg.points || null}
+                  maxDistance={bg.maxDistance || null}
+                  spacing={bg.spacing || null}
+                />
+              );
+              console.log('Vanta component rendered');
+            } else {
+              console.log('Vanta root already exists, NOT re-rendering to prevent destruction');
+            }
+          } else {
+            // Если контейнер уже есть, НЕ ДЕЛАЕМ НИЧЕГО - оставляем как есть!
+            console.log('Vanta container already exists in DOM, keeping it untouched');
+          }
+      } else {
+        console.warn('Unknown background type or missing data:', bg);
       }
     } else {
-      // Удаляем фон если не выбран - возвращаем обычную обложку
-      cleanupBackgroundStructures();
-      // Восстанавливаем backgroundImage
-      headerCover.style.backgroundImage = '';
+      console.warn('Background not found:', backgroundToApply);
     }
 
-    return () => {
-      // Очистка при размонтировании компонента
-      cleanupBackgroundStructures();
-      if (headerCover) {
-        headerCover.style.backgroundImage = '';
-      }
+    // Убеждаемся, что все видео в шапке зациклены навсегда
+    const videoHandlers = new WeakMap(); // Храним обработчики для каждого видео
+    
+    const ensureVideosLoop = () => {
+      // Собираем видео из DOM и из ref
+      const allVideosFromDOM = document.querySelectorAll('.ah-cover video, .ah-cover-background video, #artist-page-background video');
+      const allVideos = new Set();
+      
+      // Добавляем видео из DOM
+      allVideosFromDOM.forEach(v => {
+        allVideos.add(v);
+        videoElementsRef.current.add(v); // Сохраняем в ref
+      });
+      
+      // Добавляем видео из ref (на случай если они были удалены из DOM, но еще в памяти)
+      videoElementsRef.current.forEach(v => {
+        if (v && v.parentNode && document.contains(v)) {
+          allVideos.add(v);
+        } else {
+          // Удаляем из ref если элемент больше не в DOM
+          videoElementsRef.current.delete(v);
+        }
+      });
+      
+      allVideos.forEach(video => {
+        if (video) {
+          // Устанавливаем все необходимые атрибуты
+          video.loop = true;
+          video.setAttribute('loop', 'true');
+          video.autoplay = true;
+          video.setAttribute('autoplay', 'true');
+          video.muted = true;
+          video.setAttribute('muted', 'true');
+          video.playsInline = true;
+          video.setAttribute('playsinline', 'true');
+          video.preload = 'auto';
+          video.setAttribute('preload', 'auto');
+          
+          // Создаем обработчики только один раз для каждого видео
+          if (!videoHandlers.has(video)) {
+            // Обработчик для перезапуска при окончании
+            const handleEnded = () => {
+              video.currentTime = 0;
+              const playPromise = video.play();
+              if (playPromise !== undefined) {
+                playPromise.catch(() => {
+                  // Если не удалось запустить, пробуем еще раз
+                  setTimeout(() => {
+                    video.currentTime = 0;
+                    video.play().catch(() => {});
+                  }, 100);
+                });
+              }
+            };
+            
+            // Обработчик для автоматического возобновления при паузе
+            const handlePause = () => {
+              // Если видео не на конце, продолжаем воспроизведение
+              if (video.currentTime < video.duration - 0.1) {
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                  playPromise.catch(() => {});
+                }
+              }
+            };
+            
+            // Обработчик для возобновления после приостановки
+            const handleSuspend = () => {
+              setTimeout(() => {
+                if (video.paused && video.readyState >= 2) {
+                  video.play().catch(() => {});
+                }
+              }, 100);
+            };
+            
+            // Обработчик для проверки готовности
+            const handleLoadedData = () => {
+              video.loop = true;
+              if (video.paused) {
+                video.play().catch(() => {});
+              }
+            };
+            
+            // Добавляем все обработчики
+            video.addEventListener('ended', handleEnded);
+            video.addEventListener('pause', handlePause);
+            video.addEventListener('suspend', handleSuspend);
+            video.addEventListener('loadeddata', handleLoadedData);
+            
+            // Сохраняем обработчики
+            videoHandlers.set(video, { handleEnded, handlePause, handleSuspend, handleLoadedData });
+          }
+          
+          // Убеждаемся, что видео играет
+          if (video.paused && video.readyState >= 2) {
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(() => {
+                // Если не удалось запустить сразу, пробуем еще раз
+                setTimeout(() => {
+                  video.play().catch(() => {});
+                }, 200);
+              });
+            }
+          }
+          
+          // Если видео закончилось, перезапускаем
+          if (video.ended) {
+            video.currentTime = 0;
+            video.play().catch(() => {});
+          }
+        }
+      });
     };
-  }, [previewBackground]);
+    
+    // Проверяем видео сразу и периодически (чаще, чтобы не пропустить остановку)
+    ensureVideosLoop();
+    const videoCheckInterval = setInterval(ensureVideosLoop, 500); // Проверяем каждые 500ms
+
+    return () => {
+      clearInterval(videoCheckInterval);
+      // НЕ очищаем структуры при размонтировании - видео должны оставаться!
+      // cleanupBackgroundStructures();
+      // if (headerCover) {
+      //   headerCover.style.backgroundImage = '';
+      // }
+    };
+  }, [previewBackground, selectedBackground]);
 
   const handleSelectBackground = (bgId) => {
+    const bg = BACKGROUND_OPTIONS.find(b => b.id === bgId);
+    // Блокируем выбор премиум фонов для бесплатных пользователей
+    if (bg?.premium && !isPremium) {
+      alert('Этот фон доступен только для премиум пользователей. Обратитесь к администратору для получения доступа.');
+      return;
+    }
     setPreviewBackground(bgId);
   };
 
@@ -327,30 +562,121 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
 
   const isChanged = previewBackground !== selectedBackground;
 
-  // Показываем только в режиме редактирования для владельца
+  // Панель выбора показываем только в режиме редактирования для владельца
+  // Но сам эффект применяется всегда через useEffect выше
   if (!isOwner || !editMode) {
-    return null;
+    return null; // Возвращаем null только для панели, useEffect все равно работает
   }
 
   return (
-    <div className="apb-root">
+    <div className="apb-root" data-visible="true">
       <div className="apb-title">ФОНЫ</div>
       <div className="apb-grid">
         {BACKGROUND_OPTIONS.map((bg) => {
+          console.log("ArtistPageBackground: mapping bg", { 
+            id: bg.id, 
+            name: bg.name, 
+            type: bg.type, 
+            shaderId: bg.shaderId,
+            effectType: bg.effectType,
+            hasShaderId: !!bg.shaderId,
+            hasEffectType: !!bg.effectType
+          });
+          
           const isSelected = previewBackground === bg.id;
           const isActive = selectedBackground === bg.id;
+          const isPremiumBg = bg.premium === true;
+          const isLocked = isPremiumBg && !isPremium;
+          
+          // Проверяем, что фон имеет все необходимые данные
+          if (bg.type === 'shadertoy' && !bg.shaderId) {
+            console.warn("ArtistPageBackground: skipping shadertoy bg without shaderId", bg);
+            return null;
+          }
+          if (bg.type === 'vanta' && !bg.effectType) {
+            console.warn("ArtistPageBackground: skipping vanta bg without effectType", bg);
+            return null;
+          }
+          
+          console.log("ArtistPageBackground: rendering bg button", { 
+            id: bg.id, 
+            type: bg.type,
+            willRenderShaderToy: bg.type === 'shadertoy' && bg.shaderId,
+            willRenderVanta: bg.type === 'vanta' && bg.effectType
+          });
           
           return (
             <button
               key={bg.id}
               type="button"
-              className={`apb-item ${isSelected ? 'apb-item-selected' : ''} ${isActive ? 'apb-item-active' : ''}`}
+              className={`apb-item ${isSelected ? 'apb-item-selected' : ''} ${isActive ? 'apb-item-active' : ''} ${isLocked ? 'apb-item-locked' : ''}`}
               onClick={() => handleSelectBackground(bg.id)}
-              title={bg.name}
+              disabled={isLocked}
             >
-              <div className={`apb-preview ${bg.component}`}></div>
+              {bg.type === 'shadertoy' && bg.shaderId ? (
+                (() => {
+                  console.log("ArtistPageBackground: Rendering ShaderToyPreview", { 
+                    bgId: bg.id, 
+                    bgName: bg.name, 
+                    shaderId: bg.shaderId,
+                    bgType: bg.type
+                  });
+                  return (
+                    <ShaderToyPreview
+                      backgroundId={bg.id}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                      }}
+                    />
+                  );
+                })()
+              ) : bg.type === 'vanta' && bg.effectType ? (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  overflow: 'hidden',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                }}>
+                  <VantaPreview
+                    effectType={bg.effectType}
+                    color={bg.color || 0xe30a0a}
+                    color1={bg.color1 || null}
+                    color2={bg.color2 || null}
+                    shininess={bg.shininess || null}
+                    waveSpeed={bg.waveSpeed || null}
+                    zoom={bg.zoom || null}
+                    points={bg.points || null}
+                    maxDistance={bg.maxDistance || null}
+                    spacing={bg.spacing || null}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                    }}
+                  />
+                </div>
+              ) : null}
               {isActive && (
                 <div className="apb-checkmark">✓</div>
+              )}
+              {isLocked && (
+                <>
+                  <div className="apb-premium-badge">
+                    <img src={crownIcon} alt="Premium" />
+                  </div>
+                  <div className="apb-premium-overlay">
+                    <div className="apb-premium-text">
+                      <div>подключите</div>
+                      <div>тариф ПРЕМИУМ</div>
+                    </div>
+                  </div>
+                </>
               )}
             </button>
           );

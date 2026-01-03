@@ -1,0 +1,135 @@
+/* =========================
+   Reaction (LIKE) - ONLY
+========================= */
+
+/* TОЛЬКО лайк. НИЧЕГО больше. */
+.t-actions{
+  position: fixed;
+  left: 160px;
+  bottom: 16px;
+  z-index: 10;
+  margin: 0;
+
+  width: auto;
+  display: block;
+}
+
+/* wrapper: icon + count (stacked) */
+.t-actions .tr-wrap{
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.tr-wrap{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tr-btn{
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: visible;
+}
+
+.tr-btn:hover{
+  /* убрано ощущение кнопки */
+}
+
+.tr-btn:active{
+  /* убрано ощущение кнопки */
+}
+
+.tr-icon{
+  width: 28px;
+  height: 28px;
+  opacity: 0.65;
+  position: relative;
+  z-index: 3;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.15));
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+.tr-btn.is-active .tr-icon{
+  opacity: 0.85;
+  filter: drop-shadow(0 0 12px rgba(70, 255, 200, 0.25));
+}
+
+/* count under icon */
+.tr-count{
+  padding: 0;
+  border: none;
+  background: none;
+
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0.4;
+  letter-spacing: 0.05em;
+}
+
+/* ===== TOQIBOX LIKE BURST (SLOW + SMOOTH) ===== */
+.tr-burst{
+  position: absolute;
+  inset: -8px;
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* heart particle via background-image */
+.tr-heart{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.55);
+
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff3b5c' d='M12 21s-7.2-4.5-9.6-8.6C.8 9.2 2.6 6 6.3 6c2 0 3.4 1.1 4.2 2.2C11.3 7.1 12.7 6 14.7 6 18.4 6 20.2 9.2 21.6 12.4 19.2 16.5 12 21 12 21z'/%3E%3C/svg%3E");
+
+  animation: trHeartFly var(--dur, 1400ms) cubic-bezier(.16,.85,.22,1) var(--delay, 0ms) forwards;
+}
+
+@keyframes trHeartFly{
+  0%{
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.55);
+    filter: blur(0px);
+  }
+  18%{
+    opacity: 1;
+    transform: translate(-50%, -52%) scale(1);
+    filter: blur(0px);
+  }
+  60%{
+    opacity: .55;
+    transform:
+      translate(calc(-50% + (var(--dx, 0px) * .65)), calc(-50% + (var(--dy, -36px) * .65)))
+      rotate(calc(var(--rot, 0deg) * .7))
+      scale(calc(var(--s, 1) * .98));
+    filter: blur(0.2px);
+  }
+  100%{
+    opacity: 0;
+    transform:
+      translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, -36px)))
+      rotate(var(--rot, 0deg))
+      scale(var(--s, 1));
+    filter: blur(0.7px);
+  }
+}

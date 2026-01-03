@@ -53,8 +53,8 @@ export function getBackgroundById(backgroundId) {
  */
 export function getShaderToyEmbedUrl(shaderId) {
   // Правильный формат URL для ShaderToy embed
-  // Параметры: gui=false (без GUI), t=10 (время), p=7 (пауза)
-  // Формат: https://www.shadertoy.com/embed/{shaderId}?gui=false&t=10&p=7
-  return `https://www.shadertoy.com/embed/${shaderId}?gui=false&t=10&p=7`;
+  // Параметры: gui=false (без GUI)
+  // Формат: https://www.shadertoy.com/embed/{shaderId}?gui=false
+  return `https://www.shadertoy.com/embed/${shaderId}?gui=false`;
 }
 
