@@ -1,0 +1,551 @@
+.studio-pricing-page {
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  padding: 12px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.studio-pricing-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.studio-pricing-header {
+  text-align: center;
+  margin-bottom: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  flex-shrink: 0;
+  z-index: 100;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  padding: 12px 0 20px 0;
+}
+
+.studio-pricing-rules-btn {
+  margin-top: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.studio-pricing-rules-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* From Uiverse.io by WhiteNervosa */
+.studio-pricing-back-btn {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: #b0b0b0;
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  border: none;
+  background: none;
+  text-transform: uppercase;
+  transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition-duration: 400ms;
+  transition-property: color;
+}
+
+.studio-pricing-back-btn:focus,
+.studio-pricing-back-btn:hover {
+  color: #fff;
+}
+
+.studio-pricing-back-btn:focus:after,
+.studio-pricing-back-btn:hover:after {
+  width: 100%;
+  left: 0%;
+}
+
+.studio-pricing-back-btn:after {
+  content: "";
+  pointer-events: none;
+  bottom: -2px;
+  left: 50%;
+  position: absolute;
+  width: 0%;
+  height: 2px;
+  background-color: #fff;
+  transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition-duration: 400ms;
+  transition-property: width, left;
+}
+
+.studio-pricing-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  color: #ffffff;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.studio-pricing-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+  font-weight: 400;
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.studio-pricing-plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  flex: 1;
+  align-items: start;
+  overflow: hidden;
+  min-height: 0;
+  max-width: 1200px;
+  margin: 100px auto 0 auto;
+  width: 100%;
+}
+
+.studio-pricing-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  min-height: 0;
+  box-sizing: border-box;
+  max-width: 100%;
+  z-index: 1;
+}
+
+.studio-pricing-card:hover {
+  transform: translateY(0);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  z-index: 5;
+}
+
+.studio-pricing-rules {
+  margin-top: 20px;
+  padding: 20px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.studio-pricing-rules-content {
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.studio-pricing-rules-title-wrapper {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 12px 24px;
+  transition: all 0.2s ease;
+  user-select: none;
+  border-radius: 8px;
+}
+
+.studio-pricing-rules-title-wrapper:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.studio-pricing-rules-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #b0b0b0;
+  margin: 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.rules-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.rules-modal {
+  background: #0f0f0f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  max-width: 800px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.rules-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rules-modal-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rules-close {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.rules-close:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.rules-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Кастомный скролл для модалки */
+.rules-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rules-modal-body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.rules-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.rules-modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Для Firefox */
+.rules-modal-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
+}
+
+.rules-modal-subtitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin: 32px 0 16px 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.rules-section {
+  margin-bottom: 20px;
+}
+
+.rules-section h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 8px 0;
+  letter-spacing: 0.3px;
+}
+
+.rules-section p {
+  font-size: 10px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.studio-pricing-card.popular {
+  background: linear-gradient(135deg, rgba(227, 10, 10, 0.15) 0%, rgba(227, 10, 10, 0.08) 100%);
+  border: 2px solid rgba(227, 10, 10, 0.5);
+}
+
+.studio-pricing-card.popular:hover {
+  border-color: rgba(227, 10, 10, 0.8);
+  box-shadow: 0 12px 24px rgba(227, 10, 10, 0.2);
+}
+
+.studio-pricing-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #e30a0a 0%, #ff3333 100%);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 1;
+}
+
+.studio-pricing-card-content {
+  padding: 16px 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.studio-pricing-card-header {
+  display: grid;
+  grid-template-columns: 1fr;
+  text-align: left;
+  margin-bottom: 12px;
+}
+
+.studio-pricing-plan-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: -0.5px;
+  margin: 0 0 6px 0;
+}
+
+.studio-pricing-description {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.studio-pricing-price-block {
+  margin-top: 16px;
+}
+
+.studio-pricing-price-block p {
+  margin: 0;
+}
+
+.studio-pricing-price-amount {
+  font-size: 36px;
+  font-weight: 300;
+  letter-spacing: -1px;
+  color: #fff;
+}
+
+.studio-pricing-price-period {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.studio-pricing-features-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.studio-pricing-feature-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.studio-pricing-feature-item:last-child {
+  border-bottom: none;
+}
+
+.studio-pricing-feature-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+.studio-pricing-feature-value {
+  font-size: 13px;
+  color: #fff;
+  font-weight: 600;
+  text-align: right;
+}
+
+.studio-pricing-included {
+  margin-top: 12px;
+}
+
+.studio-pricing-included-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.studio-pricing-included-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.studio-pricing-included-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+}
+
+.studio-pricing-check {
+  color: #e30a0a;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.studio-pricing-card-footer {
+  padding: 0 20px 16px 20px;
+  flex-shrink: 0;
+}
+
+.studio-pricing-button {
+  width: 100%;
+  padding: 8px 20px;
+  border: 2px solid;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.studio-pricing-button.primary {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+}
+
+.studio-pricing-button.primary:hover {
+  background: transparent;
+  border-color: #000;
+  color: #000;
+}
+
+.studio-pricing-button.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.studio-pricing-button.secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+  .studio-pricing-plans {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  
+  .studio-pricing-card-content {
+    padding: 20px;
+  }
+  
+  .studio-pricing-card-footer {
+    padding: 0 20px 20px 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .studio-pricing-page {
+    padding: 16px;
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .studio-pricing-title {
+    font-size: 28px;
+  }
+
+  .studio-pricing-subtitle {
+    font-size: 12px;
+  }
+
+  .studio-pricing-plans {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    flex: none;
+  }
+
+  .studio-pricing-card.popular {
+    transform: scale(1);
+  }
+
+  .studio-pricing-card.popular:hover {
+    transform: translateY(-4px);
+  }
+
+  .studio-pricing-back-btn {
+    position: relative;
+    margin-bottom: 16px;
+  }
+}

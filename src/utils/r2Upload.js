@@ -33,8 +33,13 @@ export async function uploadCover({ type, id, file }) {
     throw new Error('Файл не указан');
   }
 
-  if (!type || !id) {
-    throw new Error('Тип и ID обязательны');
+  if (!type) {
+    throw new Error('Тип обязателен');
+  }
+
+  // ID не требуется для studio_photo
+  if (type !== "studio_photo" && !id) {
+    throw new Error('ID обязателен для данного типа');
   }
 
   // Проверяем тип файла
@@ -54,7 +59,7 @@ export async function uploadCover({ type, id, file }) {
       },
       body: JSON.stringify({
         type,
-        id,
+        id: type === "studio_photo" ? "" : id,
         mime: file.type,
       }),
     });

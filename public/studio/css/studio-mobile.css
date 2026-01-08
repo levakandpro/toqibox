@@ -1,0 +1,29 @@
+.studio-root.mobile {
+  flex-direction: column;
+}
+
+.canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas-9x16 {
+  height: 80%;
+  aspect-ratio: 9 / 16;
+  background: #151515;
+  border: 1px dashed #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid #222;
+}

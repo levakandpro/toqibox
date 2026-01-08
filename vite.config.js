@@ -108,16 +108,16 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       // Прокси для Cloudflare Pages Functions в локальной разработке
-      // Если endpoint не работает локально, используем продакшн
-      "/api/r2/presign": {
-        target: "https://toqibox.win",
-        changeOrigin: true,
-        secure: true,
-        // Если продакшн недоступен, вернем ошибку, но не сломаем приложение
-        onError: (err, req, res) => {
-          console.warn('⚠️ Прокси недоступен, используем локальную заглушку');
-        },
-      },
+      // ВРЕМЕННО ОТКЛЮЧЕНО для локального тестирования studio_photo
+      // Для studio_photo в dev режиме используется локальное превью (URL.createObjectURL)
+      // "/api/r2/presign": {
+      //   target: "https://toqibox.win",
+      //   changeOrigin: true,
+      //   secure: true,
+      //   onError: (err, req, res) => {
+      //     console.warn('⚠️ Прокси недоступен, используем локальную заглушку');
+      //   },
+      // },
     },
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

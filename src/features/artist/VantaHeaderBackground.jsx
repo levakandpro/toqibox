@@ -24,7 +24,8 @@ export default function VantaHeaderBackground({
   zoom = null,
   points = null,
   maxDistance = null,
-  spacing = null
+  spacing = null,
+  beatIntensity = 0
 }) {
   const vantaRef = useRef(null);
   const vantaEffect = useRef(null);
@@ -335,6 +336,60 @@ export default function VantaHeaderBackground({
       }
     };
   }, [effectType, color, color1, color2, shininess, waveSpeed, zoom, points, maxDistance, spacing]);
+
+  // Реакция на биты - эффект "сердцебиения" для всех эффектов
+  useEffect(() => {
+    if (!vantaEffect.current) return;
+
+    try {
+      // Для всех эффектов применяем сильную реакцию на биты
+      if (vantaEffect.current.setOptions) {
+        if (effectType === 'net') {
+          // Увеличиваем количество точек и расстояние при бите
+          const basePoints = points !== null ? points : 11.00;
+          const baseMaxDistance = maxDistance !== null ? maxDistance : 21.00;
+          vantaEffect.current.setOptions({
+            points: basePoints + beatIntensity * 8,
+            maxDistance: baseMaxDistance + beatIntensity * 15,
+            scale: 1.00 + beatIntensity * 0.2, // Масштаб тоже реагирует
+          });
+        } else if (effectType === 'waves') {
+          // Увеличиваем скорость и зум при бите
+          const baseWaveSpeed = waveSpeed !== null ? waveSpeed : 0.80;
+          const baseZoom = zoom !== null ? zoom : 1.22;
+          vantaEffect.current.setOptions({
+            waveSpeed: baseWaveSpeed + beatIntensity * 0.8,
+            zoom: baseZoom + beatIntensity * 0.4,
+            scale: 1.00 + beatIntensity * 0.2,
+          });
+        } else if (effectType === 'rings') {
+          // Увеличиваем масштаб при бите
+          vantaEffect.current.setOptions({
+            scale: 1.00 + beatIntensity * 0.4,
+            size: 1.00 + beatIntensity * 0.3,
+          });
+        } else if (effectType === 'dots') {
+          // Увеличиваем размер точек при бите
+          vantaEffect.current.setOptions({
+            size: 1.00 + beatIntensity * 0.8,
+            scale: 1.00 + beatIntensity * 0.2,
+          });
+        } else if (effectType === 'cells') {
+          // Для cells тоже добавляем реакцию
+          vantaEffect.current.setOptions({
+            scale: 1.00 + beatIntensity * 0.3,
+          });
+        } else if (effectType === 'birds' || effectType === 'fog' || effectType === 'trunk') {
+          // Для остальных эффектов добавляем масштаб
+          vantaEffect.current.setOptions({
+            scale: 1.00 + beatIntensity * 0.25,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error updating Vanta effect on beat:', e);
+    }
+  }, [beatIntensity, effectType, points, maxDistance, waveSpeed, zoom]);
 
   return (
     <div

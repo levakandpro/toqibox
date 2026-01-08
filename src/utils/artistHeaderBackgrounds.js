@@ -200,6 +200,13 @@ export const ARTIST_HEADER_BACKGROUNDS = [
     shaderId: "butitoba-circle-2",
     premium: true,
   },
+  {
+    id: "fractal-distortion",
+    name: "Fractal Distortion",
+    type: "shadertoy",
+    shaderId: "fractal-distortion",
+    premium: false,
+  },
 ];
 
 /**

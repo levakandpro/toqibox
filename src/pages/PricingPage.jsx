@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../features/auth/supabaseClient.js";
 import "./PricingPage.css";
 
@@ -8,6 +8,9 @@ import gmailIcon from "../assets/share/gmail.svg";
 import dcity from "../assets/dcity.jpg";
 
 export default function PricingPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
   const [mode, setMode] = useState("plans");
   const [selectedPlan, setSelectedPlan] = useState("PREMIUM");
   const [selectedAmount, setSelectedAmount] = useState("140");
@@ -146,7 +149,13 @@ export default function PricingPage() {
           <div className="pay-container">
             <main className="pay-content">
               <button 
-                onClick={handleBack}
+                onClick={() => {
+                  if (returnTo) {
+                    navigate(returnTo);
+                  } else {
+                    handleBack();
+                  }
+                }}
                 style={{ 
                   position: "fixed", 
                   top: "20px", 
@@ -233,6 +242,39 @@ export default function PricingPage() {
       </div>
 
       <main className="content-container">
+        {/* Кнопка "Назад" если есть returnTo */}
+        {returnTo && (
+          <button
+            onClick={() => navigate(returnTo)}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              left: '20px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#fff',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              zIndex: 1000,
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+            }}
+          >
+            ← Назад
+          </button>
+        )}
+
         {/* Хедер авторизации */}
         <div className="auth-glass-header">
           <p>Для оплаты необходимо войти в аккаунт</p>

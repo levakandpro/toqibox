@@ -1,12 +1,13 @@
 // PaymentPage.jsx
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import "./PaymentPage.css";
 
 import dcity from "../assets/dcity.jpg";
 
 export default function PaymentPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [plan, setPlan] = useState("PREMIUM");
   const [amount, setAmount] = useState("140");
   const [previewUrl, setPreviewUrl] = useState("");
@@ -64,6 +65,23 @@ export default function PaymentPage() {
       <div className="container">
         <main className="content">
           <header className="header">
+            <button
+              type="button"
+              onClick={() => navigate("/studio/pricing")}
+              style={{
+                border: "none",
+                background: "none",
+                color: "rgba(255,255,255,0.7)",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                fontSize: "10px",
+                letterSpacing: "0.12em",
+                marginBottom: "4px",
+                padding: "0",
+              }}
+            >
+              ← НАЗАД К ТАРИФАМ
+            </button>
             <h1>Подтверждение</h1>
             <p>Завершите оплату через Dushanbe City</p>
           </header>

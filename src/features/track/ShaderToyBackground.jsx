@@ -3,12 +3,13 @@ import { getBackgroundById } from "../../utils/shadertoyBackgrounds.js";
 import { getPremiumBackgroundById } from "../../utils/premiumBackgrounds.js";
 import { getShaderCode, compileShaderProgram } from "../../utils/webglShaders.js";
 
-export default function ShaderToyBackground({ backgroundId }) {
+export default function ShaderToyBackground({ backgroundId, beatIntensity = 0 }) {
   const canvasRef = useRef(null);
   const glRef = useRef(null);
   const programRef = useRef(null);
   const animationFrameRef = useRef(null);
   const startTimeRef = useRef(Date.now());
+  const beatIntensityRef = useRef(0);
   const [error, setError] = useState(null);
 
   // Проверяем сначала обычные фоны, потом премиум
@@ -30,6 +31,11 @@ export default function ShaderToyBackground({ backgroundId }) {
     shaderId = background.id;
   }
 
+  // Обновляем beatIntensity ref при изменении
+  useEffect(() => {
+    beatIntensityRef.current = beatIntensity || 0;
+  }, [beatIntensity]);
+
   useEffect(() => {
     if (!shaderId || !canvasRef.current) {
       return () => {};
@@ -37,14 +43,14 @@ export default function ShaderToyBackground({ backgroundId }) {
 
     setError(null);
     const canvas = canvasRef.current;
-    // Создаем WebGL контекст без альфа-канала для лучшей производительности и четкости
+    // Создаем WebGL контекст с альфа-каналом для прозрачности
     const gl = canvas.getContext("webgl", { 
-      alpha: false, 
+      alpha: true, 
       antialias: true,
       premultipliedAlpha: false,
       preserveDrawingBuffer: false
     }) || canvas.getContext("experimental-webgl", { 
-      alpha: false 
+      alpha: true 
     });
     
         if (!gl) {
@@ -60,10 +66,17 @@ export default function ShaderToyBackground({ backgroundId }) {
 
     glRef.current = gl;
 
-    // Устанавливаем размер canvas
+    // Устанавливаем размер canvas - используем размер родительского элемента
     const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const parent = canvas.parentElement;
+      if (parent) {
+        const rect = parent.getBoundingClientRect();
+        canvas.width = rect.width || window.innerWidth;
+        canvas.height = rect.height || window.innerHeight;
+      } else {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
 
@@ -115,6 +128,7 @@ export default function ShaderToyBackground({ backgroundId }) {
       const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
       const timeLocation = gl.getUniformLocation(program, "u_time");
       const mouseLocation = gl.getUniformLocation(program, "u_mouse");
+      const beatLocation = gl.getUniformLocation(program, "u_beat");
 
       // Функция рендеринга
       const render = (timestamp) => {
@@ -126,11 +140,17 @@ export default function ShaderToyBackground({ backgroundId }) {
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
         gl.uniform1f(timeLocation, elapsed);
         gl.uniform2f(mouseLocation, 0, 0); // Можно добавить поддержку мыши позже
+        if (beatLocation !== -1) {
+          gl.uniform1f(beatLocation, beatIntensityRef.current || 0);
+        }
 
         // Очищаем и рисуем
         gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.clearColor(0, 0, 0, 1); // Непрозрачный черный фон
+        gl.clearColor(0, 0, 0, 0); // Прозрачный фон
         gl.clear(gl.COLOR_BUFFER_BIT);
+        // Включаем blending для правильного смешивания с фоном
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
         animationFrameRef.current = requestAnimationFrame(render);
@@ -166,38 +186,34 @@ export default function ShaderToyBackground({ backgroundId }) {
 
   if (error) {
     console.warn("ShaderToyBackground error:", error);
-    return (
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          zIndex: -1, // Отрицательный z-index, чтобы быть за всеми элементами
-          pointerEvents: "none",
-          background: "linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 50%, #0a0e1a 100%)",
-          opacity: 0.6,
-        }}
-        aria-hidden="true"
-      />
-    );
+    return null;
   }
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
       style={{
-        position: "fixed",
+        position: "absolute",
         top: 0,
         left: 0,
         width: "100%",
         height: "100%",
-        zIndex: -1, // Отрицательный z-index, чтобы быть за всеми элементами
+        zIndex: 0,
         pointerEvents: "none",
-        opacity: 1, // Полная непрозрачность для четкости
+        overflow: "hidden",
       }}
-      aria-hidden="true"
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          display: "block",
+        }}
+        aria-hidden="true"
+      />
+    </div>
   );
 }

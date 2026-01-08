@@ -14,10 +14,10 @@ export async function onRequestPost(context) {
     const { type, id, mime } = body;
 
     // Валидация типа
-    const validTypes = ["artist_cover", "artist_avatar", "track_cover"];
+    const validTypes = ["artist_cover", "artist_avatar", "track_cover", "studio_photo"];
     if (!validTypes.includes(type)) {
       return new Response(
-        JSON.stringify({ error: "Invalid type. Must be one of: artist_cover, artist_avatar, track_cover" }),
+        JSON.stringify({ error: "Invalid type. Must be one of: artist_cover, artist_avatar, track_cover, studio_photo" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -31,8 +31,8 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Валидация id
-    if (!id || typeof id !== "string" || id.trim().length === 0) {
+    // Валидация id (не требуется для studio_photo)
+    if (type !== "studio_photo" && (!id || typeof id !== "string" || id.trim().length === 0)) {
       return new Response(
         JSON.stringify({ error: "Invalid id. Must be a non-empty string" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
@@ -52,6 +52,9 @@ export async function onRequestPost(context) {
         break;
       case "track_cover":
         key = `tracks/${id}/cover.${extension}`;
+        break;
+      case "studio_photo":
+        key = `studio/photo.${extension}`;
         break;
       default:
         return new Response(

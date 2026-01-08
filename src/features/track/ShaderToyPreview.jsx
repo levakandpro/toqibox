@@ -4,14 +4,19 @@ import { getBackgroundById } from "../../utils/shadertoyBackgrounds.js";
 import { getPremiumBackgroundById } from "../../utils/premiumBackgrounds.js";
 import { getArtistHeaderBackgroundById } from "../../utils/artistHeaderBackgrounds.js";
 
+// Глобальный кэш для превью (в памяти)
+const previewCache = new Map();
+
 // Глобальная очередь для последовательного рендеринга всех превью
 let renderQueue = [];
 let isRendering = false;
+let visibleCount = 0; // Счетчик видимых элементов для приоритета
 
 const processRenderQueue = () => {
   if (isRendering || renderQueue.length === 0) return;
   
   isRendering = true;
+  // Берем первый элемент из очереди
   const { canvas, shaderId, callback } = renderQueue.shift();
   
   if (!canvas || !canvas.isConnected) {
@@ -79,9 +84,9 @@ const processRenderQueue = () => {
     const timeLocation = gl.getUniformLocation(program, "u_time");
     const mouseLocation = gl.getUniformLocation(program, "u_mouse");
     
-    // Рендерим несколько кадров для анимации
+    // Рендерим несколько кадров для анимации (уменьшено для скорости)
     let frameCount = 0;
-    const maxFrames = 30;
+    const maxFrames = 3; // Было 30, теперь 3 - достаточно для превью
     const startTime = performance.now();
     
     const render = () => {
@@ -99,26 +104,27 @@ const processRenderQueue = () => {
       frameCount++;
       
       if (frameCount >= maxFrames) {
-        // Сохраняем результат как изображение
-        setTimeout(() => {
-          try {
-            const dataURL = canvas.toDataURL('image/png');
-            callback(dataURL && dataURL !== 'data:,' ? dataURL : null);
-          } catch (e) {
-            callback(null);
-          }
-          
-          // Cleanup
-          try {
-            gl.deleteBuffer(positionBuffer);
-            gl.deleteProgram(program);
-          } catch (e) {
-            // Ignore
-          }
-          
-          isRendering = false;
-          setTimeout(processRenderQueue, 100); // Задержка перед следующим
-        }, 100);
+        // Сохраняем результат как изображение (без задержки для скорости)
+        try {
+          const dataURL = canvas.toDataURL('image/png');
+          callback(dataURL && dataURL !== 'data:,' ? dataURL : null);
+        } catch (e) {
+          callback(null);
+        }
+        
+        // Cleanup
+        try {
+          gl.deleteBuffer(positionBuffer);
+          gl.deleteProgram(program);
+        } catch (e) {
+          // Ignore
+        }
+        
+        isRendering = false;
+        // Используем requestAnimationFrame для следующего элемента (быстрее чем setTimeout)
+        requestAnimationFrame(() => {
+          setTimeout(processRenderQueue, 5); // Минимальная задержка
+        });
         return;
       }
       
@@ -138,10 +144,13 @@ const processRenderQueue = () => {
  * Компонент для превью ShaderToy фона (мини-версия)
  * Рендерит один раз при загрузке и показывает статичное изображение
  */
-export default function ShaderToyPreview({ backgroundId, style = {} }) {
+export default function ShaderToyPreview({ backgroundId, style = {}, priority = false }) {
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const [imageSrc, setImageSrc] = useState(null);
   const hasRenderedRef = useRef(false);
+  const observerRef = useRef(null);
+  const isPriorityRef = useRef(priority || visibleCount < 12); // Первые 12 - приоритетные
 
   // Проверяем фоны в следующем порядке: артист, обычные, премиум
   let background = getArtistHeaderBackgroundById(backgroundId);
@@ -161,61 +170,173 @@ export default function ShaderToyPreview({ backgroundId, style = {} }) {
 
   const shaderId = background?.shaderId || background?.id || backgroundId;
 
+  // Проверяем кэш перед рендерингом
   useEffect(() => {
-    if (!shaderId || hasRenderedRef.current) return;
+    if (!shaderId) return;
     
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      // Ждем, пока canvas появится
-      const checkCanvas = setInterval(() => {
-        if (canvasRef.current) {
-          clearInterval(checkCanvas);
-          // Добавляем в очередь после небольшой задержки
-          setTimeout(() => {
-            if (!hasRenderedRef.current && canvasRef.current) {
-              renderQueue.push({
-                canvas: canvasRef.current,
-                shaderId,
-                callback: (dataURL) => {
-                  if (dataURL) {
-                    setImageSrc(dataURL);
-                  }
-                  hasRenderedRef.current = true;
-                }
-              });
-              processRenderQueue();
-            }
-          }, 100);
-        }
-      }, 50);
-      
-      return () => clearInterval(checkCanvas);
+    // Проверяем кэш
+    const cached = previewCache.get(shaderId);
+    if (cached) {
+      setImageSrc(cached);
+      hasRenderedRef.current = true;
+      return;
     }
+  }, [shaderId]);
+
+  // Ленивая загрузка через Intersection Observer или немедленная для приоритетных
+  useEffect(() => {
+    if (!shaderId || hasRenderedRef.current || imageSrc) return;
     
-    // Canvas готов - добавляем в очередь
-    renderQueue.push({
-      canvas,
-      shaderId,
-      callback: (dataURL) => {
-        if (dataURL) {
-          setImageSrc(dataURL);
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Для приоритетных элементов рендерим сразу
+    if (isPriorityRef.current) {
+      visibleCount++;
+      const canvas = canvasRef.current;
+      
+      const startRender = () => {
+        if (!canvas || hasRenderedRef.current) return;
+        
+        // Проверяем кэш еще раз
+        const cached = previewCache.get(shaderId);
+        if (cached) {
+          setImageSrc(cached);
+          hasRenderedRef.current = true;
+          return;
         }
-        hasRenderedRef.current = true;
+        
+        // Добавляем в начало очереди (приоритет)
+        renderQueue.unshift({
+          canvas,
+          shaderId,
+          callback: (dataURL) => {
+            if (dataURL) {
+              previewCache.set(shaderId, dataURL);
+              setImageSrc(dataURL);
+            }
+            hasRenderedRef.current = true;
+          }
+        });
+        
+        processRenderQueue();
+      };
+      
+      if (canvas) {
+        startRender();
+      } else {
+        // Ждем canvas
+        const checkCanvas = setInterval(() => {
+          if (canvasRef.current) {
+            clearInterval(checkCanvas);
+            startRender();
+          }
+        }, 50);
+        setTimeout(() => clearInterval(checkCanvas), 2000);
       }
-    });
-    
-    processRenderQueue();
-  }, [shaderId, backgroundId]);
+      
+      return;
+    }
+
+    // Для остальных - используем Intersection Observer
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !hasRenderedRef.current) {
+            // Элемент виден - начинаем рендеринг
+            const canvas = canvasRef.current;
+            if (!canvas) {
+              // Ждем, пока canvas появится
+              const checkCanvas = setInterval(() => {
+                if (canvasRef.current && !hasRenderedRef.current) {
+                  clearInterval(checkCanvas);
+                  // Проверяем кэш еще раз
+                  const cached = previewCache.get(shaderId);
+                  if (cached) {
+                    setImageSrc(cached);
+                    hasRenderedRef.current = true;
+                    return;
+                  }
+                  
+                  // Добавляем в очередь
+                  renderQueue.push({
+                    canvas: canvasRef.current,
+                    shaderId,
+                    callback: (dataURL) => {
+                      if (dataURL) {
+                        // Сохраняем в кэш
+                        previewCache.set(shaderId, dataURL);
+                        setImageSrc(dataURL);
+                      }
+                      hasRenderedRef.current = true;
+                    }
+                  });
+                  processRenderQueue();
+                }
+              }, 50);
+              
+              setTimeout(() => clearInterval(checkCanvas), 5000); // Таймаут
+              return;
+            }
+            
+            // Проверяем кэш еще раз
+            const cached = previewCache.get(shaderId);
+            if (cached) {
+              setImageSrc(cached);
+              hasRenderedRef.current = true;
+              return;
+            }
+            
+            // Canvas готов - добавляем в очередь
+            renderQueue.push({
+              canvas,
+              shaderId,
+              callback: (dataURL) => {
+                if (dataURL) {
+                  // Сохраняем в кэш
+                  previewCache.set(shaderId, dataURL);
+                  setImageSrc(dataURL);
+                }
+                hasRenderedRef.current = true;
+              }
+            });
+            
+            processRenderQueue();
+            
+            // Отключаем observer после начала рендеринга
+            if (observerRef.current) {
+              observerRef.current.unobserve(container);
+            }
+          }
+        });
+      },
+      {
+        rootMargin: '100px', // Начинаем загрузку за 100px до появления в viewport
+        threshold: 0.01
+      }
+    );
+
+    observerRef.current.observe(container);
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [shaderId, backgroundId, imageSrc]);
 
   return (
-    <div style={{
-      position: "relative",
-      width: "100%",
-      height: "100%",
-      minWidth: "85px",
-      minHeight: "70px",
-      ...style
-    }}>
+    <div 
+      ref={containerRef}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minWidth: "85px",
+        minHeight: "70px",
+        ...style
+      }}
+    >
       {imageSrc ? (
         <img
           src={imageSrc}
@@ -232,25 +353,38 @@ export default function ShaderToyPreview({ backgroundId, style = {} }) {
           }}
         />
       ) : (
-        <canvas
-          ref={canvasRef}
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "block",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            minWidth: "85px",
-            minHeight: "70px",
-            backgroundColor: "transparent",
-            zIndex: 1,
-            pointerEvents: "none",
-          }}
-          width={85}
-          height={70}
-          aria-hidden="true"
-        />
+        <div style={{
+          width: "100%",
+          height: "100%",
+          backgroundColor: "rgba(0, 0, 0, 0.1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          zIndex: 0,
+        }}>
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "block",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              minWidth: "85px",
+              minHeight: "70px",
+              backgroundColor: "transparent",
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+            width={85}
+            height={70}
+            aria-hidden="true"
+          />
+        </div>
       )}
     </div>
   );
