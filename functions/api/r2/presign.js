@@ -18,7 +18,15 @@ export async function onRequestPost(context) {
     if (!validTypes.includes(type)) {
       return new Response(
         JSON.stringify({ error: "Invalid type. Must be one of: artist_cover, artist_avatar, track_cover, studio_photo" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { 
+          status: 400, 
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          } 
+        }
       );
     }
 
@@ -27,7 +35,15 @@ export async function onRequestPost(context) {
     if (!validMimes.includes(mime)) {
       return new Response(
         JSON.stringify({ error: "Invalid mime. Must be image/jpeg or image/png" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { 
+          status: 400, 
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          } 
+        }
       );
     }
 
@@ -35,7 +51,15 @@ export async function onRequestPost(context) {
     if (type !== "studio_photo" && (!id || typeof id !== "string" || id.trim().length === 0)) {
       return new Response(
         JSON.stringify({ error: "Invalid id. Must be a non-empty string" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { 
+          status: 400, 
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          } 
+        }
       );
     }
 
@@ -59,7 +83,15 @@ export async function onRequestPost(context) {
       default:
         return new Response(
           JSON.stringify({ error: "Invalid type" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { 
+            status: 400, 
+            headers: { 
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "POST, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type",
+            } 
+          }
         );
     }
 
@@ -73,7 +105,15 @@ export async function onRequestPost(context) {
     if (!accountId || !bucket || !accessKeyId || !secretAccessKey) {
       return new Response(
         JSON.stringify({ error: "R2 configuration missing" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { 
+          status: 500, 
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          } 
+        }
       );
     }
 
@@ -117,7 +157,15 @@ export async function onRequestPost(context) {
     console.error("Error generating presigned URL:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { 
+        status: 500, 
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        } 
+      }
     );
   }
 }

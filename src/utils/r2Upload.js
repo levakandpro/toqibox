@@ -5,10 +5,8 @@
  * Секреты хранятся только на сервере, не передаются на фронт
  */
 
-// Для локальной разработки используем полный URL, для продакшена - относительный
-const R2_API_ENDPOINT = import.meta.env.DEV 
-  ? `${window.location.origin}/api/r2`
-  : '/api/r2';
+// Используем относительный путь - Cloudflare Pages Functions работают на том же домене
+const R2_API_ENDPOINT = '/api/r2';
 const R2_PUBLIC_BASE = 'https://cdn.toqibox.win';
 
 // Проверка конфигурации
@@ -49,32 +47,52 @@ export async function uploadCover({ type, id, file }) {
   }
 
   try {
-    console.log('📡 Запрос presigned URL...', { endpoint: `${R2_API_ENDPOINT}/presign`, type, id, mime: file.type });
+    const endpoint = `${R2_API_ENDPOINT}/presign`;
+    console.log('📡 Запрос presigned URL...', { endpoint, type, id, mime: file.type });
     
     // Запрашиваем presigned URL
-    const presignResponse = await fetch(`${R2_API_ENDPOINT}/presign`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type,
-        id: type === "studio_photo" ? "" : id,
-        mime: file.type,
-      }),
-    });
+    let presignResponse;
+    try {
+      presignResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type,
+          id: type === "studio_photo" ? "" : id,
+          mime: file.type,
+        }),
+      });
+    } catch (fetchError) {
+      console.error('❌ Ошибка сети при запросе presigned URL:', fetchError);
+      // Проверяем, не является ли это CORS ошибкой
+      if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('CORS')) {
+        throw new Error('Не удалось подключиться к серверу. Проверьте, что функция /api/r2/presign развернута и доступна.');
+      }
+      throw new Error(`Ошибка сети: ${fetchError.message}`);
+    }
 
     console.log('📡 Ответ presign:', { status: presignResponse.status, ok: presignResponse.ok });
 
     if (!presignResponse.ok) {
-      const errorText = await presignResponse.text();
-      console.error('❌ Ошибка presign response:', errorText);
+      const errorText = await presignResponse.text().catch(() => 'Не удалось прочитать ответ');
+      console.error('❌ Ошибка presign response:', { status: presignResponse.status, errorText });
       let errorData;
       try {
         errorData = JSON.parse(errorText);
       } catch {
         errorData = { error: errorText || `HTTP ${presignResponse.status}` };
       }
+      
+      // Более понятные сообщения об ошибках
+      if (presignResponse.status === 500 && errorData.error?.includes('R2 configuration')) {
+        throw new Error('Сервер не настроен для загрузки файлов. Обратитесь к администратору.');
+      }
+      if (presignResponse.status === 404) {
+        throw new Error('Функция загрузки не найдена. Проверьте настройки деплоя.');
+      }
+      
       throw new Error(errorData.error || `Ошибка получения presigned URL (${presignResponse.status})`);
     }
 
