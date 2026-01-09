@@ -110,7 +110,8 @@ export async function onRequestPost(context) {
       payload: fileBuffer,
     });
 
-    console.log('📤 Загружаем в R2:', { url: url.toString().substring(0, 100) + '...' });
+    const urlString = url.toString();
+    console.log('📤 Загружаем в R2:', { url: urlString.substring(0, 100) + '...' });
 
     // Загружаем файл в R2
     const uploadResponse = await fetch(url.toString(), {
@@ -136,7 +137,7 @@ export async function onRequestPost(context) {
         JSON.stringify({ 
           error: `Failed to upload to R2: ${uploadResponse.status}`,
           details: errorText || 'Bad Request - check signature and URL format',
-          url: url.substring(0, 100) + '...'
+          url: url.toString().substring(0, 100) + '...'
         }),
         {
           status: uploadResponse.status,
