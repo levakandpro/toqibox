@@ -151,8 +151,8 @@ async function generateSignature({ method, endpoint, bucket, key, accessKeyId, s
   const signedHeaders = 'host;x-amz-date;content-type';
   
   // Вычисляем SHA256 хеш payload
-  // payload уже ArrayBuffer, передаем его напрямую
-  const payloadHash = await sha256Hex(payload);
+  // payload это ArrayBuffer, конвертируем в Uint8Array для digest
+  const payloadHash = await sha256Hex(new Uint8Array(payload));
   
   const canonicalRequest = [
     method,
@@ -182,17 +182,18 @@ async function generateSignature({ method, endpoint, bucket, key, accessKeyId, s
 }
 
 async function sha256Hex(data) {
-  // Убеждаемся, что data это ArrayBuffer или TypedArray
   let buffer;
-  if (data instanceof ArrayBuffer) {
-    buffer = data;
+  
+  if (typeof data === 'string') {
+    // Если строка - кодируем в UTF-8
+    buffer = new TextEncoder().encode(data);
+  } else if (data instanceof ArrayBuffer) {
+    buffer = new Uint8Array(data);
   } else if (data instanceof Uint8Array) {
-    buffer = data.buffer;
-  } else if (typeof data === 'string') {
-    buffer = new TextEncoder().encode(data).buffer;
+    buffer = data;
   } else {
-    // Если это другой тип, конвертируем в ArrayBuffer
-    buffer = new Uint8Array(data).buffer;
+    // Пытаемся конвертировать в Uint8Array
+    buffer = new Uint8Array(data);
   }
   
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
