@@ -8652,21 +8652,25 @@ export default function StudioDesktop() {
       return;
     }
 
+    // Работаем так же, как с аудио - просто сохраняем локально
     try {
-      console.log("Начинаем загрузку фото в R2...");
-      // Загружаем фото в R2 (только в продакшене)
-      const { key, publicUrl } = await uploadCover({
-        type: "studio_photo",
-        id: "", // не используется для studio_photo
-        file,
-      });
-
-      console.log("Фото загружено:", { key, publicUrl });
-      setPhotoKey(key);
-      setPhotoUrl(publicUrl);
-      // Сохраняем фото в localStorage
-      localStorage.setItem('studioPhotoUrl', publicUrl);
-      localStorage.setItem('studioPhotoKey', key);
+      console.log("Загружаем фото локально...");
+      // Создаем локальный URL для превью (как с аудио)
+      const photoUrl = URL.createObjectURL(file);
+      setPhotoUrl(photoUrl);
+      setPhotoKey(null); // Не используем R2 для фото в Studio
+      
+      // Сохраняем в localStorage для восстановления после перезагрузки
+      // В dev режиме сохраняем как base64, в продакшене можно загрузить в R2 позже
+      if (import.meta.env.DEV) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          localStorage.setItem('studioPhotoUrl', reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
+      
+      console.log("Фото загружено локально:", photoUrl);
     } catch (error) {
       console.error("Ошибка загрузки фото:", error);
       alert("Ошибка загрузки фото: " + error.message);
