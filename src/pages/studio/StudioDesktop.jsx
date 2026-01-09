@@ -8680,129 +8680,304 @@ export default function StudioDesktop() {
     e.target.value = "";
   };
 
-  // Обработчик экспорта через FFmpeg сервер
+  // Обработчик браузерного экспорта через MediaRecorder
   const handleExport = async () => {
     if (!photoUrl || !audioUrl || !audioDuration) {
       alert('Загрузите фото и аудио для экспорта');
       return;
     }
 
-    const EXPORT_API_URL = import.meta.env.VITE_EXPORT_API_URL || 'http://localhost:3001';
+    // Проверка поддержки MP4 в браузере
+    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const isEdge = /Edg/.test(navigator.userAgent);
+    const supportsMP4 = MediaRecorder.isTypeSupported('video/mp4') || MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E');
+    
+    if (!isChrome && !isEdge) {
+      alert('Этот браузер не поддерживает MP4 экспорт. Откройте в Chrome/Edge');
+      return;
+    }
+
+    if (!supportsMP4 && !MediaRecorder.isTypeSupported('video/webm')) {
+      alert('Этот браузер не поддерживает экспорт видео. Откройте в Chrome/Edge');
+      return;
+    }
+
+    const MAX_SECONDS = 240; // 4 минуты
+    const exportDuration = Math.min(audioDuration, MAX_SECONDS);
+    const FPS = 30;
+    const WIDTH = 1280;
+    const HEIGHT = 720;
+    const BITRATE = 8000000; // 8 Mbps
+
+    // Сохраняем состояние аудио
+    const savedVolume = audioEngine.getVolume();
+    const wasPlaying = audioEngine.isPlaying();
+    const savedCurrentTime = audioEngine.getCurrentTime();
 
     try {
-      // Показываем loader
-      const loader = document.createElement('div');
-      loader.id = 'export-loader';
-      loader.innerHTML = `
-        <div class="export-loader-overlay">
-          <div class="export-loader-content">
-            <div class="export-loader-spinner"></div>
-            <div class="export-loader-text">Экспорт MP4...</div>
-            <div class="export-loader-status" id="export-status">Подготовка...</div>
-            <div class="export-loader-progress">
-              <div class="export-loader-progress-bar" id="export-progress-bar" style="width: 0%"></div>
-            </div>
+      // Отключаем звук
+      audioEngine.setVolume(0);
+
+      // Показываем оверлей экспорта
+      const overlay = document.createElement('div');
+      overlay.id = 'browser-export-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        pointer-events: auto;
+        user-select: none;
+      `;
+      
+      // Добавляем стили для лоадера
+      const style = document.createElement('style');
+      style.setAttribute('data-export-loader', 'true');
+      style.textContent = `
+        .browser-export-loader {
+          position: relative;
+          margin-bottom: 40px;
+        }
+        .browser-export-loader span {
+          position: absolute;
+          color: #fff;
+          transform: translate(-50%, -50%);
+          font-size: 38px;
+          letter-spacing: 5px;
+          left: 50%;
+          top: 50%;
+        }
+        .browser-export-loader span:nth-child(1) {
+          color: transparent;
+          -webkit-text-stroke: 0.3px #4CAF50;
+        }
+        .browser-export-loader span:nth-child(2) {
+          color: #4CAF50;
+          -webkit-text-stroke: 1px #4CAF50;
+          animation: browser-export-wave 3s ease-in-out infinite;
+        }
+        @keyframes browser-export-wave {
+          0%, 100% {
+            clip-path: polygon(0% 45%, 15% 44%, 32% 50%, 
+             54% 60%, 70% 61%, 84% 59%, 100% 52%, 100% 100%, 0% 100%);
+          }
+          50% {
+            clip-path: polygon(0% 60%, 16% 65%, 34% 66%, 
+             51% 62%, 67% 50%, 84% 45%, 100% 46%, 100% 100%, 0% 100%);
+          }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      overlay.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+          <div class="browser-export-loader">
+            <span>TQ Studio</span>
+            <span>TQ Studio</span>
           </div>
+          <div id="export-time" style="font-size: 18px; margin-bottom: 20px; color: rgba(255, 255, 255, 0.8);">0:00 / ${Math.floor(exportDuration / 60)}:${String(Math.floor(exportDuration % 60)).padStart(2, '0')}</div>
+          <div style="width: 400px; height: 4px; background: rgba(255, 255, 255, 0.2); border-radius: 2px; overflow: hidden; margin-bottom: 10px;">
+            <div id="export-progress" style="width: 0%; height: 100%; background: #4CAF50; transition: width 0.1s;"></div>
+          </div>
+          <div style="font-size: 14px; color: rgba(255, 255, 255, 0.6);">Пожалуйста, не закрывайте страницу</div>
         </div>
       `;
-      document.body.appendChild(loader);
+      document.body.appendChild(overlay);
+      document.body.style.overflow = 'hidden';
 
-      const statusEl = document.getElementById('export-status');
-      const progressBar = document.getElementById('export-progress-bar');
+      const timeEl = document.getElementById('export-time');
+      const progressEl = document.getElementById('export-progress');
 
-      // Получаем файлы
-      statusEl.textContent = 'Загрузка файлов...';
-      
-      // Получаем аудио как Blob
-      const audioResponse = await fetch(audioUrl);
-      const audioBlob = await audioResponse.blob();
-      
-      // Получаем фото как Blob
-      const photoResponse = await fetch(photoUrl);
-      const photoBlob = await photoResponse.blob();
-
-      // Создаем FormData
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'audio.mp3');
-      formData.append('photo', photoBlob, 'photo.jpg');
-      formData.append('duration', audioDuration.toString());
-      formData.append('plan', 'free'); // TODO: определить premium
-
-      // Отправляем на сервер
-      statusEl.textContent = 'Отправка на сервер...';
-      const submitResponse = await fetch(`${EXPORT_API_URL}/export`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!submitResponse.ok) {
-        throw new Error(`Ошибка сервера: ${submitResponse.status}`);
+      // Находим canvas для предпросмотра
+      const previewElement = canvasRef.current;
+      if (!previewElement) {
+        throw new Error('Элемент предпросмотра не найден');
       }
 
-      const { jobId } = await submitResponse.json();
-      statusEl.textContent = 'Экспорт в очереди...';
-      progressBar.style.width = '10%';
+      // Создаем временный canvas для записи
+      const recordCanvas = document.createElement('canvas');
+      recordCanvas.width = WIDTH;
+      recordCanvas.height = HEIGHT;
+      const recordCtx = recordCanvas.getContext('2d');
 
-      // Polling статуса
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusResponse = await fetch(`${EXPORT_API_URL}/export/${jobId}`);
-          if (!statusResponse.ok) {
-            throw new Error('Ошибка проверки статуса');
-          }
+      // Создаем stream из canvas
+      const stream = recordCanvas.captureStream(FPS);
+      
+      // Определяем MIME type
+      let mimeType = 'video/webm';
+      if (MediaRecorder.isTypeSupported('video/mp4')) {
+        mimeType = 'video/mp4';
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+        mimeType = 'video/webm;codecs=vp9';
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+        mimeType = 'video/webm;codecs=vp8';
+      }
 
-          const statusData = await statusResponse.json();
-          
-          if (statusData.status === 'completed') {
-            clearInterval(pollInterval);
-            progressBar.style.width = '100%';
-            statusEl.textContent = 'Скачивание MP4...';
-            
-            // Скачиваем файл
-            const downloadResponse = await fetch(`${EXPORT_API_URL}/download/${jobId}`);
-            const videoBlob = await downloadResponse.blob();
-            
-            // Скачиваем
-            const url = URL.createObjectURL(videoBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `toqibox-studio-${Date.now()}.mp4`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            // Убираем loader
-            document.body.removeChild(loader);
-            alert('Экспорт завершен! MP4 скачан.');
-          } else if (statusData.status === 'failed') {
-            clearInterval(pollInterval);
-            document.body.removeChild(loader);
-            throw new Error(statusData.error || 'Экспорт провалился');
-          } else {
-            // Обновляем прогресс
-            const progress = statusData.progress || 0;
-            progressBar.style.width = `${progress}%`;
-            statusEl.textContent = statusData.status === 'processing' ? 'Рендеринг...' : 'В очереди...';
-          }
-        } catch (error) {
-          clearInterval(pollInterval);
-          document.body.removeChild(loader);
-          throw error;
+      // Создаем MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: mimeType,
+        videoBitsPerSecond: BITRATE,
+      });
+
+      const chunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
         }
-      }, 2000); // Polling каждые 2 секунды
+      };
 
-      // Таймаут (15 минут)
+      let recordingStartTime = null;
+      let frameCount = 0;
+      const totalFrames = Math.ceil(exportDuration * FPS);
+      let isRecording = true;
+      let lastFrameTime = 0;
+      const frameInterval = 1000 / FPS; // 33.33ms для 30fps
+
+      // Импортируем html2canvas один раз
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default;
+
+      // Запускаем аудио для синхронизации (но без звука)
+      if (!wasPlaying) {
+        audioEngine.seek(0);
+        await audioEngine.play();
+      }
+
+      // Функция рендеринга кадра
+      const renderFrame = async (timestamp) => {
+        if (!isRecording) return;
+
+        const currentTime = audioEngine.getCurrentTime();
+        if (currentTime >= exportDuration) {
+          isRecording = false;
+          mediaRecorder.stop();
+          return;
+        }
+
+        // Обновляем прогресс
+        const progress = (currentTime / exportDuration) * 100;
+        progressEl.style.width = `${progress}%`;
+        const minutes = Math.floor(currentTime / 60);
+        const seconds = Math.floor(currentTime % 60);
+        timeEl.textContent = `${minutes}:${String(seconds).padStart(2, '0')} / ${Math.floor(exportDuration / 60)}:${String(Math.floor(exportDuration % 60)).padStart(2, '0')}`;
+
+        // Рендерим кадр только если прошло достаточно времени
+        const elapsed = timestamp - lastFrameTime;
+        if (elapsed >= frameInterval) {
+          lastFrameTime = timestamp - (elapsed % frameInterval);
+
+          // Используем html2canvas для захвата предпросмотра
+          try {
+            const canvas = await html2canvas(previewElement, {
+              width: WIDTH,
+              height: HEIGHT,
+              scale: 1,
+              useCORS: true,
+              allowTaint: false,
+              backgroundColor: null,
+              logging: false,
+            });
+
+            // Рисуем на recordCanvas
+            recordCtx.clearRect(0, 0, WIDTH, HEIGHT);
+            recordCtx.drawImage(canvas, 0, 0, WIDTH, HEIGHT);
+
+            frameCount++;
+          } catch (error) {
+            console.error('Ошибка рендеринга кадра:', error);
+          }
+        }
+
+        // Продолжаем рендеринг
+        if (isRecording) {
+          requestAnimationFrame(renderFrame);
+        }
+      };
+
+      // Запускаем запись
+      mediaRecorder.start();
+      recordingStartTime = Date.now();
+      lastFrameTime = performance.now();
+      
+      // Начинаем рендеринг кадров
+      requestAnimationFrame(renderFrame);
+
+      // Автоматическая остановка через exportDuration
       setTimeout(() => {
-        clearInterval(pollInterval);
-        document.body.removeChild(loader);
-        alert('Таймаут экспорта');
-      }, 900000);
+        if (isRecording) {
+          isRecording = false;
+          mediaRecorder.stop();
+        }
+      }, exportDuration * 1000 + 1000);
+
+      // Ждем завершения записи
+      await new Promise((resolve, reject) => {
+        mediaRecorder.onstop = () => {
+          resolve();
+        };
+        mediaRecorder.onerror = (e) => {
+          reject(new Error('Ошибка записи: ' + e.error));
+        };
+      });
+
+      // Создаем Blob и скачиваем
+      const blob = new Blob(chunks, { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'TQ STUDIO.mp4';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Восстанавливаем состояние аудио
+      audioEngine.setVolume(savedVolume);
+      if (!wasPlaying) {
+        audioEngine.pause();
+        audioEngine.seek(savedCurrentTime);
+      }
+
+      // Убираем оверлей и стили
+      document.body.removeChild(overlay);
+      document.body.style.overflow = '';
+      const loaderStyle = document.querySelector('style[data-export-loader]');
+      if (loaderStyle) {
+        document.head.removeChild(loaderStyle);
+      }
+      
+      alert('Экспорт завершен! MP4 скачан.');
 
     } catch (error) {
       console.error('Ошибка экспорта:', error);
-      const loader = document.getElementById('export-loader');
-      if (loader) document.body.removeChild(loader);
+      
+      // Восстанавливаем состояние аудио
+      audioEngine.setVolume(savedVolume);
+      if (!wasPlaying) {
+        audioEngine.pause();
+        audioEngine.seek(savedCurrentTime);
+      }
+
+      // Убираем оверлей и стили
+      const overlay = document.getElementById('browser-export-overlay');
+      if (overlay) {
+        document.body.removeChild(overlay);
+      }
+      document.body.style.overflow = '';
+      const loaderStyle = document.querySelector('style[data-export-loader]');
+      if (loaderStyle) {
+        document.head.removeChild(loaderStyle);
+      }
+      
       alert('Ошибка экспорта: ' + error.message);
     }
   };
