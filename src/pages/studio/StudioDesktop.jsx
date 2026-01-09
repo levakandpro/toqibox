@@ -8740,6 +8740,9 @@ export default function StudioDesktop() {
         user-select: none;
       `;
       
+      // Временно скрываем оверлей для первого кадра, потом покажем
+      overlay.style.display = 'none';
+      
       // Добавляем стили для лоадера
       const style = document.createElement('style');
       style.setAttribute('data-export-loader', 'true');
@@ -8797,12 +8800,21 @@ export default function StudioDesktop() {
 
       const timeEl = document.getElementById('export-time');
       const progressEl = document.getElementById('export-progress');
+      
+      // Показываем оверлей после небольшой задержки
+      setTimeout(() => {
+        overlay.style.display = 'flex';
+      }, 100);
 
       // Находим canvas для предпросмотра
       const previewElement = canvasRef.current;
       if (!previewElement) {
         throw new Error('Элемент предпросмотра не найден');
       }
+
+      // Убеждаемся, что захватываем только нужный элемент
+      // Скрываем оверлей экспорта перед захватом
+      overlay.style.display = 'none';
 
       // Создаем временный canvas для записи
       const recordCanvas = document.createElement('canvas');
@@ -8882,8 +8894,14 @@ export default function StudioDesktop() {
               scale: 1,
               useCORS: true,
               allowTaint: false,
-              backgroundColor: null,
+              backgroundColor: '#000000',
               logging: false,
+              windowWidth: WIDTH,
+              windowHeight: HEIGHT,
+              x: 0,
+              y: 0,
+              scrollX: 0,
+              scrollY: 0,
             });
 
             // Рисуем на recordCanvas
