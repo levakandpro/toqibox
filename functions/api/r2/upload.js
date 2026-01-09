@@ -1,8 +1,8 @@
 /**
  * Cloudflare Pages Function: POST /api/r2/upload
  * 
- * Загружает файл напрямую в R2 через Workers API
- * Использует R2 binding из env вместо presigned URLs
+ * Загружает файл напрямую в R2 через R2 binding
+ * Использует простой PUT запрос с правильной подписью
  */
 
 export async function onRequestPost(context) {
@@ -13,7 +13,7 @@ export async function onRequestPost(context) {
     const formData = await request.formData();
     const file = formData.get('file');
     const key = formData.get('key');
-    const contentType = formData.get('contentType');
+    const contentType = formData.get('contentType') || 'application/octet-stream';
 
     if (!file || !key) {
       return new Response(
@@ -30,17 +30,39 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Получаем R2 bucket из env
-    // В Cloudflare Pages нужно использовать R2 binding через wrangler.toml
-    // Но можно также использовать S3 API напрямую
-    const bucket = env.R2_BUCKET;
+    // Проверяем наличие R2 binding (если настроен) или используем S3 API
+    const r2Bucket = env.R2_BUCKET; // Это может быть binding или строка с именем
     const accountId = env.R2_ACCOUNT_ID;
     const accessKeyId = env.R2_ACCESS_KEY_ID;
     const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
 
-    if (!bucket || !accountId || !accessKeyId || !secretAccessKey) {
+    // Если R2_BUCKET это объект (binding), используем его напрямую
+    if (r2Bucket && typeof r2Bucket === 'object' && r2Bucket.put) {
+      const fileBuffer = await file.arrayBuffer();
+      await r2Bucket.put(key, fileBuffer, {
+        httpMetadata: {
+          contentType: contentType,
+        },
+      });
+      
       return new Response(
-        JSON.stringify({ error: "R2 configuration missing" }),
+        JSON.stringify({ success: true, key }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          },
+        }
+      );
+    }
+
+    // Иначе используем S3 API с упрощенной подписью
+    if (!accountId || !accessKeyId || !secretAccessKey || !r2Bucket) {
+      return new Response(
+        JSON.stringify({ error: "R2 configuration missing. Need R2_BUCKET binding or R2 credentials." }),
         {
           status: 500,
           headers: {
@@ -55,27 +77,26 @@ export async function onRequestPost(context) {
 
     // Конвертируем File в ArrayBuffer
     const fileBuffer = await file.arrayBuffer();
+    const bucketName = typeof r2Bucket === 'string' ? r2Bucket : 'toqibox-covers';
 
-    // Используем S3 API для загрузки в R2
+    // Используем упрощенный подход - загружаем через fetch с базовой авторизацией
     const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
-    const url = `${endpoint}/${bucket}/${key}`;
+    const url = `${endpoint}/${bucketName}/${key}`;
 
-    // Генерируем подпись для PUT запроса
+    // Простая подпись для R2
     const now = new Date();
     const dateStamp = formatDate(now);
     const amzDate = formatDateTime(now);
-
-    // Создаем подпись для PUT запроса
-    const signature = await generateSignature({
+    
+    // Используем упрощенную подпись
+    const signature = await generateSimpleSignature({
       method: 'PUT',
-      endpoint,
-      bucket,
-      key,
+      url: new URL(url),
       accessKeyId,
       secretAccessKey,
       dateStamp,
       amzDate,
-      contentType: contentType || 'application/octet-stream',
+      contentType,
       payload: fileBuffer,
     });
 
@@ -84,7 +105,7 @@ export async function onRequestPost(context) {
       method: 'PUT',
       headers: {
         'Authorization': signature,
-        'Content-Type': contentType || 'application/octet-stream',
+        'Content-Type': contentType,
         'x-amz-date': amzDate,
       },
       body: fileBuffer,
@@ -92,7 +113,7 @@ export async function onRequestPost(context) {
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text().catch(() => '');
-      console.error('❌ Ошибка загрузки в R2:', { status: uploadResponse.status, errorText, url: url.substring(0, 100) });
+      console.error('❌ Ошибка загрузки в R2:', { status: uploadResponse.status, errorText });
       return new Response(
         JSON.stringify({ 
           error: `Failed to upload to R2: ${uploadResponse.status}`,
@@ -139,20 +160,24 @@ export async function onRequestPost(context) {
   }
 }
 
-// Генерирует AWS Signature Version 4 для PUT запроса
-async function generateSignature({ method, endpoint, bucket, key, accessKeyId, secretAccessKey, dateStamp, amzDate, contentType, payload }) {
+// Упрощенная генерация подписи для R2
+async function generateSimpleSignature({ method, url, accessKeyId, secretAccessKey, dateStamp, amzDate, contentType, payload }) {
   const region = 'auto';
   const service = 's3';
   
   // Canonical request
-  const canonicalUri = `/${key}`;
+  const canonicalUri = url.pathname;
   const canonicalQueryString = '';
-  const canonicalHeaders = `host:${new URL(endpoint).host}\nx-amz-date:${amzDate}\ncontent-type:${contentType}\n`;
+  const canonicalHeaders = `host:${url.host}\nx-amz-date:${amzDate}\ncontent-type:${contentType}\n`;
   const signedHeaders = 'host;x-amz-date;content-type';
   
   // Вычисляем SHA256 хеш payload
-  // payload это ArrayBuffer, конвертируем в Uint8Array для digest
-  const payloadHash = await sha256Hex(new Uint8Array(payload));
+  let payloadHash;
+  if (payload instanceof ArrayBuffer) {
+    payloadHash = await sha256Hex(new Uint8Array(payload));
+  } else {
+    payloadHash = await sha256Hex(payload);
+  }
   
   const canonicalRequest = [
     method,
