@@ -8680,64 +8680,129 @@ export default function StudioDesktop() {
     e.target.value = "";
   };
 
-  // Обработчик экспорта
+  // Обработчик экспорта через FFmpeg сервер
   const handleExport = async () => {
     if (!photoUrl || !audioUrl || !audioDuration) {
       alert('Загрузите фото и аудио для экспорта');
       return;
     }
 
+    const EXPORT_API_URL = import.meta.env.VITE_EXPORT_API_URL || 'http://localhost:3001';
+
     try {
-      // Импортируем функцию экспорта динамически
-      const { simpleExportVideo, downloadBlob } = await import('../../utils/simpleVideoExport.js');
-      
-      // Находим canvas для экспорта
-      const canvas = textCanvasRef.current || canvasRef.current || document.querySelector('.canvas-16x9');
-      
-      if (!canvas) {
-        alert('Canvas не найден');
-        return;
-      }
-
-      // Показываем прогресс
-      const progressModal = document.createElement('div');
-      progressModal.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.8); z-index: 10000;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        color: white; font-family: Arial;
+      // Показываем loader
+      const loader = document.createElement('div');
+      loader.id = 'export-loader';
+      loader.innerHTML = `
+        <div class="export-loader-overlay">
+          <div class="export-loader-content">
+            <div class="export-loader-spinner"></div>
+            <div class="export-loader-text">Экспорт MP4...</div>
+            <div class="export-loader-status" id="export-status">Подготовка...</div>
+            <div class="export-loader-progress">
+              <div class="export-loader-progress-bar" id="export-progress-bar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
       `;
-      progressModal.innerHTML = `
-        <div style="font-size: 24px; margin-bottom: 20px;">Экспорт видео...</div>
-        <div id="export-progress" style="font-size: 18px;">0%</div>
-        <div id="export-status" style="font-size: 14px; margin-top: 10px; opacity: 0.7;">Подготовка...</div>
-      `;
-      document.body.appendChild(progressModal);
+      document.body.appendChild(loader);
 
-      const progressEl = document.getElementById('export-progress');
       const statusEl = document.getElementById('export-status');
+      const progressBar = document.getElementById('export-progress-bar');
 
-      // Экспортируем видео
-      const blob = await simpleExportVideo({
-        canvas,
-        audioUrl,
-        duration: audioDuration,
-        isPremium: false, // TODO: определить premium статус
-        onProgress: (progress, status) => {
-          if (progressEl) progressEl.textContent = `${Math.round(progress)}%`;
-          if (statusEl) statusEl.textContent = status || '';
-        },
+      // Получаем файлы
+      statusEl.textContent = 'Загрузка файлов...';
+      
+      // Получаем аудио как Blob
+      const audioResponse = await fetch(audioUrl);
+      const audioBlob = await audioResponse.blob();
+      
+      // Получаем фото как Blob
+      const photoResponse = await fetch(photoUrl);
+      const photoBlob = await photoResponse.blob();
+
+      // Создаем FormData
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'audio.mp3');
+      formData.append('photo', photoBlob, 'photo.jpg');
+      formData.append('duration', audioDuration.toString());
+      formData.append('plan', 'free'); // TODO: определить premium
+
+      // Отправляем на сервер
+      statusEl.textContent = 'Отправка на сервер...';
+      const submitResponse = await fetch(`${EXPORT_API_URL}/export`, {
+        method: 'POST',
+        body: formData,
       });
 
-      // Скачиваем файл
-      downloadBlob(blob, `toqibox-studio-${Date.now()}.webm`);
+      if (!submitResponse.ok) {
+        throw new Error(`Ошибка сервера: ${submitResponse.status}`);
+      }
 
-      // Убираем модалку
-      document.body.removeChild(progressModal);
+      const { jobId } = await submitResponse.json();
+      statusEl.textContent = 'Экспорт в очереди...';
+      progressBar.style.width = '10%';
 
-      alert('Экспорт завершен!');
+      // Polling статуса
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`${EXPORT_API_URL}/export/${jobId}`);
+          if (!statusResponse.ok) {
+            throw new Error('Ошибка проверки статуса');
+          }
+
+          const statusData = await statusResponse.json();
+          
+          if (statusData.status === 'completed') {
+            clearInterval(pollInterval);
+            progressBar.style.width = '100%';
+            statusEl.textContent = 'Скачивание MP4...';
+            
+            // Скачиваем файл
+            const downloadResponse = await fetch(`${EXPORT_API_URL}/download/${jobId}`);
+            const videoBlob = await downloadResponse.blob();
+            
+            // Скачиваем
+            const url = URL.createObjectURL(videoBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `toqibox-studio-${Date.now()}.mp4`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Убираем loader
+            document.body.removeChild(loader);
+            alert('Экспорт завершен! MP4 скачан.');
+          } else if (statusData.status === 'failed') {
+            clearInterval(pollInterval);
+            document.body.removeChild(loader);
+            throw new Error(statusData.error || 'Экспорт провалился');
+          } else {
+            // Обновляем прогресс
+            const progress = statusData.progress || 0;
+            progressBar.style.width = `${progress}%`;
+            statusEl.textContent = statusData.status === 'processing' ? 'Рендеринг...' : 'В очереди...';
+          }
+        } catch (error) {
+          clearInterval(pollInterval);
+          document.body.removeChild(loader);
+          throw error;
+        }
+      }, 2000); // Polling каждые 2 секунды
+
+      // Таймаут (15 минут)
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        document.body.removeChild(loader);
+        alert('Таймаут экспорта');
+      }, 900000);
+
     } catch (error) {
       console.error('Ошибка экспорта:', error);
+      const loader = document.getElementById('export-loader');
+      if (loader) document.body.removeChild(loader);
       alert('Ошибка экспорта: ' + error.message);
     }
   };
