@@ -117,13 +117,13 @@ export async function uploadCover({ type, id, file }) {
     }
 
     // Загружаем файл через прокси-функцию (обходит CORS проблемы с R2)
-    console.log('📤 Загрузка файла в R2 через прокси...', { fileSize: file.size });
+    console.log('📤 Загрузка файла в R2 через прокси...', { fileSize: file.size, key });
     
     try {
-      // Используем прокси-функцию для загрузки, чтобы обойти CORS
+      // Используем прокси-функцию для загрузки, передаем key вместо uploadUrl
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('uploadUrl', uploadUrl);
+      formData.append('key', key);
       formData.append('contentType', file.type);
 
       const uploadResponse = await fetch(`${R2_API_ENDPOINT}/upload`, {
@@ -149,28 +149,7 @@ export async function uploadCover({ type, id, file }) {
       console.log('✅ Файл успешно загружен в R2:', uploadResult);
     } catch (fetchError) {
       console.error('❌ Ошибка при загрузке файла:', fetchError);
-      // Если ошибка сети, пробуем прямую загрузку как fallback
-      if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('CORS')) {
-        console.warn('⚠️ Пробуем прямую загрузку как fallback...');
-        try {
-          const directUploadResponse = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': file.type,
-            },
-            body: file,
-          });
-          
-          if (!directUploadResponse.ok) {
-            throw new Error(`Прямая загрузка также не удалась: ${directUploadResponse.status}`);
-          }
-          console.log('✅ Файл загружен напрямую (fallback)');
-        } catch (directError) {
-          throw new Error(`Не удалось загрузить файл. Проверьте настройки CORS на R2 bucket или используйте прокси-функцию.`);
-        }
-      } else {
-        throw fetchError;
-      }
+      throw fetchError;
     }
 
     return {
