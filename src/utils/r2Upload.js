@@ -116,16 +116,19 @@ export async function uploadCover({ type, id, file }) {
       };
     }
 
-    // Загружаем файл напрямую в R2 через presigned URL (только в продакшене)
-    console.log('📤 Загрузка файла в R2...', { uploadUrl: uploadUrl.substring(0, 100) + '...', fileSize: file.size });
+    // Загружаем файл через прокси-функцию (обходит CORS проблемы с R2)
+    console.log('📤 Загрузка файла в R2 через прокси...', { fileSize: file.size });
     
     try {
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: file,
+      // Используем прокси-функцию для загрузки, чтобы обойти CORS
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('uploadUrl', uploadUrl);
+      formData.append('contentType', file.type);
+
+      const uploadResponse = await fetch(`${R2_API_ENDPOINT}/upload`, {
+        method: 'POST',
+        body: formData,
       });
 
       console.log('📤 Ответ загрузки:', { status: uploadResponse.status, ok: uploadResponse.ok });
@@ -133,20 +136,41 @@ export async function uploadCover({ type, id, file }) {
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text().catch(() => '');
         console.error('❌ Ошибка загрузки в R2:', { status: uploadResponse.status, errorText });
-        throw new Error(`Ошибка загрузки файла в R2 (${uploadResponse.status}): ${errorText || 'Неизвестная ошибка'}`);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || `HTTP ${uploadResponse.status}` };
+        }
+        throw new Error(errorData.error || `Ошибка загрузки файла в R2 (${uploadResponse.status})`);
       }
 
-      console.log('✅ Файл успешно загружен в R2');
+      const uploadResult = await uploadResponse.json();
+      console.log('✅ Файл успешно загружен в R2:', uploadResult);
     } catch (fetchError) {
-      // Если ошибка CORS или сети, в dev режиме просто продолжаем
-      if (import.meta.env.DEV && (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch'))) {
-        console.warn('⚠️ CORS ошибка в dev режиме, пропускаем загрузку');
-        return {
-          key,
-          publicUrl,
-        };
+      console.error('❌ Ошибка при загрузке файла:', fetchError);
+      // Если ошибка сети, пробуем прямую загрузку как fallback
+      if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('CORS')) {
+        console.warn('⚠️ Пробуем прямую загрузку как fallback...');
+        try {
+          const directUploadResponse = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type,
+            },
+            body: file,
+          });
+          
+          if (!directUploadResponse.ok) {
+            throw new Error(`Прямая загрузка также не удалась: ${directUploadResponse.status}`);
+          }
+          console.log('✅ Файл загружен напрямую (fallback)');
+        } catch (directError) {
+          throw new Error(`Не удалось загрузить файл. Проверьте настройки CORS на R2 bucket или используйте прокси-функцию.`);
+        }
+      } else {
+        throw fetchError;
       }
-      throw fetchError;
     }
 
     return {
