@@ -8680,16 +8680,65 @@ export default function StudioDesktop() {
     e.target.value = "";
   };
 
-  // Обработчик экспорта (заглушка)
+  // Обработчик экспорта
   const handleExport = async () => {
-    // TODO: Реализовать экспорт MP4
-    
-    // После успешного экспорта удаляем файл из R2
-    if (photoKey) {
-      // Для удаления нужен endpoint, но по требованиям V1 - просто очищаем state
-      // Файл останется в R2, но будет перезаписан при следующей загрузке
-      setPhotoUrl(null);
-      setPhotoKey(null);
+    if (!photoUrl || !audioUrl || !audioDuration) {
+      alert('Загрузите фото и аудио для экспорта');
+      return;
+    }
+
+    try {
+      // Импортируем функцию экспорта динамически
+      const { simpleExportVideo, downloadBlob } = await import('../../utils/simpleVideoExport.js');
+      
+      // Находим canvas для экспорта
+      const canvas = textCanvasRef.current || canvasRef.current || document.querySelector('.canvas-16x9');
+      
+      if (!canvas) {
+        alert('Canvas не найден');
+        return;
+      }
+
+      // Показываем прогресс
+      const progressModal = document.createElement('div');
+      progressModal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.8); z-index: 10000;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        color: white; font-family: Arial;
+      `;
+      progressModal.innerHTML = `
+        <div style="font-size: 24px; margin-bottom: 20px;">Экспорт видео...</div>
+        <div id="export-progress" style="font-size: 18px;">0%</div>
+        <div id="export-status" style="font-size: 14px; margin-top: 10px; opacity: 0.7;">Подготовка...</div>
+      `;
+      document.body.appendChild(progressModal);
+
+      const progressEl = document.getElementById('export-progress');
+      const statusEl = document.getElementById('export-status');
+
+      // Экспортируем видео
+      const blob = await simpleExportVideo({
+        canvas,
+        audioUrl,
+        duration: audioDuration,
+        isPremium: false, // TODO: определить premium статус
+        onProgress: (progress, status) => {
+          if (progressEl) progressEl.textContent = `${Math.round(progress)}%`;
+          if (statusEl) statusEl.textContent = status || '';
+        },
+      });
+
+      // Скачиваем файл
+      downloadBlob(blob, `toqibox-studio-${Date.now()}.webm`);
+
+      // Убираем модалку
+      document.body.removeChild(progressModal);
+
+      alert('Экспорт завершен!');
+    } catch (error) {
+      console.error('Ошибка экспорта:', error);
+      alert('Ошибка экспорта: ' + error.message);
     }
   };
 
