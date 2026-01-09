@@ -244,6 +244,10 @@ export default function HomePage() {
         <Link to="/create" style={styles.btn}>
           СОЗДАТЬ
         </Link>
+
+        <a href="#" className="tq-studio-btn">
+          <span>TQ STUDIO</span>
+        </a>
       </div>
     </main>
   );
@@ -432,5 +436,150 @@ h1[style*="fontWeight"] {
   font-weight: 800 !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* TQ STUDIO Button - светлая версия */
+.tq-studio-btn {
+  position: relative;
+  width: 160px;
+  height: 50px;
+  line-height: 48px;
+  background: rgba(255, 255, 255, 0.15);
+  text-transform: uppercase;
+  font-weight: bolder;
+  font-size: 25px;
+  text-align: center;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  transition: 0.5s;
+  -webkit-box-reflect: below 1px linear-gradient(transparent, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tq-studio-btn span {
+  position: absolute;
+  display: block;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  transition: 0.5s;
+  border-radius: 7px;
+  line-height: 48px;
+  z-index: 1;
+}
+
+.tq-studio-btn:hover span {
+  color: rgba(255, 255, 255, 1);
+}
+
+.tq-studio-btn span::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  z-index: 10;
+  border-radius: 7px 7px 0 0;
+}
+
+.tq-studio-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    45deg,
+    #ff6b6b,
+    #ffd93d,
+    #6bcf7f,
+    #4d96ff,
+    #9b59b6,
+    #ff6b6b,
+    #ffd93d,
+    #6bcf7f,
+    #4d96ff,
+    #9b59b6,
+    #ff6b6b,
+    #ffd93d,
+    #6bcf7f,
+    #4d96ff,
+    #9b59b6,
+    #ff6b6b,
+    #ffd93d
+  );
+  background-size: 400%;
+  opacity: 0;
+  transition: 2.5s;
+  animation: tqStudioEff 20s linear infinite;
+  border-radius: 8px;
+}
+
+.tq-studio-btn:hover::before,
+.tq-studio-btn:hover::after {
+  opacity: 1;
+}
+
+.tq-studio-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    45deg,
+    #ff6b6b,
+    #ffd93d,
+    #6bcf7f,
+    #4d96ff,
+    #9b59b6,
+    #ff6b6b,
+    #ffd93d,
+    #6bcf7f,
+    #4d96ff,
+    #9b59b6,
+    #ff6b6b,
+    #ffd93d,
+    #6bcf7f,
+    #4d96ff,
+    #9b59b6,
+    #ff6b6b,
+    #ffd93d
+  );
+  background-size: 400%;
+  opacity: 0;
+  filter: blur(20px);
+  transition: 0.5s;
+  animation: tqStudioEff 20s ease infinite;
+  border-radius: 8px;
+}
+
+@keyframes tqStudioEff {
+  0% {
+    background-position: 0 0;
+  }
+  50% {
+    background-position: 400% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tq-studio-btn::before,
+  .tq-studio-btn::after {
+    animation: none !important;
+  }
 }
 `;
