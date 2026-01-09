@@ -8843,8 +8843,14 @@ export default function StudioDesktop() {
       const frameInterval = 1000 / FPS; // 33.33ms для 30fps
 
       // Импортируем html2canvas один раз
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default;
+      let html2canvas;
+      try {
+        const html2canvasModule = await import('html2canvas');
+        html2canvas = html2canvasModule.default || html2canvasModule;
+      } catch (error) {
+        console.error('Ошибка импорта html2canvas:', error);
+        throw new Error('Не удалось загрузить html2canvas. Убедитесь, что зависимость установлена.');
+      }
 
       // Запускаем аудио для синхронизации (но без звука)
       if (!wasPlaying) {
