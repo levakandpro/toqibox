@@ -81,17 +81,27 @@ export async function onRequestPost(context) {
 
     // Используем упрощенный подход - загружаем через fetch с базовой авторизацией
     const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
-    const url = `${endpoint}/${bucketName}/${key}`;
+    // Важно: key должен быть правильно закодирован в URL
+    const encodedKey = encodeURIComponent(key).replace(/%2F/g, '/');
+    const url = new URL(`${endpoint}/${bucketName}/${encodedKey}`);
 
     // Простая подпись для R2
     const now = new Date();
     const dateStamp = formatDate(now);
     const amzDate = formatDateTime(now);
     
+    console.log('🔐 Генерируем подпись для:', { 
+      method: 'PUT', 
+      bucket: bucketName, 
+      key, 
+      contentType,
+      fileSize: fileBuffer.byteLength 
+    });
+    
     // Используем упрощенную подпись
     const signature = await generateSimpleSignature({
       method: 'PUT',
-      url: new URL(url),
+      url,
       accessKeyId,
       secretAccessKey,
       dateStamp,
@@ -100,8 +110,10 @@ export async function onRequestPost(context) {
       payload: fileBuffer,
     });
 
+    console.log('📤 Загружаем в R2:', { url: url.toString().substring(0, 100) + '...' });
+
     // Загружаем файл в R2
-    const uploadResponse = await fetch(url, {
+    const uploadResponse = await fetch(url.toString(), {
       method: 'PUT',
       headers: {
         'Authorization': signature,
@@ -113,11 +125,18 @@ export async function onRequestPost(context) {
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text().catch(() => '');
-      console.error('❌ Ошибка загрузки в R2:', { status: uploadResponse.status, errorText });
+      const errorHeaders = Object.fromEntries(uploadResponse.headers.entries());
+      console.error('❌ Ошибка загрузки в R2:', { 
+        status: uploadResponse.status, 
+        errorText,
+        url: url.substring(0, 150),
+        headers: errorHeaders
+      });
       return new Response(
         JSON.stringify({ 
           error: `Failed to upload to R2: ${uploadResponse.status}`,
-          details: errorText 
+          details: errorText || 'Bad Request - check signature and URL format',
+          url: url.substring(0, 100) + '...'
         }),
         {
           status: uploadResponse.status,
@@ -165,23 +184,30 @@ async function generateSimpleSignature({ method, url, accessKeyId, secretAccessK
   const region = 'auto';
   const service = 's3';
   
-  // Canonical request
-  const canonicalUri = url.pathname;
+  // Canonical request - важно правильно экранировать путь
+  const canonicalUri = encodeURIComponent(url.pathname).replace(/%2F/g, '/').replace(/%2A/g, '*');
+  // Если путь начинается с /, убираем первый символ для canonicalUri
+  const canonicalUriPath = canonicalUri.startsWith('/') ? canonicalUri : '/' + canonicalUri;
   const canonicalQueryString = '';
-  const canonicalHeaders = `host:${url.host}\nx-amz-date:${amzDate}\ncontent-type:${contentType}\n`;
+  
+  // Заголовки должны быть в нижнем регистре и отсортированы
+  const host = url.host.toLowerCase();
+  const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\ncontent-type:${contentType}\n`;
   const signedHeaders = 'host;x-amz-date;content-type';
   
   // Вычисляем SHA256 хеш payload
   let payloadHash;
   if (payload instanceof ArrayBuffer) {
     payloadHash = await sha256Hex(new Uint8Array(payload));
+  } else if (payload instanceof Uint8Array) {
+    payloadHash = await sha256Hex(payload);
   } else {
     payloadHash = await sha256Hex(payload);
   }
   
   const canonicalRequest = [
     method,
-    canonicalUri,
+    canonicalUriPath,
     canonicalQueryString,
     canonicalHeaders,
     signedHeaders,
@@ -190,11 +216,12 @@ async function generateSimpleSignature({ method, url, accessKeyId, secretAccessK
 
   // String to sign
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const hashedCanonicalRequest = await sha256Hex(canonicalRequest);
   const stringToSign = [
     'AWS4-HMAC-SHA256',
     amzDate,
     credentialScope,
-    await sha256Hex(canonicalRequest),
+    hashedCanonicalRequest,
   ].join('\n');
 
   // Вычисляем подпись
