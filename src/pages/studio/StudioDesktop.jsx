@@ -8832,24 +8832,17 @@ export default function StudioDesktop() {
         overlay.style.display = 'flex';
       }, 100);
 
-      // Находим canvas для предпросмотра
-      const previewElement = canvasRef.current;
-      if (!previewElement) {
-        throw new Error('Элемент предпросмотра не найден');
-      }
+      // Создаем отдельный скрытый exportCanvas для записи (НЕ используем UI canvas)
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.setAttribute('data-export-canvas', 'true');
+      exportCanvas.width = WIDTH;
+      exportCanvas.height = HEIGHT;
+      exportCanvas.style.cssText = 'position: fixed; top: -9999px; left: -9999px; visibility: hidden;';
+      document.body.appendChild(exportCanvas);
+      const exportCtx = exportCanvas.getContext('2d');
 
-      // Убеждаемся, что захватываем только нужный элемент
-      // Скрываем оверлей экспорта перед захватом
-      overlay.style.display = 'none';
-
-      // Создаем временный canvas для записи
-      const recordCanvas = document.createElement('canvas');
-      recordCanvas.width = WIDTH;
-      recordCanvas.height = HEIGHT;
-      const recordCtx = recordCanvas.getContext('2d');
-
-      // Создаем stream из canvas
-      const stream = recordCanvas.captureStream(FPS);
+      // Создаем stream из exportCanvas
+      const stream = exportCanvas.captureStream(FPS);
       
       // Определяем MIME type
       let mimeType = 'video/webm';
@@ -8881,7 +8874,17 @@ export default function StudioDesktop() {
       let lastFrameTime = 0;
       const frameInterval = 1000 / FPS; // 33.33ms для 30fps
 
-      // html2canvas уже импортирован в начале файла
+      // Загружаем фото один раз для экспорта
+      let exportPhotoImg = null;
+      if (photoUrl) {
+        exportPhotoImg = new Image();
+        exportPhotoImg.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          exportPhotoImg.onload = resolve;
+          exportPhotoImg.onerror = reject;
+          exportPhotoImg.src = photoUrl;
+        });
+      }
 
       // Запускаем аудио для синхронизации (но без звука)
       if (!wasPlaying) {
@@ -8889,8 +8892,8 @@ export default function StudioDesktop() {
         await audioEngine.play();
       }
 
-      // Функция рендеринга кадра
-      const renderFrame = async (timestamp) => {
+      // Функция рендеринга кадра напрямую в exportCanvas
+      const renderFrame = (timestamp) => {
         if (!isRecording) return;
 
         const currentTime = audioEngine.getCurrentTime();
@@ -8912,27 +8915,33 @@ export default function StudioDesktop() {
         if (elapsed >= frameInterval) {
           lastFrameTime = timestamp - (elapsed % frameInterval);
 
-          // Используем html2canvas для захвата предпросмотра
           try {
-            const canvas = await html2canvas(previewElement, {
-              width: WIDTH,
-              height: HEIGHT,
-              scale: 1,
-              useCORS: true,
-              allowTaint: false,
-              backgroundColor: '#000000',
-              logging: false,
-              windowWidth: WIDTH,
-              windowHeight: HEIGHT,
-              x: 0,
-              y: 0,
-              scrollX: 0,
-              scrollY: 0,
-            });
+            // Очищаем exportCanvas
+            exportCtx.fillStyle = '#000000';
+            exportCtx.fillRect(0, 0, WIDTH, HEIGHT);
 
-            // Рисуем на recordCanvas
-            recordCtx.clearRect(0, 0, WIDTH, HEIGHT);
-            recordCtx.drawImage(canvas, 0, 0, WIDTH, HEIGHT);
+            // 1. Рендерим фон (ShaderToyBackground WebGL canvas или фото)
+            const previewElement = canvasRef.current;
+            if (previewElement) {
+              // Ищем WebGL canvas для шейдеров (первый canvas обычно шейдер)
+              const shaderCanvas = previewElement.querySelector('canvas');
+              if (shaderCanvas && shaderCanvas.width > 0 && shaderCanvas.height > 0) {
+                exportCtx.drawImage(shaderCanvas, 0, 0, WIDTH, HEIGHT);
+              } else if (exportPhotoImg) {
+                // Если нет шейдера, рисуем фото
+                exportCtx.drawImage(exportPhotoImg, 0, 0, WIDTH, HEIGHT);
+              }
+            }
+
+            // 2. Рендерим видео поверх (если есть)
+            if (canvasVideoRef.current && canvasVideoRef.current.readyState >= 2) {
+              exportCtx.drawImage(canvasVideoRef.current, 0, 0, WIDTH, HEIGHT);
+            }
+
+            // 3. Рендерим текст поверх (если есть textCanvas)
+            if (textCanvasRef.current && textCanvasRef.current.width > 0 && textCanvasRef.current.height > 0) {
+              exportCtx.drawImage(textCanvasRef.current, 0, 0, WIDTH, HEIGHT);
+            }
 
             frameCount++;
           } catch (error) {
@@ -9008,6 +9017,12 @@ export default function StudioDesktop() {
       if (!wasPlaying) {
         audioEngine.pause();
         audioEngine.seek(savedCurrentTime);
+      }
+
+      // Удаляем exportCanvas (если был создан)
+      const exportCanvas = document.querySelector('canvas[data-export-canvas]');
+      if (exportCanvas && exportCanvas.parentNode) {
+        document.body.removeChild(exportCanvas);
       }
 
       // Убираем оверлей и стили
