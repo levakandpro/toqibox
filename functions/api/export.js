@@ -75,7 +75,10 @@ export async function onRequestPost(context) {
 // ========================================
 // ОБРАБОТКА ОЧЕРЕДИ
 // ========================================
+// Закомментировано: использует Node.js модули (fs, path, os, child_process)
+// Эти функции не работают на Cloudflare Workers
 
+/*
 async function processQueue() {
   if (activeExports >= EXPORT_LIMITS.MAX_PARALLEL_EXPORTS) {
     console.log('[Export Queue] Достигнут лимит параллельных экспортов:', activeExports);
@@ -246,6 +249,7 @@ async function cleanupTempFiles(tmpPath) {
     console.error(`[Cleanup] ❌ Ошибка очистки:`, error);
   }
 }
+*/
 
 // ========================================
 // API ДЛЯ ПРОВЕРКИ СТАТУСА ЭКСПОРТА
@@ -267,8 +271,3 @@ export async function onRequestGet(context) {
   );
 }
 
-// Хелпер для чтения файла (нужен для определения размера)
-async function readFile(path) {
-  const { readFile } = await import('fs/promises');
-  return readFile(path);
-}
