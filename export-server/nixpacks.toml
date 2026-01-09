@@ -1,0 +1,14 @@
+# Railway.app Nixpacks Configuration
+# Автоматически установит FFmpeg
+
+[phases.setup]
+nixPkgs = ["ffmpeg", "nodejs_18"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = []
+
+[start]
+cmd = "npm start"

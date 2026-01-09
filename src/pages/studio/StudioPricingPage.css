@@ -1,5 +1,4 @@
 .studio-pricing-page {
-  min-height: 100vh;
   height: 100vh;
   overflow: hidden;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
@@ -18,19 +17,15 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  gap: 16px;
 }
 
 .studio-pricing-header {
   text-align: center;
-  margin-bottom: 0;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   flex-shrink: 0;
-  z-index: 100;
-  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-  padding: 12px 0 20px 0;
+  z-index: 10;
+  padding: 8px 0 12px 0;
 }
 
 .studio-pricing-rules-btn {
@@ -54,10 +49,9 @@
 /* From Uiverse.io by WhiteNervosa */
 .studio-pricing-back-btn {
   position: absolute;
-  left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
+  left: 0;
+  top: 12px;
+  font-size: 16px;
   color: #b0b0b0;
   font-family: inherit;
   font-weight: 800;
@@ -96,7 +90,7 @@
 }
 
 .studio-pricing-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 800;
   margin: 0 0 4px 0;
   color: #ffffff;
@@ -106,7 +100,7 @@
 }
 
 .studio-pricing-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.85);
   margin: 0;
   font-weight: 400;
@@ -116,28 +110,28 @@
 .studio-pricing-plans {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  flex: 1;
-  align-items: start;
-  overflow: hidden;
-  min-height: 0;
+  gap: 16px;
+  align-items: stretch;
   max-width: 1200px;
-  margin: 100px auto 0 auto;
+  margin: 0 auto;
   width: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .studio-pricing-card {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   position: relative;
   transition: all 0.3s ease;
   overflow: hidden;
-  min-height: 0;
   box-sizing: border-box;
-  max-width: 100%;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   z-index: 1;
 }
 
@@ -149,10 +143,12 @@
 }
 
 .studio-pricing-rules {
-  margin-top: 20px;
-  padding: 20px 0;
+  padding: 6px 0;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .studio-pricing-rules-content {
@@ -165,10 +161,10 @@
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-  padding: 12px 24px;
+  padding: 4px 12px;
   transition: all 0.2s ease;
   user-select: none;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .studio-pricing-rules-title-wrapper:hover {
@@ -176,7 +172,7 @@
 }
 
 .studio-pricing-rules-title {
-  font-size: 14px;
+  font-size: 9px;
   font-weight: 700;
   color: #b0b0b0;
   margin: 0;
@@ -320,13 +316,13 @@
 
 .studio-pricing-badge {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 8px;
+  right: 8px;
   background: linear-gradient(135deg, #e30a0a 0%, #ff3333 100%);
   color: #fff;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -334,36 +330,37 @@
 }
 
 .studio-pricing-card-content {
-  padding: 16px 20px;
+  padding: 12px 16px;
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .studio-pricing-card-header {
   display: grid;
   grid-template-columns: 1fr;
   text-align: left;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .studio-pricing-plan-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.6);
   letter-spacing: -0.5px;
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
 }
 
 .studio-pricing-description {
-  margin: 6px 0 0 0;
-  font-size: 12px;
+  margin: 4px 0 0 0;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
 }
 
 .studio-pricing-price-block {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .studio-pricing-price-block p {
@@ -371,14 +368,14 @@
 }
 
 .studio-pricing-price-amount {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 300;
   letter-spacing: -1px;
   color: #fff;
 }
 
 .studio-pricing-price-period {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.5);
 }
@@ -387,16 +384,36 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   overflow-y: auto;
   min-height: 0;
+  padding-right: 4px;
+}
+
+/* Скролл для features */
+.studio-pricing-features-block::-webkit-scrollbar {
+  width: 4px;
+}
+
+.studio-pricing-features-block::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.studio-pricing-features-block::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.studio-pricing-features-block::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .studio-pricing-feature-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -405,27 +422,27 @@
 }
 
 .studio-pricing-feature-label {
-  font-size: 13px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
 }
 
 .studio-pricing-feature-value {
-  font-size: 13px;
+  font-size: 11px;
   color: #fff;
   font-weight: 600;
   text-align: right;
 }
 
 .studio-pricing-included {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .studio-pricing-included-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #fff;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
 }
 
 .studio-pricing-included-list {
@@ -434,14 +451,14 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .studio-pricing-included-item {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.4;
 }
@@ -449,23 +466,23 @@
 .studio-pricing-check {
   color: #e30a0a;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
   flex-shrink: 0;
   margin-top: 1px;
 }
 
 .studio-pricing-card-footer {
-  padding: 0 20px 16px 20px;
+  padding: 0 16px 12px 16px;
   flex-shrink: 0;
 }
 
 .studio-pricing-button {
   width: 100%;
-  padding: 8px 20px;
+  padding: 8px 16px;
   border: 2px solid;
   border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -517,13 +534,10 @@
 @media (max-width: 768px) {
   .studio-pricing-page {
     padding: 16px;
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
   }
 
   .studio-pricing-title {
-    font-size: 28px;
+    font-size: 22px;
   }
 
   .studio-pricing-subtitle {
@@ -533,7 +547,6 @@
   .studio-pricing-plans {
     grid-template-columns: 1fr;
     gap: 16px;
-    flex: none;
   }
 
   .studio-pricing-card.popular {
@@ -545,7 +558,13 @@
   }
 
   .studio-pricing-back-btn {
-    position: relative;
+    position: static;
+    display: block;
     margin-bottom: 16px;
+    text-align: left;
+  }
+  
+  .studio-pricing-header {
+    padding-top: 0;
   }
 }

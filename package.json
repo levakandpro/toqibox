@@ -11,6 +11,8 @@
     "tunnel": "cloudflared tunnel --url http://localhost:5174"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@supabase/supabase-js": "^2.89.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

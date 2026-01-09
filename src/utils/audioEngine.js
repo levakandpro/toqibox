@@ -54,7 +54,12 @@ class AudioEngine {
     });
     
     this.audio.addEventListener('error', (e) => {
-      console.error('[AudioEngine] Error:', e);
+      // Игнорируем ошибки когда src не установлен (пустой или это URL страницы)
+      const currentSrc = this.audio.getAttribute('src');
+      if (!currentSrc || currentSrc === '' || this.audio.networkState === 0) {
+        return; // Нет источника - это норма
+      }
+      console.error('[AudioEngine] Error loading audio:', e);
       if (this.onErrorCallback) this.onErrorCallback(e);
     });
     

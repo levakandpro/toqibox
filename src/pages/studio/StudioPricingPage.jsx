@@ -36,7 +36,7 @@ export default function StudioPricingPage() {
       pricePeriod: "в месяц",
       description: "Подходит для регулярной работы и авторов",
       features: {
-        dailyLimit: "До 20 видео в день",
+        dailyLimit: "До 10 видео в день",
         quality: "Качество экспорта: 1080p Full HD",
         included: [
           "Все premium-функции Studio",
@@ -62,7 +62,7 @@ export default function StudioPricingPage() {
       pricePeriod: "в год",
       description: "Подходит для студий и активного продакшена",
       features: {
-        dailyLimit: "До 30 видео в день",
+        dailyLimit: "До 20 видео в день",
         quality: "Качество экспорта: 1080p Full HD",
         included: [
           "Всё, что есть в PREMIUM",

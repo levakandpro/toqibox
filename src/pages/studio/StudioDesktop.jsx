@@ -154,18 +154,143 @@ async function extractWaveform(audioBuffer, samples = 150) {
   return filteredData.map(n => n * multiplier);
 }
 
-// Список доступных шрифтов (tq.ttf должен быть первым)
+// Функция для генерации ID шрифта из имени файла
+const generateFontId = (filename) => {
+  return filename
+    .replace(/\.(ttf|otf|TTF|OTF)$/i, '')
+    .replace(/[^a-zA-Z0-9]/g, '_')
+    .toLowerCase();
+};
+
+// Функция для генерации читаемого имени шрифта из имени файла
+const generateFontName = (filename) => {
+  let name = filename.replace(/\.(ttf|otf|TTF|OTF)$/i, '');
+  // Убираем префиксы с цифрами
+  name = name.replace(/^\d+_/, '');
+  // Заменяем подчеркивания и дефисы на пробелы
+  name = name.replace(/[_-]/g, ' ');
+  // Убираем расширения в скобках типа [Muhivich]
+  name = name.replace(/\s*\[.*?\]/g, '');
+  // Убираем расширения в скобках типа (sherbackoffalex)
+  name = name.replace(/\s*\(.*?\)/g, '');
+  // Капитализируем каждое слово
+  return name.split(' ').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+};
+
+// Список всех шрифтов из папки public/assets/fonts (всего 71 шрифт)
+// Пронумерован для проверки соответствия файлам в папке D:\toqibox\public\assets\fonts
+const FONT_FILES = [
+  /* 1 */ '0_HeadingDevaVariable-Roman.ttf',
+  /* 2 */ '2_HeadingNowVar-Regular.ttf',
+  /* 3 */ '3_CodecProVariable-Regular.ttf',
+  /* 4 */ '4_CodecProMEVariable.ttf',
+  /* 5 */ 'Angry.otf',
+  /* 6 */ 'AngstVF.ttf',
+  /* 7 */ 'Arabic-Cyr-(kerning-fixed).ttf',
+  /* 8 */ 'ArialBlackPrimer.ttf',
+  /* 9 */ 'AsiaAS-Normal.ttf',
+  /* 10 */ 'AuktyonZ W00 Regular.ttf',
+  /* 11 */ 'BerlinSansFBCyrillic-Regular.ttf',
+  /* 12 */ 'CaslonNo540D-Ita.ttf',
+  /* 13 */ 'CCUltimatum-Bold.ttf',
+  /* 14 */ 'CCUltimatum-Heavy.ttf',
+  /* 15 */ 'Coffee Bear.otf',
+  /* 16 */ 'Compacta LT Black P.otf',
+  /* 17 */ 'Compacta LT Light Compress.otf',
+  /* 18 */ 'CompactaCom-Bold.otf',
+  /* 19 */ 'Crackhouse Cyr (sherbackoffalex).otf',
+  /* 20 */ 'DaMiOne-Regular.ttf',
+  /* 21 */ 'DKCinnabarBrush-Regular.ttf',
+  /* 22 */ 'Duo-quadruple_by_hanbikov_ilyas.otf',
+  /* 23 */ 'EDUCATIONALGOTHIC-REGULAR.OTF',
+  /* 24 */ 'Far Cry Cyr Regular_0.ttf',
+  /* 25 */ 'FoxcroftNF RUS Regular [Muhivich].otf',
+  /* 26 */ 'Fyl-Regular.ttf',
+  /* 27 */ 'Gagarin Star Mix Cyrillic.ttf',
+  /* 28 */ 'GirloSP.otf',
+  /* 29 */ 'Gothic60-Regular.ttf',
+  /* 30 */ 'Graphique Pro Next 3D.otf',
+  /* 31 */ 'Graphique Pro Next Comp.otf',
+  /* 32 */ 'Graphique Pro Next Inline.otf',
+  /* 33 */ 'Graphique Pro Next Outline.otf',
+  /* 34 */ 'Graphique Pro Next Shadow LN.otf',
+  /* 35 */ 'Graphique Pro Next Shadow.otf',
+  /* 36 */ 'Graphique Pro Next Solid LN.otf',
+  /* 37 */ 'Graphique Pro Next Solid.otf',
+  /* 38 */ 'GTWalsheimProSchoolbook-Medium.ttf',
+  /* 39 */ 'Hamiltone1.otf',
+  /* 40 */ 'jaipur.ttf',
+  /* 41 */ 'Kosmos.otf',
+  /* 42 */ 'Kurland-Italic.otf',
+  /* 43 */ 'Kurland-Regular.ttf',
+  /* 44 */ 'KvitkaSPDemo.otf',
+  /* 45 */ 'LastfunkPlain-Bold.otf',
+  /* 46 */ 'LincolnElectric-Over.ttf',
+  /* 47 */ 'LincolnElectric-Regular.ttf',
+  /* 48 */ 'LincolnElectric-Under.ttf',
+  /* 49 */ 'Lubalin Graph ITC Turner Bold.otf',
+  /* 50 */ 'MoscowMetro.otf',
+  /* 51 */ 'MoscowMetroColor.otf',
+  /* 52 */ 'Neoneon1.otf',
+  /* 53 */ 'Onmark TRIAL Regular.otf',
+  /* 54 */ 'PaluiSPDemo-Bold.otf',
+  /* 55 */ 'Roadkill Heavy Regular.otf',
+  /* 56 */ 'Robofan.ttf',
+  /* 57 */ 'Serati-Italic.otf',
+  /* 58 */ 'Serati-Regular.ttf',
+  /* 59 */ 'StieglitzSP-Bold 2.otf',
+  /* 60 */ 'Sunless day.otf',
+  /* 61 */ 'tilda-script-bold.otf',
+  /* 62 */ 'tq.ttf',
+  /* 63 */ 'UnifixSPDemo.otf',
+  /* 64 */ 'Unsightly.ttf',
+  /* 65 */ 'Xanmono-Italic.otf',
+  /* 66 */ 'Xanmono-Regular.ttf',
+  /* 67 */ 'XPLOR_Bold-Regular.ttf',
+  /* 68 */ 'Y224.otf',
+  /* 69 */ 'YDKJ_The_Ride2_0.ttf',
+  /* 70 */ 'ZenDotsKir.ttf',
+  /* 71 */ 'ZenterSPDemo-Black.otf',
+];
+
+// Функция для генерации безопасного CSS имени шрифта
+const generateFontFamilyName = (filename) => {
+  let name = filename.replace(/\.(ttf|otf|TTF|OTF)$/i, '');
+  // Убираем префиксы с цифрами
+  name = name.replace(/^\d+_/, '');
+  // Заменяем подчеркивания и дефисы на пробелы
+  name = name.replace(/[_-]/g, ' ');
+  // Убираем расширения в скобках типа [Muhivich]
+  name = name.replace(/\s*\[.*?\]/g, '');
+  // Убираем расширения в скобках типа (sherbackoffalex)
+  name = name.replace(/\s*\(.*?\)/g, '');
+  // Капитализируем каждое слово
+  return name.split(' ').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+};
+
+// Генерируем список доступных шрифтов
 const AVAILABLE_FONTS = [
-  { id: 'tq', name: 'TQ', file: 'tq.ttf' },
-  { id: 'fyl', name: 'Fyl Regular', file: 'Fyl-Regular.ttf' },
-  { id: 'system', name: 'System', file: null },
-  // Добавлю остальные позже
+  { id: 'system', name: 'System', cssName: 'System', file: null },
+  ...FONT_FILES.map(file => ({
+    id: generateFontId(file),
+    name: generateFontName(file),
+    cssName: generateFontFamilyName(file),
+    file: file,
+  })),
 ];
 
 const MAX_AUDIO_DURATION = 240; // 4 минуты
 
 export default function StudioDesktop() {
   const navigate = useNavigate();
+  
+  // ⚠️ PREMIUM: Проверка premium статуса пользователя
+  // TODO: Заменить на реальную проверку из Supabase (artists.is_premium)
+  const userHasPremium = false; // Пока hardcode - все эффекты платные для демо
   const [photoUrl, setPhotoUrl] = useState(null);
   const [photoKey, setPhotoKey] = useState(null);
   const [audioDuration, setAudioDuration] = useState(null);
@@ -217,6 +342,61 @@ export default function StudioDesktop() {
     // если end раньше чем start+duration — пододвигаем end
     if (e < s + d) e = Math.min(MAX_AUDIO_DURATION, s + d);
     return { s, d, e };
+  };
+
+  // ⚠️ PREMIUM: Обработчик клика на импульс (с проверкой premium для платных эффектов)
+  const handleImpulseClick = (effectId) => {
+    // Список платных эффектов
+    const premiumEffects = ['exposure', 'bw', 'glitch', 'rgb', 'pixelate', 'grain', 'mirror'];
+    
+    // Если эффект платный и у пользователя нет premium
+    if (premiumEffects.includes(effectId) && !userHasPremium) {
+      // Перенаправляем на страницу тарифов студии
+      navigate('/studio/pricing');
+      return;
+    }
+    
+    // Иначе включаем/выключаем эффект
+    setSelectedCoverEffect(selectedCoverEffect === effectId ? null : effectId);
+  };
+
+  // ⚠️ PREMIUM: Обработчик клика на визуал/шаблон (первые 10 бесплатные)
+  const handleTemplateClick = (templateId) => {
+    // Первые 10 визуалов бесплатные (1-10)
+    const freeTemplates = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    
+    if (!freeTemplates.includes(templateId) && !userHasPremium) {
+      navigate('/studio/pricing');
+      return;
+    }
+    
+    setSelectedTemplate(templateId);
+  };
+
+  // ⚠️ PREMIUM: Обработчик клика на BG фон (первые 5 бесплатные)
+  const handleBgClick = (bgId, bgIndex) => {
+    // Первые 5 фонов бесплатные (индексы 0-4)
+    const freeBgIndexes = [0, 1, 2, 3, 4];
+    
+    if (!freeBgIndexes.includes(bgIndex) && !userHasPremium) {
+      navigate('/studio/pricing');
+      return;
+    }
+    
+    setSelectedBgId(selectedBgId === bgId ? null : bgId);
+  };
+
+  // ⚠️ PREMIUM: Обработчик клика на прогресс-бар (первые 4 бесплатные)
+  const handleProgressBarClick = (pbarId, pbarIndex) => {
+    // Первые 4 прогресс-бара бесплатные (индексы 0-3)
+    const freePbarIndexes = [0, 1, 2, 3];
+    
+    if (!freePbarIndexes.includes(pbarIndex) && !userHasPremium) {
+      navigate('/studio/pricing');
+      return;
+    }
+    
+    setSelectedProgressBar(selectedProgressBar === pbarId ? null : pbarId);
   };
 
   // Состояния для текста
@@ -276,6 +456,7 @@ export default function StudioDesktop() {
   const [mirrorVariants, setMirrorVariants] = useState([]); // Варианты зеркальных отражений
   const [pixelateIntensity, setPixelateIntensity] = useState(0); // Интенсивность пикселизации (0-1)
   const grainCanvasRef = useRef(null); // ref для canvas с царапинами
+  const textCanvasRef = useRef(null); // ref для canvas с текстом (для экспорта)
   
   // ===== ОПТИМИЗАЦИЯ: Refs для интенсивностей (обновляются каждый кадр без React re-render) =====
   const bgBeatIntensityRef = useRef(0);
@@ -510,28 +691,97 @@ export default function StudioDesktop() {
       setStylesLoaded(true);
     }, 1000);
     
+    // Динамически создаем @font-face правила для всех шрифтов
+    // КРИТИЧНО: Должно быть ПЕРЕД return, иначе не выполнится!
+    const createFontFaceRules = () => {
+      console.log('[Font] 🚀 createFontFaceRules вызвана, всего шрифтов:', AVAILABLE_FONTS.length);
+      
+      let createdCount = 0;
+      let skippedCount = 0;
+      
+      AVAILABLE_FONTS.forEach(font => {
+        if (!font.file) {
+          skippedCount++;
+          return; // Пропускаем системный шрифт
+        }
+        
+        // Проверяем, не создано ли уже правило для этого шрифта
+        if (document.querySelector(`style[data-font-id="${font.id}"]`)) {
+          skippedCount++;
+          return;
+        }
+        
+        // Определяем формат файла
+        const isOTF = font.file.toLowerCase().endsWith('.otf');
+        const format = isOTF ? 'opentype' : 'truetype';
+        const mimeType = isOTF ? 'font/otf' : 'font/ttf';
+        
+        // Экранируем имя файла для URL (на случай пробелов и спецсимволов)
+        // Используем оригинальное имя файла, так как Vite должен правильно обработать пробелы
+        const fontUrl = `/assets/fonts/${font.file}`;
+        
+        // Создаем @font-face правило с CSS-безопасным именем
+        // ВАЖНО: font-family должен ТОЧНО совпадать с тем, что возвращает getFontFamily
+        const style = document.createElement('style');
+        style.setAttribute('data-font-id', font.id);
+        style.setAttribute('data-font-name', font.cssName);
+        style.textContent = `
+          @font-face {
+            font-family: "${font.cssName}";
+            src: url("${fontUrl}") format("${format}");
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+          }
+        `;
+        document.head.appendChild(style);
+        createdCount++;
+        
+        // ОТЛАДОЧНЫЙ ЛОГ для проверки создания @font-face
+        console.log(`[Font] ✅ @font-face создан [${createdCount}]:`, {
+          fontId: font.id,
+          fileName: font.file,
+          cssName: font.cssName,
+          fontUrl: fontUrl,
+          format: format
+        });
+        
+        // Проверяем загрузку шрифта
+        if (document.fonts && document.fonts.check) {
+          const fontFace = new FontFace(font.cssName, `url("${fontUrl}")`);
+          fontFace.load().then(() => {
+            document.fonts.add(fontFace);
+          }).catch(err => {
+            console.warn(`[Font] ⚠️ Failed to load font ${font.cssName}:`, err);
+          });
+        }
+        
+        // Предзагружаем шрифт
+        if (!document.querySelector(`link[rel="preload"][href="${fontUrl}"]`)) {
+          const fontLink = document.createElement('link');
+          fontLink.rel = 'preload';
+          fontLink.href = fontUrl;
+          fontLink.as = 'font';
+          fontLink.type = mimeType;
+          fontLink.crossOrigin = 'anonymous';
+          document.head.appendChild(fontLink);
+        }
+      });
+      
+      console.log(`[Font] ✅ createFontFaceRules завершена: создано ${createdCount}, пропущено ${skippedCount}, всего ${AVAILABLE_FONTS.length}`);
+      
+      // Финальная проверка: сколько @font-face правил в DOM
+      const allFontFaces = document.querySelectorAll('style[data-font-id]');
+      console.log(`[Font] 📊 Проверка DOM: найдено ${allFontFaces.length} @font-face правил`);
+    };
+    
+    // Создаем правила для всех шрифтов СРАЗУ при монтировании
+    console.log('[Font] 🚀 Начинаем создание @font-face правил...');
+    createFontFaceRules();
+    
     return () => {
       clearTimeout(fallbackTimeout);
     };
-    
-    // Предзагружаем кастомные шрифты для предотвращения FOUT
-    const fontsToPreload = [
-      { href: '/studio/assets/fonts/WallIt.ttf', id: 'WallIt' },
-      { href: '/assets/fonts/tq.ttf', id: 'tq' },
-      { href: '/assets/fonts/Fyl-Regular.ttf', id: 'Fyl' },
-    ];
-    
-    fontsToPreload.forEach(({ href, id }) => {
-      if (!document.querySelector(`link[rel="preload"][href="${href}"]`)) {
-        const fontLink = document.createElement('link');
-        fontLink.rel = 'preload';
-        fontLink.href = href;
-        fontLink.as = 'font';
-        fontLink.type = 'font/ttf';
-        fontLink.crossOrigin = 'anonymous';
-        document.head.appendChild(fontLink);
-      }
-    });
   }, []);
 
   // ===== PWA SETUP: Отдельный манифест и Service Worker для Studio =====
@@ -1059,739 +1309,574 @@ export default function StudioDesktop() {
     };
   }, [isPlaying]);
 
-  // Анализ битов и реакция фото на удары (эффект BEAT)
+  // ================================================================
+  // ИМПУЛЬСЫ (COVER EFFECTS) - AUDIO-REACTIVE VISUAL EFFECTS
+  // ================================================================
+  // ⚠️ ВНИМАНИЕ! НЕ ИЗМЕНЯЙТЕ ЛОГИКУ БЕЗ НЕОБХОДИМОСТИ!
+  // Все эффекты настроены на работу ТОЛЬКО с громкими киками,
+  // с плавными паузами и затуханиями. Каждый эффект имеет:
+  // - beatInterval: минимальная пауза между ударами (мс)
+  // - bassIncrease/bass: пороги для обнаружения громких киков
+  // - setTimeout цепочки: плавное затухание интенсивности
+  // 
+  // Бесплатные эффекты: beat, pulse, waves
+  // Платные эффекты (PREMIUM): exposure, bw, glitch, rgb, pixelate, grain, mirror
+  // ================================================================
+
+  // ИМПУЛЬС: Биение сердца - фото пульсирует под низкие частоты (kick/bass)
   useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'beat') {
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'beat') {
       setPhotoScale(1);
+      photoScaleRef.current = 1;
       return;
     }
 
-    let dataArray = null;
     let animationFrameId = null;
-    let lastEnergy = 0;
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+    
+    const updateScale = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(updateScale);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(updateScale);
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
       
-      // Анализируем только низкие частоты (40-160 Гц)
-      const lowFreqStart = 2; // ~40 Гц
-      const lowFreqEnd = 7;   // ~160 Гц
+      // Низкие частоты (kick/bass): 40-150 Hz
+      const lowFreqStart = 2;
+      const lowFreqEnd = 7;
       
       let sum = 0;
       for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
         sum += dataArray[i];
       }
       const energy = sum / (lowFreqEnd - lowFreqStart + 1);
-      
-      // ОПТИМИЗАЦИЯ: обновляем ref напрямую (без React re-render)
       const normalizedEnergy = Math.min(energy / 255, 1);
-      const scale = 1 + (normalizedEnergy * 0.1); // Максимальный scale 1.1
+      const scale = 1 + (normalizedEnergy * 0.15); // scale 1.0 - 1.15
+      
       photoScaleRef.current = scale;
+      throttledSetState(setPhotoScale, scale, 50);
       
-      // Обновляем state только раз в 100ms (throttled)
-      throttledSetState(setPhotoScale, scale, 100);
-      
-      lastEnergy = energy;
-      animationFrameId = requestAnimationFrame(detectBeat);
+      animationFrameId = requestAnimationFrame(updateScale);
     };
 
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
+    updateScale();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       setPhotoScale(1);
     };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
-  // Эффект ПУЛЬС - виньетка и яркость/контраст на сильные биты
+  // ИМПУЛЬС: TQ Пульс - вспышка яркости на сильные удары
   useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'pulse') {
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'pulse') {
       setPulseIntensity(0);
+      pulseIntensityRef.current = 0;
       return;
     }
 
-    let dataArray = null;
     let animationFrameId = null;
-    let lastEnergy = 0;
+    let lastBass = 0;
     let lastBeatTime = 0;
-    const minBeatInterval = 225; // Минимальная задержка между ударами (200-250 мс)
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+    const beatInterval = 200; // минимум 200мс между ударами
+    
+    const checkBeat = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(checkBeat);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(checkBeat);
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
       
-      // Анализируем ТОЛЬКО низкие частоты (40-160 Гц)
-      const lowFreqStart = 2; // ~40 Гц
-      const lowFreqEnd = 7;   // ~160 Гц
+      // Низкие частоты (kick/bass): 40-150 Hz
+      const lowFreqStart = 2;
+      const lowFreqEnd = 7;
       
-      let lowSum = 0;
+      let sum = 0;
       for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-        lowSum += dataArray[i];
+        sum += dataArray[i];
       }
-      const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
-      
-      // Проверяем средние и высокие частоты - должны быть низкими
-      const midFreqStart = 8;  // ~160+ Гц
-      const midFreqEnd = 20;   // ~430 Гц
-      let midSum = 0;
-      for (let i = midFreqStart; i <= midFreqEnd; i++) {
-        midSum += dataArray[i];
-      }
-      const midEnergy = midSum / (midFreqEnd - midFreqStart + 1);
-      
-      // Если средние/высокие частоты слишком сильные - игнорируем
-      if (midEnergy > lowEnergy * 1.5) {
-        // ОПТИМИЗАЦИЯ: обновляем ref напрямую
-        pulseIntensityRef.current = pulseIntensityRef.current * 0.7;
-        throttledSetState(setPulseIntensity, pulseIntensityRef.current, 100);
-        
-        lastEnergy = lowEnergy * 0.5;
-        animationFrameId = requestAnimationFrame(detectBeat);
-        return;
-      }
-      
+      const bass = sum / (lowFreqEnd - lowFreqStart + 1);
+      const bassIncrease = bass - lastBass;
       const currentTime = Date.now();
-      const timeSinceLastBeat = currentTime - lastBeatTime;
       
-      // Реакция только на редкие сильные пики низких частот
-      const strongThreshold = 100;
-      const energyIncrease = lowEnergy - lastEnergy;
-      
-      if (energyIncrease > strongThreshold && lowEnergy > 85 && timeSinceLastBeat >= minBeatInterval) {
-        // ОПТИМИЗАЦИЯ: один удар → один импульс через ref
+      // Детект удара: резкий рост + минимальная энергия
+      if (bassIncrease > 40 && bass > 80 && (currentTime - lastBeatTime) > beatInterval) {
         lastBeatTime = currentTime;
         pulseIntensityRef.current = 1;
-        throttledSetState(setPulseIntensity, 1, 50);
+        throttledSetState(setPulseIntensity, 1, 30);
         
-        // Плавно уменьшаем через ref
-        const fadeOut = () => {
-          pulseIntensityRef.current = pulseIntensityRef.current * 0.8;
-          if (pulseIntensityRef.current > 0.02) {
-            setTimeout(fadeOut, 40);
-          } else {
-            pulseIntensityRef.current = 0;
-          }
-        };
-        setTimeout(fadeOut, 80);
-      } else {
-        // ОПТИМИЗАЦИЯ: затухание через ref
-        const next = pulseIntensityRef.current * 0.75;
-        pulseIntensityRef.current = next < 0.02 ? 0 : next;
-        throttledSetState(setPulseIntensity, pulseIntensityRef.current, 100);
+        // Быстрое затухание
+        setTimeout(() => {
+          pulseIntensityRef.current = 0.5;
+          throttledSetState(setPulseIntensity, 0.5, 30);
+        }, 80);
+        setTimeout(() => {
+          pulseIntensityRef.current = 0;
+          throttledSetState(setPulseIntensity, 0, 30);
+        }, 180);
       }
       
-      lastEnergy = lowEnergy * 0.5;
-      animationFrameId = requestAnimationFrame(detectBeat);
+      lastBass = bass * 0.7;
+      animationFrameId = requestAnimationFrame(checkBeat);
     };
 
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
+    checkBeat();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       setPulseIntensity(0);
     };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
-  // Эффект ЭКСПОЗИЦИЯ - яркость/контраст на сильные биты
+  // ИМПУЛЬС: Экспозиция (Фокус) - вспышка яркости на удары
   useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'exposure') {
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'exposure') {
       setExposureIntensity(0);
+      exposureIntensityRef.current = 0;
       return;
     }
 
-    let dataArray = null;
     let animationFrameId = null;
-    let lastEnergy = 0;
+    let lastBass = 0;
     let lastBeatTime = 0;
-    const minBeatInterval = 175; // Минимальная задержка между ударами (150-200 мс)
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+    const beatInterval = 350; // 350мс - БОЛЬШАЯ ПАУЗА
+    
+    const checkBeat = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(checkBeat);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(checkBeat);
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
       
-      // Анализируем ТОЛЬКО низкие частоты (40-160 Гц)
-      const lowFreqStart = 2; // ~40 Гц
-      const lowFreqEnd = 7;   // ~160 Гц
-      
-      let lowSum = 0;
+      const lowFreqStart = 2;
+      const lowFreqEnd = 7;
+      let sum = 0;
       for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-        lowSum += dataArray[i];
+        sum += dataArray[i];
       }
-      const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
-      
-      // Проверяем средние и высокие частоты - должны быть низкими
-      const midFreqStart = 8;  // ~160+ Гц
-      const midFreqEnd = 20;   // ~430 Гц
-      let midSum = 0;
-      for (let i = midFreqStart; i <= midFreqEnd; i++) {
-        midSum += dataArray[i];
-      }
-      const midEnergy = midSum / (midFreqEnd - midFreqStart + 1);
-      
-      // ОПТИМИЗАЦИЯ: если средние/высокие частоты слишком сильные - игнорируем
-      if (midEnergy > lowEnergy * 1.5) {
-        exposureIntensityRef.current = 0;
-        throttledSetState(setExposureIntensity, 0, 100);
-        lastEnergy = lowEnergy * 0.5;
-        animationFrameId = requestAnimationFrame(detectBeat);
-        return;
-      }
-      
+      const bass = sum / (lowFreqEnd - lowFreqStart + 1);
+      const bassIncrease = bass - lastBass;
       const currentTime = Date.now();
-      const timeSinceLastBeat = currentTime - lastBeatTime;
       
-      const strongThreshold = 100;
-      const energyIncrease = lowEnergy - lastEnergy;
-      
-      if (energyIncrease > strongThreshold && lowEnergy > 85 && timeSinceLastBeat >= minBeatInterval) {
-        // ОПТИМИЗАЦИЯ: сильный пик через ref
+      // ТОЛЬКО ГРОМКИЕ КИКИ
+      if (bassIncrease > 60 && bass > 100 && (currentTime - lastBeatTime) > beatInterval) {
         lastBeatTime = currentTime;
         exposureIntensityRef.current = 1;
-        throttledSetState(setExposureIntensity, 1, 50);
+        throttledSetState(setExposureIntensity, 1, 30);
         
-        const flashDuration = 60 + Math.random() * 40;
-        
-        // Плавное затухание через ref
+        // Плавное затухание: 1 -> 0.6 -> 0.3 -> 0
         setTimeout(() => {
-          const fadeDuration = 150 + Math.random() * 100;
-          const fadeSteps = 20;
-          const fadeStepTime = fadeDuration / fadeSteps;
-          let step = 0;
-          
-          const fadeOut = () => {
-            step++;
-            const progress = step / fadeSteps;
-            exposureIntensityRef.current = 1 - progress;
-            
-            if (step < fadeSteps) {
-              setTimeout(fadeOut, fadeStepTime);
-            } else {
-              exposureIntensityRef.current = 0;
-            }
-          };
-          
-          fadeOut();
-        }, flashDuration);
-      } else {
-        // ОПТИМИЗАЦИЯ: между пиками через ref
-        exposureIntensityRef.current = 0;
-        throttledSetState(setExposureIntensity, 0, 100);
+          exposureIntensityRef.current = 0.6;
+          throttledSetState(setExposureIntensity, 0.6, 30);
+        }, 60);
+        setTimeout(() => {
+          exposureIntensityRef.current = 0.3;
+          throttledSetState(setExposureIntensity, 0.3, 30);
+        }, 130);
+        setTimeout(() => {
+          exposureIntensityRef.current = 0;
+          throttledSetState(setExposureIntensity, 0, 30);
+        }, 220);
       }
       
-      lastEnergy = lowEnergy * 0.5;
-      animationFrameId = requestAnimationFrame(detectBeat);
+      lastBass = bass * 0.7;
+      animationFrameId = requestAnimationFrame(checkBeat);
     };
 
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
+    checkBeat();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       setExposureIntensity(0);
     };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
-  // Эффект B/W - чёрно-белое на сильные биты
+  // ИМПУЛЬС: TQ B/W - черно-белое на сильные удары
   useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'bw') {
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'bw') {
       setBwIntensity(0);
+      bwIntensityRef.current = 0;
       return;
     }
 
-    let dataArray = null;
     let animationFrameId = null;
-    let lastEnergy = 0;
+    let lastBass = 0;
     let lastBeatTime = 0;
-    let bwTimeoutId = null; // Таймер для возврата в цвет
-    const minBeatInterval = 280; // Минимальная задержка между всплесками - увеличена для более редких срабатываний
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+    const beatInterval = 250;
+    
+    const checkBeat = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(checkBeat);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
-      
-      // Анализируем ТОЛЬКО низкие частоты (40-160 Гц)
-      const lowFreqStart = 2; // ~40 Гц
-      const lowFreqEnd = 7;   // ~160 Гц
-      
-      let lowSum = 0;
-      for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-        lowSum += dataArray[i];
-      }
-      const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
-      
-      // Проверяем средние и высокие частоты - должны быть низкими (вокал/высокие частоты = всегда цвет)
-      const midFreqStart = 8;  // ~160+ Гц
-      const midFreqEnd = 20;   // ~430 Гц
-      let midSum = 0;
-      for (let i = midFreqStart; i <= midFreqEnd; i++) {
-        midSum += dataArray[i];
-      }
-      const midEnergy = midSum / (midFreqEnd - midFreqStart + 1);
-      
-      // Если средние/высокие частоты слишком сильные (вокал) - всегда цвет, не обрабатываем
-      if (midEnergy > lowEnergy * 1.5) {
-        // Вокал/высокие частоты - всегда цвет, пропускаем обработку
-        lastEnergy = lowEnergy * 0.5;
-        animationFrameId = requestAnimationFrame(detectBeat);
-        return;
-      }
-      
-      const currentTime = Date.now();
-      const timeSinceLastBeat = currentTime - lastBeatTime;
-      
-      // Детектируем РЕЗКИЙ ВСПЛЕСК (транзиент) на битах, в тишине - ничего
-      const energyIncrease = lowEnergy - lastEnergy;
-      const transientThreshold = 120; // Порог для резкого всплеска (транзиента) - увеличен для более редких срабатываний
-      
-      // Реагируем ТОЛЬКО на самые сильные биты (резкий всплеск + достаточный уровень), в тишине - ничего
-      if (energyIncrease > transientThreshold && lowEnergy > 90 && timeSinceLastBeat >= minBeatInterval) {
-        // Биты (кик) → включаем B/W (bwIntensity = 1)
-        lastBeatTime = currentTime;
-        setBwIntensity(1);
-        // Очищаем предыдущий таймер если есть
-        if (bwTimeoutId) {
-          clearTimeout(bwTimeoutId);
-        }
-        // СРАЗУ ставим таймер на принудительный возврат в цвет через 80-120 мс
-        const returnDuration = 80 + Math.random() * 40; // 80-120 мс
-        bwTimeoutId = setTimeout(() => {
-          // ПРИНУДИТЕЛЬНО возвращаем цвет по таймеру
-          setBwIntensity(0);
-          bwTimeoutId = null;
-        }, returnDuration);
-      } else {
-        // В тишине/паузах - всегда цвет (гарантируем ноль)
-        if (!bwTimeoutId) {
-          setBwIntensity(0);
-        }
-      }
-      
-      lastEnergy = lowEnergy * 0.5;
-      animationFrameId = requestAnimationFrame(detectBeat);
-    };
-
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
-
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      if (bwTimeoutId) {
-        clearTimeout(bwTimeoutId);
-      }
-      setBwIntensity(0);
-    };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
-
-  // Эффект ГЛИТЧ - RGB split + пикселизация на сильные биты
-  useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'glitch') {
-      setGlitchIntensity(0);
-      return;
-    }
-
-    let dataArray = null;
-    let animationFrameId = null;
-    let lastEnergy = 0;
-    let lastBeatTime = 0;
-    let glitchTimeoutId = null;
-    const minBeatInterval = 280;
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(checkBeat);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
       
       const lowFreqStart = 2;
       const lowFreqEnd = 7;
-      
-      let lowSum = 0;
+      let sum = 0;
       for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-        lowSum += dataArray[i];
+        sum += dataArray[i];
       }
-      const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
-      
-      const midFreqStart = 8;
-      const midFreqEnd = 20;
-      let midSum = 0;
-      for (let i = midFreqStart; i <= midFreqEnd; i++) {
-        midSum += dataArray[i];
-      }
-      const midEnergy = midSum / (midFreqEnd - midFreqStart + 1);
-      
-      if (midEnergy > lowEnergy * 1.5) {
-        lastEnergy = lowEnergy * 0.5;
-        animationFrameId = requestAnimationFrame(detectBeat);
-        return;
-      }
-      
+      const bass = sum / (lowFreqEnd - lowFreqStart + 1);
+      const bassIncrease = bass - lastBass;
       const currentTime = Date.now();
-      const timeSinceLastBeat = currentTime - lastBeatTime;
       
-      const energyIncrease = lowEnergy - lastEnergy;
-      const transientThreshold = 120;
-      
-      if (energyIncrease > transientThreshold && lowEnergy > 90 && timeSinceLastBeat >= minBeatInterval) {
+      if (bassIncrease > 50 && bass > 90 && (currentTime - lastBeatTime) > beatInterval) {
         lastBeatTime = currentTime;
-        setGlitchIntensity(1);
+        bwIntensityRef.current = 1;
+        throttledSetState(setBwIntensity, 1, 30);
         
-        if (glitchTimeoutId) {
-          clearTimeout(glitchTimeoutId);
-        }
-        
-        const returnDuration = 80 + Math.random() * 40; // 80-120 мс
-        glitchTimeoutId = setTimeout(() => {
-          setGlitchIntensity(0);
-          glitchTimeoutId = null;
-        }, returnDuration);
-      } else {
-        if (!glitchTimeoutId) {
-          setGlitchIntensity(0);
-        }
+        // Плавное затухание: 1 -> 0.6 -> 0.3 -> 0
+        setTimeout(() => {
+          bwIntensityRef.current = 0.6;
+          throttledSetState(setBwIntensity, 0.6, 30);
+        }, 60);
+        setTimeout(() => {
+          bwIntensityRef.current = 0.3;
+          throttledSetState(setBwIntensity, 0.3, 30);
+        }, 120);
+        setTimeout(() => {
+          bwIntensityRef.current = 0;
+          throttledSetState(setBwIntensity, 0, 30);
+        }, 200);
       }
       
-      lastEnergy = lowEnergy * 0.5;
-      animationFrameId = requestAnimationFrame(detectBeat);
+      lastBass = bass * 0.7;
+      animationFrameId = requestAnimationFrame(checkBeat);
     };
 
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
+    checkBeat();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      if (glitchTimeoutId) {
-        clearTimeout(glitchTimeoutId);
-      }
-      setGlitchIntensity(0);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      setBwIntensity(0);
     };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
-  // Эффект RGB - RGB split на сильные биты
+  // ИМПУЛЬС: Глитч - RGB искажение на удары
   useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'rgb') {
-      setRgbIntensity(0);
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'glitch') {
+      setGlitchIntensity(0);
+      glitchIntensityRef.current = 0;
       return;
     }
 
-    let dataArray = null;
     let animationFrameId = null;
-    let lastEnergy = 0;
+    let lastBass = 0;
     let lastBeatTime = 0;
-    let rgbTimeoutId = null;
-    const minBeatInterval = 280;
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+    const beatInterval = 250;
+    
+    const checkBeat = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(checkBeat);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(checkBeat);
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
       
       const lowFreqStart = 2;
       const lowFreqEnd = 7;
-      
-      let lowSum = 0;
+      let sum = 0;
       for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-        lowSum += dataArray[i];
+        sum += dataArray[i];
       }
-      const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
-      
-      const midFreqStart = 8;
-      const midFreqEnd = 20;
-      let midSum = 0;
-      for (let i = midFreqStart; i <= midFreqEnd; i++) {
-        midSum += dataArray[i];
-      }
-      const midEnergy = midSum / (midFreqEnd - midFreqStart + 1);
-      
-      if (midEnergy > lowEnergy * 1.5) {
-        lastEnergy = lowEnergy * 0.5;
-        animationFrameId = requestAnimationFrame(detectBeat);
-        return;
-      }
-      
+      const bass = sum / (lowFreqEnd - lowFreqStart + 1);
+      const bassIncrease = bass - lastBass;
       const currentTime = Date.now();
-      const timeSinceLastBeat = currentTime - lastBeatTime;
       
-      const energyIncrease = lowEnergy - lastEnergy;
-      const transientThreshold = 120;
-      
-      if (energyIncrease > transientThreshold && lowEnergy > 90 && timeSinceLastBeat >= minBeatInterval) {
+      if (bassIncrease > 50 && bass > 90 && (currentTime - lastBeatTime) > beatInterval) {
         lastBeatTime = currentTime;
-        setRgbIntensity(1);
+        glitchIntensityRef.current = 1;
+        throttledSetState(setGlitchIntensity, 1, 30);
         
-        if (rgbTimeoutId) {
-          clearTimeout(rgbTimeoutId);
-        }
-        
-        const returnDuration = 80 + Math.random() * 40; // 80-120 мс
-        rgbTimeoutId = setTimeout(() => {
-          setRgbIntensity(0);
-          rgbTimeoutId = null;
-        }, returnDuration);
-      } else {
-        if (!rgbTimeoutId) {
-          setRgbIntensity(0);
-        }
+        // Плавное затухание: 1 -> 0.6 -> 0.3 -> 0
+        setTimeout(() => {
+          glitchIntensityRef.current = 0.6;
+          throttledSetState(setGlitchIntensity, 0.6, 30);
+        }, 60);
+        setTimeout(() => {
+          glitchIntensityRef.current = 0.3;
+          throttledSetState(setGlitchIntensity, 0.3, 30);
+        }, 120);
+        setTimeout(() => {
+          glitchIntensityRef.current = 0;
+          throttledSetState(setGlitchIntensity, 0, 30);
+        }, 200);
       }
       
-      lastEnergy = lowEnergy * 0.5;
-      animationFrameId = requestAnimationFrame(detectBeat);
+      lastBass = bass * 0.7;
+      animationFrameId = requestAnimationFrame(checkBeat);
     };
 
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
+    checkBeat();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      setGlitchIntensity(0);
+    };
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
+
+  // ИМПУЛЬС: RGB Split - цветовое разделение на удары
+  useEffect(() => {
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'rgb') {
+      setRgbIntensity(0);
+      rgbIntensityRef.current = 0;
+      return;
+    }
+
+    let animationFrameId = null;
+    let lastBass = 0;
+    let lastBeatTime = 0;
+    const beatInterval = 250;
+    
+    const checkBeat = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(checkBeat);
+        return;
       }
-      if (rgbTimeoutId) {
-        clearTimeout(rgbTimeoutId);
+
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(checkBeat);
+        return;
       }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
+      
+      const lowFreqStart = 2;
+      const lowFreqEnd = 7;
+      let sum = 0;
+      for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
+        sum += dataArray[i];
+      }
+      const bass = sum / (lowFreqEnd - lowFreqStart + 1);
+      const bassIncrease = bass - lastBass;
+      const currentTime = Date.now();
+      
+      if (bassIncrease > 50 && bass > 90 && (currentTime - lastBeatTime) > beatInterval) {
+        lastBeatTime = currentTime;
+        rgbIntensityRef.current = 1;
+        throttledSetState(setRgbIntensity, 1, 30);
+        
+        // Плавное затухание: 1 -> 0.6 -> 0.3 -> 0
+        setTimeout(() => {
+          rgbIntensityRef.current = 0.6;
+          throttledSetState(setRgbIntensity, 0.6, 30);
+        }, 60);
+        setTimeout(() => {
+          rgbIntensityRef.current = 0.3;
+          throttledSetState(setRgbIntensity, 0.3, 30);
+        }, 120);
+        setTimeout(() => {
+          rgbIntensityRef.current = 0;
+          throttledSetState(setRgbIntensity, 0, 30);
+        }, 200);
+      }
+      
+      lastBass = bass * 0.7;
+      animationFrameId = requestAnimationFrame(checkBeat);
+    };
+
+    checkBeat();
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       setRgbIntensity(0);
     };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
-  // Эффект MIRROR - зеркальные отражения в разных местах, меняются на биты
+  // ИМПУЛЬС: TQ Kaleidoscope - КАЛЕЙДОСКОП (множественные зеркальные отражения вращаются под bass)
   useEffect(() => {
     if (!photoUrl || selectedCoverEffect !== 'mirror') {
       setMirrorVariants([]);
       return;
     }
 
-    // Генерируем начальные варианты зеркальных отражений
-    const generateVariants = () => {
-      const variants = [];
-      const types = ['horizontal', 'vertical', 'both'];
+    // Генерируем калейдоскоп (зеркальные сегменты)
+    const generateKaleidoscope = (rotation = 0, intensity = 0.5) => {
+      const segments = [];
+      const numSegments = 8; // 8 сегментов как в калейдоскопе
       
-      // Всегда показываем 4 отражения
-      for (let i = 0; i < 4; i++) {
-        const type = types[Math.floor(Math.random() * types.length)];
-        let position, size, transform;
+      for (let i = 0; i < numSegments; i++) {
+        const angle = (i / numSegments) * 360 + rotation; // градусы
+        const flipH = i % 2 === 0; // каждый второй отражен горизонтально
+        const flipV = Math.floor(i / 2) % 2 === 0; // каждый второй отражен вертикально
         
-        switch (type) {
-          case 'horizontal':
-            position = Math.random() > 0.5 ? 'right' : 'left';
-            size = 15 + Math.random() * 20; // 15-35%
-            transform = 'scaleX(-1)';
-            break;
-          case 'vertical':
-            position = Math.random() > 0.5 ? 'bottom' : 'top';
-            size = 15 + Math.random() * 20; // 15-35%
-            transform = 'scaleY(-1)';
-            break;
-          case 'both':
-            const corner = ['top-left', 'top-right', 'bottom-left', 'bottom-right'][Math.floor(Math.random() * 4)];
-            position = corner;
-            size = 10 + Math.random() * 15; // 10-25%
-            transform = 'scale(-1, -1)';
-            break;
-        }
-        
-        variants.push({
+        segments.push({
           id: i,
-          type,
-          position,
-          size,
-          transform,
-          opacity: 0.6 + Math.random() * 0.3, // 0.6-0.9
+          angle,
+          scale: 0.7 + intensity * 0.3, // 0.7-1.0
+          opacity: 0.4 + intensity * 0.4, // 0.4-0.8
+          flipH,
+          flipV,
         });
       }
       
-      return variants;
+      return segments;
     };
 
-    setMirrorVariants(generateVariants());
+    setMirrorVariants(generateKaleidoscope(0, 0.5));
 
-    // Меняем варианты на биты, если играет музыка
-    if (!bgAnalyserRef.current || !isPlayingRef.current) {
-      return;
-    }
+    if (!isPlaying) return;
 
-    let dataArray = null;
     let animationFrameId = null;
-    let lastEnergy = 0;
-    let lastBeatTime = 0;
-    const minBeatInterval = 280;
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+    let currentRotation = 0;
+    let currentIntensity = 0.5;
+    
+    const updateKaleidoscope = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(updateKaleidoscope);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(updateKaleidoscope);
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
       
       const lowFreqStart = 2;
-      const lowFreqEnd = 7;
-      
-      let lowSum = 0;
+      const lowFreqEnd = 10;
+      let sum = 0;
       for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-        lowSum += dataArray[i];
+        sum += dataArray[i];
       }
-      const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
+      const energy = sum / (lowFreqEnd - lowFreqStart + 1);
+      const targetIntensity = Math.min(energy / 180, 1); // 0..1
       
-      const midFreqStart = 8;
-      const midFreqEnd = 20;
-      let midSum = 0;
-      for (let i = midFreqStart; i <= midFreqEnd; i++) {
-        midSum += dataArray[i];
-      }
-      const midEnergy = midSum / (midFreqEnd - midFreqStart + 1);
+      // Плавное изменение интенсивности
+      const smoothingFactor = 0.2;
+      currentIntensity += (targetIntensity - currentIntensity) * smoothingFactor;
       
-      if (midEnergy > lowEnergy * 1.5) {
-        lastEnergy = lowEnergy * 0.5;
-        animationFrameId = requestAnimationFrame(detectBeat);
-        return;
-      }
+      // Медленное вращение (скорость зависит от bass)
+      currentRotation += currentIntensity * 0.3;
+      if (currentRotation >= 360) currentRotation -= 360;
       
-      const currentTime = Date.now();
-      const timeSinceLastBeat = currentTime - lastBeatTime;
+      setMirrorVariants(generateKaleidoscope(currentRotation, currentIntensity));
       
-      const energyIncrease = lowEnergy - lastEnergy;
-      const transientThreshold = 120;
-      
-      if (energyIncrease > transientThreshold && lowEnergy > 90 && timeSinceLastBeat >= minBeatInterval) {
-        lastBeatTime = currentTime;
-        // Меняем варианты на биты
-        setMirrorVariants(generateVariants());
-      }
-      
-      lastEnergy = lowEnergy * 0.5;
-      animationFrameId = requestAnimationFrame(detectBeat);
+      animationFrameId = requestAnimationFrame(updateKaleidoscope);
     };
 
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
+    updateKaleidoscope();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       setMirrorVariants([]);
     };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
-  // Эффект PIXELATE - простая пикселизация всей картинки на сильные биты
+  // ИМПУЛЬС: TQ Breath - ДЫХАНИЕ на ГРОМКИЕ кики (редкие удары с паузами)
   useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'pixelate') {
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'pixelate') {
       setPixelateIntensity(0);
+      pixelateIntensityRef.current = 0;
       return;
     }
 
-    let dataArray = null;
     let animationFrameId = null;
-    let lastEnergy = 0;
+    let lastBass = 0;
     let lastBeatTime = 0;
-    let pixelateTimeoutId = null;
-    const minBeatInterval = 280;
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+    const beatInterval = 400; // 400мс между ударами - БОЛЬШАЯ ПАУЗА
+    
+    const checkBreath = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(checkBreath);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(checkBreath);
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
       
       const lowFreqStart = 2;
       const lowFreqEnd = 7;
-      
-      let lowSum = 0;
+      let sum = 0;
       for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-        lowSum += dataArray[i];
+        sum += dataArray[i];
       }
-      const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
-      
-      const midFreqStart = 8;
-      const midFreqEnd = 20;
-      let midSum = 0;
-      for (let i = midFreqStart; i <= midFreqEnd; i++) {
-        midSum += dataArray[i];
-      }
-      const midEnergy = midSum / (midFreqEnd - midFreqStart + 1);
-      
-      if (midEnergy > lowEnergy * 1.5) {
-        lastEnergy = lowEnergy * 0.5;
-        animationFrameId = requestAnimationFrame(detectBeat);
-        return;
-      }
-      
+      const bass = sum / (lowFreqEnd - lowFreqStart + 1);
+      const bassIncrease = bass - lastBass;
       const currentTime = Date.now();
-      const timeSinceLastBeat = currentTime - lastBeatTime;
       
-      const energyIncrease = lowEnergy - lastEnergy;
-      const transientThreshold = 120;
-      
-      if (energyIncrease > transientThreshold && lowEnergy > 90 && timeSinceLastBeat >= minBeatInterval) {
+      // ТОЛЬКО ГРОМКИЕ КИКИ
+      if (bassIncrease > 60 && bass > 100 && (currentTime - lastBeatTime) > beatInterval) {
         lastBeatTime = currentTime;
-        setPixelateIntensity(1);
+        pixelateIntensityRef.current = 1;
+        throttledSetState(setPixelateIntensity, 1, 30);
         
-        if (pixelateTimeoutId) {
-          clearTimeout(pixelateTimeoutId);
-        }
-        
-        const returnDuration = 80 + Math.random() * 40; // 80-120 мс
-        pixelateTimeoutId = setTimeout(() => {
-          setPixelateIntensity(0);
-          pixelateTimeoutId = null;
-        }, returnDuration);
-      } else {
-        if (!pixelateTimeoutId) {
-          setPixelateIntensity(0);
-        }
+        // Плавное затухание: 1 -> 0.7 -> 0.4 -> 0
+        setTimeout(() => {
+          pixelateIntensityRef.current = 0.7;
+          throttledSetState(setPixelateIntensity, 0.7, 30);
+        }, 100);
+        setTimeout(() => {
+          pixelateIntensityRef.current = 0.4;
+          throttledSetState(setPixelateIntensity, 0.4, 30);
+        }, 250);
+        setTimeout(() => {
+          pixelateIntensityRef.current = 0;
+          throttledSetState(setPixelateIntensity, 0, 30);
+        }, 400);
       }
       
-      lastEnergy = lowEnergy * 0.5;
-      animationFrameId = requestAnimationFrame(detectBeat);
+      lastBass = bass * 0.7;
+      animationFrameId = requestAnimationFrame(checkBreath);
     };
 
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
+    checkBreath();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      if (pixelateTimeoutId) {
-        clearTimeout(pixelateTimeoutId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       setPixelateIntensity(0);
     };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
   // Эффект ПЛЁНКА - случайные ломаные царапины поверх фото (canvas обновление)
   useLayoutEffect(() => {
@@ -1810,75 +1895,77 @@ export default function StudioDesktop() {
       
       ctx.clearRect(0, 0, width, height);
       
-      // Базовая мелкая пыль (50-80 элементов)
-      const numSmallDefects = 50 + Math.floor(Math.random() * 31);
+      // 1. МЕЛКАЯ ПЫЛЬ И ТОЧКИ ГРЯЗИ (30-50 элементов) - плавно
+      const numSmallDust = 30 + Math.floor(Math.random() * 21);
       
-      for (let i = 0; i < numSmallDefects; i++) {
+      for (let i = 0; i < numSmallDust; i++) {
         const x = Math.random() * width;
         const y = Math.random() * height;
-        const defectType = Math.random();
+        const dustType = Math.random();
         
-        // Разная прозрачность для реалистичности (0.4 - 0.95)
-        const opacity = 0.4 + Math.random() * 0.55;
-        ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
-        ctx.globalAlpha = opacity;
+        // Разная прозрачность (0.2 - 0.8) для плавности
+        const opacity = 0.2 + Math.random() * 0.6;
         
-        if (defectType < 0.6) {
-          // 60% - мелкие точки (кружки от 1 до 3.5px - увеличены)
-          const radius = 1 + Math.random() * 2.5;
+        if (dustType < 0.4) {
+          // 40% - крошечные точки (0.5 - 2px)
+          const radius = 0.5 + Math.random() * 1.5;
+          ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+          ctx.globalAlpha = opacity;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (dustType < 0.7) {
+          // 30% - точки грязи средние (2 - 4px)
+          const radius = 2 + Math.random() * 2;
+          ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+          ctx.globalAlpha = opacity;
           ctx.beginPath();
           ctx.arc(x, y, radius, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // 40% - крошки (небольшие пятна неправильной формы - увеличены)
-          const size = 1.5 + Math.random() * 4;
-          ctx.beginPath();
-          ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
-          ctx.fill();
-          // Добавляем несколько мелких точек рядом для эффекта крошки
-          for (let j = 0; j < 2 + Math.floor(Math.random() * 3); j++) {
-            const offsetX = (Math.random() - 0.5) * size * 1.5;
-            const offsetY = (Math.random() - 0.5) * size * 1.5;
-            const smallRadius = 0.5 + Math.random() * 1.2;
+          // 30% - пятна грязи (группа из 2-4 точек)
+          const numSpots = 2 + Math.floor(Math.random() * 3);
+          for (let j = 0; j < numSpots; j++) {
+            const offsetX = (Math.random() - 0.5) * 6;
+            const offsetY = (Math.random() - 0.5) * 6;
+            const radius = 1 + Math.random() * 2;
+            ctx.fillStyle = `rgba(0, 0, 0, ${opacity * 0.8})`;
+            ctx.globalAlpha = opacity * 0.8;
             ctx.beginPath();
-            ctx.arc(x + offsetX, y + offsetY, smallRadius, 0, Math.PI * 2);
+            ctx.arc(x + offsetX, y + offsetY, radius, 0, Math.PI * 2);
             ctx.fill();
           }
         }
       }
       
-      // Редкие крупные дефекты (пятна/хлопья) - появляются иногда, не на каждый пик
-      // Вероятность появления крупных дефектов: 25-35% от импульсов
-      const hasLargeDefects = Math.random() < 0.3;
+      // 2. КРУПНЫЕ ПЯТНА (БОЛЬШИЕ) - появляются чаще (50% шанс)
+      const hasLargeSpots = Math.random() < 0.5;
       
-      if (hasLargeDefects) {
-        // Количество крупных дефектов: 1-4 штуки
-        const numLargeDefects = 1 + Math.floor(Math.random() * 4);
+      if (hasLargeSpots) {
+        const numLargeSpots = 2 + Math.floor(Math.random() * 4); // 2-5 пятен
         
-        for (let i = 0; i < numLargeDefects; i++) {
+        for (let i = 0; i < numLargeSpots; i++) {
           const x = Math.random() * width;
           const y = Math.random() * height;
+          const baseSize = 8 + Math.random() * 15; // 8-23px радиус
+          const opacity = 0.3 + Math.random() * 0.5; // 0.3 - 0.8
           
-          // Разные размеры, хаотичные (от 5 до 15px радиус - увеличены)
-          const baseSize = 5 + Math.random() * 10;
-          const opacity = 0.5 + Math.random() * 0.4; // 0.5 - 0.9
           ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
           ctx.globalAlpha = opacity;
           
-          // Рисуем крупное пятно/хлопье неправильной формы
           // Основное пятно
           ctx.beginPath();
           ctx.arc(x, y, baseSize, 0, Math.PI * 2);
           ctx.fill();
           
-          // Добавляем неровности для хаотичности (2-4 дополнительных пятнышка)
-          const numBumps = 2 + Math.floor(Math.random() * 3);
+          // Неровные края (3-5 бугорков)
+          const numBumps = 3 + Math.floor(Math.random() * 3);
           for (let j = 0; j < numBumps; j++) {
             const angle = Math.random() * Math.PI * 2;
-            const distance = baseSize * (0.4 + Math.random() * 0.4);
+            const distance = baseSize * (0.5 + Math.random() * 0.4);
             const bumpX = x + Math.cos(angle) * distance;
             const bumpY = y + Math.sin(angle) * distance;
-            const bumpSize = baseSize * (0.3 + Math.random() * 0.4);
+            const bumpSize = baseSize * (0.4 + Math.random() * 0.3);
             
             ctx.beginPath();
             ctx.arc(bumpX, bumpY, bumpSize, 0, Math.PI * 2);
@@ -1887,37 +1974,34 @@ export default function StudioDesktop() {
         }
       }
       
-      // Редкие царапины - появляются ОЧЕНЬ редко, не на каждый пик
-      // Вероятность появления царапин: 10-15% от импульсов
-      const hasScratches = Math.random() < 0.12;
+      // 3. ЦАРАПИНЫ (ДЛИННЫЕ И ЗАМЕТНЫЕ) - появляются чаще (40% шанс)
+      const hasScratches = Math.random() < 0.4;
       
       if (hasScratches) {
-        // Количество царапин: 1-3 штуки
-        const numScratches = 1 + Math.floor(Math.random() * 3);
+        const numScratches = 2 + Math.floor(Math.random() * 3); // 2-4 царапины
         
         for (let i = 0; i < numScratches; i++) {
           const startX = Math.random() * width;
           const startY = Math.random() * height;
           
-          // Короткие царапины: разной длины (12-35px - увеличены)
-          const totalLength = 12 + Math.random() * 23;
+          // ДЛИННЫЕ царапины: 30-80px
+          const totalLength = 30 + Math.random() * 50;
+          const opacity = 0.4 + Math.random() * 0.5; // 0.4 - 0.9
           
-          // Разная прозрачность (0.5 - 0.9)
-          const opacity = 0.5 + Math.random() * 0.4;
           ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
           ctx.globalAlpha = opacity;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           
-          // Тонкие царапины (1.2 - 2.2px - увеличены)
-          const thickness = 1.2 + Math.random() * 1;
+          // ТОЛЩЕ царапины (1.5 - 3px)
+          const thickness = 1.5 + Math.random() * 1.5;
           ctx.lineWidth = thickness;
           
           // Случайный начальный угол
           let angle = Math.random() * Math.PI * 2;
           
-          // Ломаная линия (2-3 сегмента для коротких царапин)
-          const numSegments = 2 + Math.floor(Math.random() * 2);
+          // Ломаная линия (3-5 сегментов для длинных царапин)
+          const numSegments = 3 + Math.floor(Math.random() * 3);
           const baseSegmentLength = totalLength / numSegments;
           
           ctx.beginPath();
@@ -1927,11 +2011,10 @@ export default function StudioDesktop() {
           let currentY = startY;
           
           for (let seg = 0; seg < numSegments; seg++) {
-            // Каждый сегмент имеет случайное отклонение угла
-            angle += (Math.random() - 0.5) * 1.2; // отклонение до ±0.6 радиана
+            // Каждый сегмент имеет отклонение угла
+            angle += (Math.random() - 0.5) * 1.5;
             
-            // Случайная длина сегмента с вариациями
-            const segLen = baseSegmentLength * (0.7 + Math.random() * 0.6);
+            const segLen = baseSegmentLength * (0.8 + Math.random() * 0.4);
             
             currentX += Math.cos(angle) * segLen;
             currentY += Math.sin(angle) * segLen;
@@ -1980,93 +2063,202 @@ export default function StudioDesktop() {
     };
   }, [photoUrl, selectedCoverEffect, grainPulseIntensity]);
 
-  // Эффект ПЛЁНКА - плёночные царапины и пыль поверх фото (аудио-анализ)
+  // Функция рендеринга текста на canvas (для экспорта)
+  // ФАЙЛ: src/pages/studio/StudioDesktop.jsx
+  // ФУНКЦИЯ: renderTextOnCanvas
+  const renderTextOnCanvas = async (canvas, ctx) => {
+    if (!canvas || !ctx || !textFont) return;
+    
+    const font = AVAILABLE_FONTS.find(f => f.id === textFont);
+    if (!font || !font.file) {
+      console.warn('[Canvas Text] Font not found:', textFont);
+      return;
+    }
+    
+    const fontFamily = font.cssName;
+    const fontSize = textFontSize;
+    const fontString = `${fontSize}px "${fontFamily}"`;
+    
+    try {
+      // ВАЖНО: Дожидаемся загрузки шрифта ПЕРЕД применением
+      await document.fonts.load(fontString);
+      
+      // Очищаем canvas перед рисованием
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Устанавливаем шрифт в ctx.font ПЕРЕД fillText
+      ctx.font = fontString;
+      
+      // ЛОГ: Что реально установлено в ctx.font (ОБЯЗАТЕЛЬНО)
+      console.log('CANVAS ctx.font =', ctx.font);
+      
+      // Настройки текста
+      ctx.fillStyle = textColor;
+      ctx.textAlign = textAlignment === 'left' ? 'left' : textAlignment === 'center' ? 'center' : 'right';
+      ctx.textBaseline = 'bottom';
+      
+      // Рендерим имя артиста через fillText
+      const artistX = textAlignment === 'left' ? 24 : textAlignment === 'center' ? canvas.width / 2 : canvas.width - 24;
+      const artistY = canvas.height - 24;
+      ctx.fillText(textArtistName || 'TQ Артист', artistX, artistY);
+      
+      // Рендерим название трека (чуть выше) - снова устанавливаем font ПЕРЕД fillText
+      ctx.font = `${fontSize * 0.85}px "${fontFamily}"`;
+      const trackY = artistY - fontSize - 8;
+      ctx.fillText(textTrackName || 'Toqibox', artistX, trackY);
+      
+    } catch (err) {
+      console.error('[Canvas Text] Failed to render text:', err);
+    }
+  };
+
+  // Принудительное обновление текста при смене шрифта
   useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'grain') {
+    if (!textFont) return;
+    
+    const font = AVAILABLE_FONTS.find(f => f.id === textFont);
+    if (!font || !font.file) return;
+    
+    // Получаем fontFamily для использования
+    const fontFamily = font.cssName;
+    const fontSize = textFontSize;
+    const fontString = `${fontSize}px "${fontFamily}"`;
+    
+    // ВАЖНО: Дожидаемся загрузки шрифта перед применением
+    const applyFont = async () => {
+      try {
+        // Ждем загрузки шрифта
+        await document.fonts.load(fontString);
+        
+        // Проверяем, что шрифт действительно загружен
+        const isLoaded = document.fonts.check(fontString);
+        
+        console.log('[Font] Font loaded:', {
+          fontId: textFont,
+          fontFamily: fontFamily,
+          fontSize: fontSize,
+          fontString: fontString,
+          isLoaded: isLoaded
+        });
+        
+        // Рендерим текст на canvas (если есть) - redraw сразу после смены шрифта
+        const canvas = textCanvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Устанавливаем размеры canvas (если нужно)
+            if (canvas.width === 0 || canvas.height === 0) {
+              canvas.width = 1920;
+              canvas.height = 1080;
+            }
+            await renderTextOnCanvas(canvas, ctx);
+          }
+        }
+        
+        // Принудительно обновляем компонент
+        setTextAnimationKey(prev => prev + 1);
+      } catch (err) {
+        console.warn('[Font] Failed to load font:', err);
+        // Все равно обновляем компонент
+        setTextAnimationKey(prev => prev + 1);
+      }
+    };
+    
+    applyFont();
+  }, [textFont, textFontSize, textArtistName, textTrackName, textColor, textAlignment]);
+
+  // Инициализация canvas при монтировании и при изменении photoUrl
+  useEffect(() => {
+    if (!photoUrl || !textCanvasRef.current) return;
+    
+    const canvas = textCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Устанавливаем размеры canvas
+    canvas.width = 1920;
+    canvas.height = 1080;
+    
+    // Первый рендер текста на canvas
+    if (textFont) {
+      renderTextOnCanvas(canvas, ctx);
+    }
+  }, [photoUrl, textFont, textFontSize, textArtistName, textTrackName, textColor, textAlignment]);
+
+  // ИМПУЛЬС: Зерно (Плёнка) - царапины и грязь на ГРОМКИЕ кики (плавно с паузами)
+  useEffect(() => {
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'grain') {
       setGrainPulseIntensity(0);
+      grainPulseIntensityRef.current = 0;
       return;
     }
 
-    let dataArray = null;
     let animationFrameId = null;
-    let lastEnergy = 0;
+    let lastBass = 0;
     let lastBeatTime = 0;
-    const minBeatInterval = 225; // Минимальная задержка между ударами (200-250 мс)
-
-    const detectBeat = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(detectBeat);
+    const beatInterval = 250; // 250мс между появлениями - средняя пауза
+    
+    const checkGrainBeat = () => {
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(checkGrainBeat);
         return;
       }
 
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(checkGrainBeat);
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
       
-      // Анализируем ТОЛЬКО низкие частоты (40-160 Гц)
-      const lowFreqStart = 2; // ~40 Гц
-      const lowFreqEnd = 7;   // ~160 Гц
-      
-      let lowSum = 0;
+      const lowFreqStart = 2;
+      const lowFreqEnd = 10;
+      let sum = 0;
       for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-        lowSum += dataArray[i];
+        sum += dataArray[i];
       }
-      const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
-      
-      // Проверяем средние и высокие частоты - должны быть низкими
-      const midFreqStart = 8;  // ~160+ Гц
-      const midFreqEnd = 20;   // ~430 Гц
-      let midSum = 0;
-      for (let i = midFreqStart; i <= midFreqEnd; i++) {
-        midSum += dataArray[i];
-      }
-      const midEnergy = midSum / (midFreqEnd - midFreqStart + 1);
-      
-      // Если средние/высокие частоты слишком сильные - игнорируем
-      if (midEnergy > lowEnergy * 1.5) {
-        // Сигнал не низкий - убираем царапины
-        setGrainPulseIntensity(0);
-        lastEnergy = lowEnergy * 0.5;
-        animationFrameId = requestAnimationFrame(detectBeat);
-        return;
-      }
-      
+      const bass = sum / (lowFreqEnd - lowFreqStart + 1);
+      const bassIncrease = bass - lastBass;
       const currentTime = Date.now();
-      const timeSinceLastBeat = currentTime - lastBeatTime;
       
-      // Реакция только на редкие сильные пики низких частот (биты)
-      const strongThreshold = 50; // Порог для сильного бита
-      const energyIncrease = lowEnergy - lastEnergy;
-      
-      if (energyIncrease > strongThreshold && lowEnergy > 65 && timeSinceLastBeat >= minBeatInterval) {
-        // Сильный пик → показываем плёночную пыль (генерируем новый случайный набор)
+      // ТОЛЬКО ГРОМКИЕ КИКИ - царапины/пятна появляются
+      if (bassIncrease > 55 && bass > 95 && (currentTime - lastBeatTime) > beatInterval) {
         lastBeatTime = currentTime;
-        setGrainPulseIntensity(1);
-        // Живёт 1-2 кадра (16-33 мс при 60fps) и исчезает
+        grainPulseIntensityRef.current = 1;
+        throttledSetState(setGrainPulseIntensity, 1, 30);
+        
+        // Плавное затухание: 1 -> 0.7 -> 0.4 -> 0
         setTimeout(() => {
-          setGrainPulseIntensity(0);
-        }, 16 + Math.random() * 17);
-      } else {
-        // В паузах - полностью ноль
-        setGrainPulseIntensity(0);
+          grainPulseIntensityRef.current = 0.7;
+          throttledSetState(setGrainPulseIntensity, 0.7, 30);
+        }, 80);
+        setTimeout(() => {
+          grainPulseIntensityRef.current = 0.4;
+          throttledSetState(setGrainPulseIntensity, 0.4, 30);
+        }, 180);
+        setTimeout(() => {
+          grainPulseIntensityRef.current = 0;
+          throttledSetState(setGrainPulseIntensity, 0, 30);
+        }, 300);
       }
       
-      lastEnergy = lowEnergy * 0.5;
-      animationFrameId = requestAnimationFrame(detectBeat);
+      lastBass = bass * 0.7;
+      animationFrameId = requestAnimationFrame(checkGrainBeat);
     };
 
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    detectBeat();
+    checkGrainBeat();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       setGrainPulseIntensity(0);
     };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
-  // Эффект ВОЛНЫ - синусоидальный сдвиг по оси X
+  // ИМПУЛЬС: TQ Волны - горизонтальные волны под музыку
   useEffect(() => {
-    if (!photoUrl || selectedCoverEffect !== 'waves') {
+    if (!isPlaying || !photoUrl || selectedCoverEffect !== 'waves') {
       setWaveOffset(0);
       waveAmplitudeRef.current = 0;
       return;
@@ -2074,156 +2266,51 @@ export default function StudioDesktop() {
 
     let animationFrameId = null;
     let startTime = Date.now();
-    const baseAmplitude = 20; // базовая амплитуда в пикселях
-
+    const baseAmplitude = 25; // базовая амплитуда в пикселях
+    
     const animate = () => {
-      const elapsed = (Date.now() - startTime) / 1000; // время в секундах
-      const frequency = 0.5; // частота волны (0.5 Гц = один цикл за 2 секунды)
-      const offset = Math.sin(elapsed * Math.PI * 2 * frequency) * baseAmplitude * waveAmplitudeRef.current;
+      if (!isPlayingRef.current) {
+        animationFrameId = requestAnimationFrame(animate);
+        return;
+      }
+
+      const analyser = audioEngine.getAnalyser();
+      if (!analyser) {
+        animationFrameId = requestAnimationFrame(animate);
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
+      
+      // Общая энергия (все частоты)
+      let sum = 0;
+      for (let i = 0; i < Math.min(60, dataArray.length); i++) {
+        sum += dataArray[i];
+      }
+      const energy = sum / Math.min(60, dataArray.length);
+      const normalizedEnergy = Math.min(energy / 255, 1);
+      waveAmplitudeRef.current = normalizedEnergy;
+      
+      // Синусоидальная волна
+      const elapsed = (Date.now() - startTime) / 1000;
+      const frequency = 0.5; // 0.5 Гц = 1 цикл за 2 секунды
+      const offset = Math.sin(elapsed * Math.PI * 2 * frequency) * baseAmplitude * normalizedEnergy;
       setWaveOffset(offset);
+      
       animationFrameId = requestAnimationFrame(animate);
     };
 
     animate();
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       setWaveOffset(0);
       waveAmplitudeRef.current = 0;
     };
-  }, [photoUrl, selectedCoverEffect]);
+  }, [isPlaying, photoUrl, selectedCoverEffect]);
 
-  // Аудио-анализ для амплитуды волны
-  useEffect(() => {
-    if (!bgAnalyserRef.current || !isPlayingRef.current || !photoUrl || selectedCoverEffect !== 'waves') {
-      waveAmplitudeRef.current = 0;
-      return;
-    }
-
-    let dataArray = null;
-    let animationFrameId = null;
-
-    const updateAmplitude = () => {
-      if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-        animationFrameId = requestAnimationFrame(updateAmplitude);
-        return;
-      }
-
-      bgAnalyserRef.current.getByteFrequencyData(dataArray);
-      
-      // Анализируем все частоты для общей энергии
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        sum += dataArray[i];
-      }
-      const energy = sum / dataArray.length;
-      
-      // Нормализуем энергию (0-255 -> 0-1) и применяем к амплитуде
-      const normalizedEnergy = Math.min(energy / 255, 1);
-      waveAmplitudeRef.current = normalizedEnergy;
-      
-      animationFrameId = requestAnimationFrame(updateAmplitude);
-    };
-
-    dataArray = new Uint8Array(bgAnalyserRef.current.frequencyBinCount);
-    updateAmplitude();
-
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      waveAmplitudeRef.current = 0;
-    };
-  }, [audioUrl, isPlaying, photoUrl, selectedCoverEffect]);
-
-  // Импульсы канваса - реакция на энергию трека
-  useEffect(() => {
-    if (!audioElementRef.current || !isPlaying) {
-      return;
-    }
-
-    const audio = audioElementRef.current;
-    let analyser = null;
-    let dataArray = null;
-    let animationFrameId = null;
-    let lastEnergy = 0;
-    let lastImpulseTime = 0;
-    const minImpulseInterval = 300; // Минимум 300мс между импульсами для четкой реакции на бит
-
-    const initAudioAnalysis = async () => {
-      try {
-        // Инициализируем AudioContext в audioEngine если нужно
-        audioEngine.initAudioContext();
-        
-        // Получаем analyser из audioEngine
-        analyser = audioEngine.getAnalyser();
-        bgAnalyserRef.current = analyser;
-        bgAudioContextRef.current = audioEngine.getAudioContext();
-        
-        if (!analyser) {
-          console.warn('[Impulse] Analyser не доступен из audioEngine');
-          return;
-        }
-        
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-        const detectImpulse = () => {
-          // ВАЖНО: проверяем isPlayingRef внутри loop (синхронно)
-          if (!bgAnalyserRef.current || !dataArray || !isPlayingRef.current) {
-            return; // Останавливаем если пауза
-          }
-
-          // Используем данные из общего analyser
-          bgAnalyserRef.current.getByteFrequencyData(dataArray);
-          
-          const lowFreqStart = 2;
-          const lowFreqEnd = 7;
-          
-          let lowSum = 0;
-          for (let i = lowFreqStart; i <= lowFreqEnd; i++) {
-            lowSum += dataArray[i];
-          }
-          const lowEnergy = lowSum / (lowFreqEnd - lowFreqStart + 1);
-          
-          const currentTime = Date.now();
-          const timeSinceLastImpulse = currentTime - lastImpulseTime;
-          const energyIncrease = lowEnergy - lastEnergy;
-          
-          const impulseThreshold = 30;
-          // Импульс canvas срабатывает только если выбран эффект
-          if (selectedCoverEffect !== null && energyIncrease > impulseThreshold && lowEnergy > 50 && timeSinceLastImpulse >= minImpulseInterval) {
-            lastImpulseTime = currentTime;
-            
-            const canvas = canvasRef.current || document.querySelector('.canvas-16x9');
-            if (canvas) {
-              canvas.classList.add('canvas-impulse');
-              setTimeout(() => {
-                canvas.classList.remove('canvas-impulse');
-              }, 150);
-            }
-          }
-          
-          lastEnergy = lowEnergy * 0.6;
-          animationFrameId = requestAnimationFrame(detectImpulse);
-        };
-
-        detectImpulse();
-      } catch (error) {
-        console.error('Ошибка импульсов:', error);
-      }
-    };
-
-    initAudioAnalysis();
-
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      // НЕ отключаем общий analyser - он используется всеми эффектами
-    };
-  }, [audioUrl, isPlaying, selectedCoverEffect]);
+  // УДАЛЕНО: старый canvas-impulse эффект (не нужен)
 
   // Закрытие панели инструментов при клике вне её
   useEffect(() => {
@@ -3180,6 +3267,21 @@ export default function StudioDesktop() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // ⚠️ PREMIUM: Единый золотой бейдж (используется везде)
+  const PremiumBadge = () => (
+    <span style={{ 
+      fontSize: '8px',
+      fontWeight: 700,
+      padding: '2px 6px',
+      background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+      borderRadius: '4px',
+      color: '#000',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      boxShadow: '0 2px 4px rgba(255, 215, 0, 0.3)',
+    }}>PREMIUM</span>
+  );
+
   // Обработчик клика на премиум шаблоны - перенаправляет на страницу тарифов
   const handlePremiumClick = (e) => {
     e.stopPropagation();
@@ -3387,11 +3489,37 @@ export default function StudioDesktop() {
 
   // Функция для получения font-family по ID шрифта
   const getFontFamily = (fontId) => {
+    if (fontId === 'system') return 'system-ui, sans-serif';
     const font = AVAILABLE_FONTS.find(f => f.id === fontId);
-    if (!font || !font.file) return 'system-ui, sans-serif';
-    if (fontId === 'tq') return '"TQ", system-ui, sans-serif';
-    if (fontId === 'fyl') return '"Fyl", system-ui, sans-serif';
-    return 'system-ui, sans-serif';
+    if (!font || !font.file) {
+      console.warn('[Font] Font not found:', fontId);
+      return 'system-ui, sans-serif';
+    }
+    // Используем CSS-безопасное имя из AVAILABLE_FONTS
+    // ВАЖНО: имя должно ТОЧНО совпадать с font-family в @font-face
+    const fontFamily = `"${font.cssName}", system-ui, sans-serif`;
+    
+    // ОТЛАДОЧНЫЙ ЛОГ (всегда включен для диагностики)
+    const fontFaceElement = document.querySelector(`style[data-font-name="${font.cssName}"]`);
+    const fontFaceExists = fontFaceElement !== null;
+    
+    console.log('[Font] getFontFamily:', {
+      fontId: fontId,
+      fileName: font.file,
+      name: font.name,
+      cssName: font.cssName,
+      fontFamily: fontFamily,
+      fontFaceExists: fontFaceExists,
+      // Проверяем загрузку шрифта
+      fontLoaded: document.fonts ? document.fonts.check(`12px "${font.cssName}"`) : 'N/A'
+    });
+    
+    if (!fontFaceExists) {
+      console.error('[Font] ❌ @font-face НЕ НАЙДЕН для:', font.cssName);
+      console.error('[Font] Ищем в DOM:', document.querySelectorAll('style[data-font-name]').length, 'font-face правил найдено');
+    }
+    
+    return fontFamily;
   };
 
   // Функция для получения letter-spacing значения
@@ -3551,7 +3679,11 @@ export default function StudioDesktop() {
                 </label>
                 <select
                   value={textFont}
-                  onChange={(e) => setTextFont(e.target.value)}
+                  onChange={(e) => {
+                    const selectedFontId = e.target.value;
+                    console.log('SELECT font =', selectedFontId);
+                    setTextFont(selectedFontId);
+                  }}
                   style={{
                     width: '100%',
                     padding: '6px 10px',
@@ -4913,10 +5045,10 @@ export default function StudioDesktop() {
               НЕТ
             </button>
 
-            {/* Эффект - Биение сердца */}
+            {/* Эффект - Биение сердца (БЕСПЛАТНЫЙ) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'beat' ? null : 'beat')}
+              onClick={() => handleImpulseClick('beat')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -4949,10 +5081,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ Пульс */}
+            {/* Эффект - TQ Пульс (БЕСПЛАТНЫЙ) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'pulse' ? null : 'pulse')}
+              onClick={() => handleImpulseClick('pulse')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -4985,10 +5117,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ Волны */}
+            {/* Эффект - TQ Волны (БЕСПЛАТНЫЙ) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'waves' ? null : 'waves')}
+              onClick={() => handleImpulseClick('waves')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -5021,10 +5153,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ Плёнка */}
+            {/* Эффект - TQ Плёнка (PREMIUM) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'grain' ? null : 'grain')}
+              onClick={() => handleImpulseClick('grain')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -5040,9 +5172,13 @@ export default function StudioDesktop() {
                 flexDirection: 'column',
                 gap: '8px',
                 marginBottom: '8px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ Плёнка</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ Плёнка</div>
+                <PremiumBadge />
+              </div>
               <div style={{ 
                 width: '100%', 
                 aspectRatio: '16/9', 
@@ -5057,10 +5193,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ Экспозиция */}
+            {/* Эффект - TQ Экспозиция (PREMIUM) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'exposure' ? null : 'exposure')}
+              onClick={() => handleImpulseClick('exposure')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -5076,9 +5212,13 @@ export default function StudioDesktop() {
                 flexDirection: 'column',
                 gap: '8px',
                 marginBottom: '8px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ Экспозиция</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ Экспозиция</div>
+                <PremiumBadge />
+              </div>
               <div style={{ 
                 width: '100%', 
                 aspectRatio: '16/9', 
@@ -5093,10 +5233,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ B/W */}
+            {/* Эффект - TQ B/W (PREMIUM) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'bw' ? null : 'bw')}
+              onClick={() => handleImpulseClick('bw')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -5112,9 +5252,13 @@ export default function StudioDesktop() {
                 flexDirection: 'column',
                 gap: '8px',
                 marginBottom: '8px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ B/W</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ B/W</div>
+                <PremiumBadge />
+              </div>
               <div style={{ 
                 width: '100%', 
                 aspectRatio: '16/9', 
@@ -5129,10 +5273,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ Глитч */}
+            {/* Эффект - TQ Глитч (PREMIUM) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'glitch' ? null : 'glitch')}
+              onClick={() => handleImpulseClick('glitch')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -5148,9 +5292,13 @@ export default function StudioDesktop() {
                 flexDirection: 'column',
                 gap: '8px',
                 marginBottom: '8px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ Глитч</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ Глитч</div>
+                <PremiumBadge />
+              </div>
               <div style={{ 
                 width: '100%', 
                 aspectRatio: '16/9', 
@@ -5165,10 +5313,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ RGB */}
+            {/* Эффект - TQ RGB (PREMIUM) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'rgb' ? null : 'rgb')}
+              onClick={() => handleImpulseClick('rgb')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -5184,9 +5332,13 @@ export default function StudioDesktop() {
                 flexDirection: 'column',
                 gap: '8px',
                 marginBottom: '8px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ RGB</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ RGB</div>
+                <PremiumBadge />
+              </div>
               <div style={{ 
                 width: '100%', 
                 aspectRatio: '16/9', 
@@ -5201,10 +5353,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ MIRROR */}
+            {/* Эффект - TQ KALEIDOSCOPE (PREMIUM) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'mirror' ? null : 'mirror')}
+              onClick={() => handleImpulseClick('mirror')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -5220,9 +5372,13 @@ export default function StudioDesktop() {
                 flexDirection: 'column',
                 gap: '8px',
                 marginBottom: '8px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ MIRROR</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ KALEIDOSCOPE</div>
+                <PremiumBadge />
+              </div>
               <div style={{ 
                 width: '100%', 
                 aspectRatio: '16/9', 
@@ -5237,10 +5393,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
-            {/* Эффект - TQ PIXELATE */}
+            {/* Эффект - TQ BREATH (PREMIUM) */}
             <button
               type="button"
-              onClick={() => setSelectedCoverEffect(selectedCoverEffect === 'pixelate' ? null : 'pixelate')}
+              onClick={() => handleImpulseClick('pixelate')}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -5256,9 +5412,13 @@ export default function StudioDesktop() {
                 flexDirection: 'column',
                 gap: '8px',
                 marginBottom: '8px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ PIXELATE</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>TQ BREATH</div>
+                <PremiumBadge />
+              </div>
               <div style={{ 
                 width: '100%', 
                 aspectRatio: '16/9', 
@@ -5610,13 +5770,11 @@ export default function StudioDesktop() {
               Видео фоны
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-              {studioBackgrounds.map((bg) => (
+              {studioBackgrounds.map((bg, bgIndex) => (
                 <button
                   key={bg.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedBgId(bg.id);
-                  }}
+                  onClick={() => handleBgClick(bg.id, bgIndex)}
                   style={{
                     width: '100%',
                     padding: '8px',
@@ -5675,17 +5833,10 @@ export default function StudioDesktop() {
                     gap: '4px',
                     minWidth: 0,
                   }}>
-                    <span style={{ fontSize: '12px', fontWeight: 500 }}>{bg.name}</span>
-                    {bg.premium && (
-                      <span style={{ 
-                        fontSize: '9px', 
-                        color: 'rgba(255, 215, 0, 0.8)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>
-                        PREMIUM
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 500 }}>{bg.name}</span>
+                      {bgIndex > 4 && <PremiumBadge />}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -6958,10 +7109,10 @@ export default function StudioDesktop() {
               Выберите шаблон
             </div>
 
-            {/* Шаблон 22 - Минималистичный премиум */}
+            {/* P BAR 0 - Минималистичный премиум (БЕСПЛАТНЫЙ) */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'custom-player-22' ? null : 'custom-player-22')}
+              onClick={() => handleProgressBarClick('custom-player-22', 0)}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -6977,9 +7128,12 @@ export default function StudioDesktop() {
                 flexDirection: 'column',
                 gap: '6px',
                 marginTop: '10px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Минималистичный премиум</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
+                <span>Минималистичный премиум</span>
+              </div>
               <div style={{ width: '100%', aspectRatio: '16/9', background: 'rgba(15, 15, 15, 0.95)', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '28px', pointerEvents: 'none', position: 'relative', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                 <div style={{ width: '100%', height: '2px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '1px', marginBottom: '24px', position: 'relative' }}>
                   <div style={{ width: '45%', height: '100%', background: 'linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%)', borderRadius: '1px', boxShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}></div>
@@ -6991,9 +7145,10 @@ export default function StudioDesktop() {
               </div>
             </button>
 
+            {/* P BAR 1 - Аудио-плеер (БЕСПЛАТНЫЙ) */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'audio-player' ? null : 'audio-player')}
+              onClick={() => handleProgressBarClick('audio-player', 1)}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -7008,9 +7163,12 @@ export default function StudioDesktop() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '6px',
+                position: 'relative',
               }}
             >
-              <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>Аудио-плеер</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>
+                <span>Аудио-плеер</span>
+              </div>
 
               <div 
                 className="audio-player-preview"
@@ -7091,7 +7249,7 @@ export default function StudioDesktop() {
             {/* Второй шаблон - Music Card */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'music-card' ? null : 'music-card')}
+              onClick={() => handleProgressBarClick('music-card', 2)}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -7198,7 +7356,7 @@ export default function StudioDesktop() {
             {/* Третий шаблон - Audio Player 2 */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('audio-player-2', 10)}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -7293,7 +7451,7 @@ export default function StudioDesktop() {
             {/* Четвертый шаблон - Vinyl Player */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('vinyl-player', 11)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7397,7 +7555,7 @@ export default function StudioDesktop() {
             {/* Пятый шаблон - Video Player */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('video-player', 12)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7457,7 +7615,7 @@ export default function StudioDesktop() {
             {/* Шестой шаблон - Music Card 2 */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'music-card-2' ? null : 'music-card-2')}
+              onClick={() => handleProgressBarClick('music-card-2', 3)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7569,7 +7727,7 @@ export default function StudioDesktop() {
             {/* Седьмой шаблон - Green Audio Player */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'green-audio-player' ? null : 'green-audio-player')}
+              onClick={() => handleProgressBarClick('green-audio-player', 4)}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -7655,7 +7813,7 @@ export default function StudioDesktop() {
             {/* Шаблон 8 - Минималистичный горизонтальный */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'custom-player-8' ? null : 'custom-player-8')}
+              onClick={() => handleProgressBarClick('custom-player-8', 5)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7688,7 +7846,7 @@ export default function StudioDesktop() {
             {/* Шаблон 9 - Стеклянный (Glassmorphism) */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'custom-player-9' ? null : 'custom-player-9')}
+              onClick={() => handleProgressBarClick('custom-player-9', 6)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7721,7 +7879,7 @@ export default function StudioDesktop() {
             {/* Шаблон 10 - Неоморфный */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'custom-player-10' ? null : 'custom-player-10')}
+              onClick={() => handleProgressBarClick('custom-player-10', 7)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7754,7 +7912,7 @@ export default function StudioDesktop() {
             {/* Шаблон 11 - Темный с неоном */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-11', 13)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7790,7 +7948,7 @@ export default function StudioDesktop() {
             {/* Шаблон 12 - Градиентный */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'custom-player-12' ? null : 'custom-player-12')}
+              onClick={() => handleProgressBarClick('custom-player-12', 8)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7823,7 +7981,7 @@ export default function StudioDesktop() {
             {/* Шаблон 13 - Ретро */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-13', 14)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7859,7 +8017,7 @@ export default function StudioDesktop() {
             {/* Шаблон 14 - Футуристичный */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-14', 15)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7895,7 +8053,7 @@ export default function StudioDesktop() {
             {/* Шаблон 16 - Вертикальный карточный */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-16', 16)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7931,7 +8089,7 @@ export default function StudioDesktop() {
             {/* Шаблон 17 - С визуализацией */}
             <button
               type="button"
-              onClick={() => setSelectedProgressBar(selectedProgressBar === 'custom-player-17' ? null : 'custom-player-17')}
+              onClick={() => handleProgressBarClick('custom-player-17', 9)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -7969,7 +8127,7 @@ export default function StudioDesktop() {
             {/* Шаблон 18 - Голографический (PREMIUM) */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-18', 17)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -8006,7 +8164,7 @@ export default function StudioDesktop() {
             {/* Шаблон 19 - Кинематографический (PREMIUM) */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-19', 18)}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -8046,7 +8204,7 @@ export default function StudioDesktop() {
             {/* Шаблон 20 - Неоморфный премиум (PREMIUM) */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-20', 19)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -8082,7 +8240,7 @@ export default function StudioDesktop() {
             {/* Шаблон 21 - Анимированный градиент (PREMIUM) */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-21', 20)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -8119,7 +8277,7 @@ export default function StudioDesktop() {
             {/* Шаблон 15 - С обложкой слева */}
             <button
               type="button"
-              onClick={handlePremiumClick}
+              onClick={() => handleProgressBarClick('custom-player-15', 21)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -8178,7 +8336,7 @@ export default function StudioDesktop() {
               type="button"
                 className={`tpl ${selectedTemplate === templateNum ? 'active' : ''}`}
                 onClick={() => {
-                  setSelectedTemplate(templateNum);
+                  handleTemplateClick(templateNum);
                   // Добавляем класс для эффекта переключения на канвасе
                   const canvas = canvasRef.current || document.querySelector('.canvas-16x9');
                   if (canvas) {
@@ -8190,7 +8348,13 @@ export default function StudioDesktop() {
                 }}
               onMouseEnter={templateNum !== 1 ? canvasPreviewOn : undefined}
               onMouseLeave={templateNum !== 1 ? canvasPreviewOff : undefined}
+              style={{ position: 'relative' }}
             >
+              {templateNum > 10 && (
+                <div style={{ position: 'absolute', top: '4px', right: '4px', zIndex: 10 }}>
+                  <PremiumBadge />
+                </div>
+              )}
               <div className="tpl-thumb">
                 {templateNum !== 1 && (
                   <ShaderToyPreview 
@@ -9410,60 +9574,43 @@ export default function StudioDesktop() {
                     />
                   </>
                 )}
-                {/* MIRROR эффект - зеркальные отражения в разных местах */}
-                {selectedCoverEffect === 'mirror' && mirrorVariants.map((variant) => {
-                  let style = {
-                    position: 'absolute',
-                    backgroundImage: `url(${photoUrl})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    transform: variant.transform,
-                    opacity: variant.opacity,
-                    zIndex: 3,
-                    pointerEvents: 'none',
-                    transition: 'opacity 0.2s ease-out',
-                  };
-
-                  if (variant.type === 'horizontal') {
-                    style[variant.position] = 0;
-                    style.top = 0;
-                    style.width = `${variant.size}%`;
-                    style.height = '100%';
-                  } else if (variant.type === 'vertical') {
-                    style[variant.position] = 0;
-                    style.left = 0;
-                    style.width = '100%';
-                    style.height = `${variant.size}%`;
-                  } else if (variant.type === 'both') {
-                    const [vertical, horizontal] = variant.position.split('-');
-                    style[vertical] = 0;
-                    style[horizontal] = 0;
-                    style.width = `${variant.size}%`;
-                    style.height = `${variant.size}%`;
-                  }
-
-                  return (
-                    <div key={variant.id} style={style} />
-                  );
-                })}
-                {/* PIXELATE эффект - пиксели появляются под бит поверх изображения */}
-                {selectedCoverEffect === 'pixelate' && pixelateIntensity > 0 && (
+                {/* KALEIDOSCOPE эффект - множественные зеркальные сегменты вращаются как в калейдоскопе */}
+                {selectedCoverEffect === 'mirror' && mirrorVariants.map((segment) => (
+                  <div
+                    key={segment.id}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      backgroundImage: `url(${photoUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                      transform: `rotate(${segment.angle}deg) scale(${segment.scale}) scaleX(${segment.flipH ? -1 : 1}) scaleY(${segment.flipV ? -1 : 1})`,
+                      transformOrigin: 'center center',
+                      opacity: segment.opacity,
+                      zIndex: 3,
+                      pointerEvents: 'none',
+                      clipPath: `polygon(50% 50%, ${50 + 50 * Math.cos((segment.angle - 22.5) * Math.PI / 180)}% ${50 + 50 * Math.sin((segment.angle - 22.5) * Math.PI / 180)}%, ${50 + 50 * Math.cos((segment.angle + 22.5) * Math.PI / 180)}% ${50 + 50 * Math.sin((segment.angle + 22.5) * Math.PI / 180)}%)`,
+                      transition: 'opacity 0.15s ease-out',
+                    }}
+                  />
+                ))}
+                {/* BREATH эффект - фото дышит под bass (плавное увеличение + затемнение) */}
+                {selectedCoverEffect === 'pixelate' && pixelateIntensity > 0.05 && (
                   <div
                     style={{
                       position: 'absolute',
                       inset: 0,
                       backgroundImage: `url(${photoUrl})`,
-                      backgroundSize: `${100 / (8 + pixelateIntensity * 25)}%`, // Уменьшаем для пикселей
+                      backgroundSize: 'cover',
                       backgroundPosition: 'center',
                       backgroundRepeat: 'no-repeat',
-                      imageRendering: 'pixelated',
-                      imageRendering: 'crisp-edges',
-                      opacity: pixelateIntensity,
                       zIndex: 3,
                       pointerEvents: 'none',
-                      transition: 'opacity 0.05s ease-out',
-                      transform: `scale(${1 + pixelateIntensity * 0.1})`, // Небольшой эффект масштабирования
+                      transform: `scale(${1 + pixelateIntensity * 0.08})`,
                       transformOrigin: 'center center',
+                      opacity: 0.3 + pixelateIntensity * 0.7, // 0.3-1.0
+                      transition: 'transform 0.2s ease-out, opacity 0.2s ease-out',
                     }}
                   />
                 )}
@@ -10172,6 +10319,25 @@ export default function StudioDesktop() {
               </div>
             )}
             
+            {/* Скрытый canvas для рендеринга текста (для экспорта) */}
+            {photoUrl && (
+              <canvas
+                ref={textCanvasRef}
+                style={{ 
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  opacity: 0,
+                  zIndex: -1
+                }}
+                width={1920}
+                height={1080}
+              />
+            )}
+            
             {/* Текст на canvas (показывается только когда загружено фото) */}
             {photoUrl && (
               <div 
@@ -10181,7 +10347,7 @@ export default function StudioDesktop() {
                   textAlignment === 'center' ? 'text-align-center' : '',
                   textBreathing !== 'none' && isPlaying ? `text-breathing--${textBreathing}` : ''
                 ].filter(Boolean).join(' ')}
-                key={textAnimationKey}
+                key={`${textAnimationKey}-${textFont}`}
                 data-align={textAlignment}
                 style={{
                   position: 'absolute',
@@ -10204,7 +10370,16 @@ export default function StudioDesktop() {
                 <div
                   className={textAppearance === 'two-lines' ? 'text-line-1' : ''}
                   style={{
-                    fontFamily: getFontFamily(textFont),
+                    fontFamily: (() => {
+                      const family = getFontFamily(textFont);
+                      // ОТЛАДОЧНЫЙ ЛОГ: что применяется к HTML элементу
+                      console.log('[Font] HTML fontFamily applied:', {
+                        textFont: textFont,
+                        fontFamily: family,
+                        element: 'text-line-1'
+                      });
+                      return family;
+                    })(),
                     fontSize: `${textFontSize}px`,
                     color: textColor,
                     textAlign: textAlignment,
@@ -10228,7 +10403,7 @@ export default function StudioDesktop() {
                 <div
                   className={textAppearance === 'two-lines' ? 'text-line-2' : ''}
                   style={{
-                    fontFamily: getFontFamily('fyl'), // Всегда Fyl для названия трека
+                    fontFamily: getFontFamily(textFont), // Используем выбранный шрифт
                     fontSize: `${textFontSize * 0.85}px`,
                     color: textColor,
                     textAlign: textAlignment,
