@@ -6,6 +6,7 @@ import { audioEngine } from "../../utils/audioEngine.js";
 import ShaderToyPreview from "../../features/track/ShaderToyPreview.jsx";
 import ShaderToyBackground from "../../features/track/ShaderToyBackground.jsx";
 import VantaHeaderBackground from "../../features/artist/VantaHeaderBackground.jsx";
+import html2canvas from "html2canvas";
 import srdImage from "../../assets/obl/srd.jpg";
 import pulsImage from "../../assets/obl/puls.jpg";
 import volniImage from "../../assets/obl/volni.jpg";
