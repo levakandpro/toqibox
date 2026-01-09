@@ -8874,16 +8874,33 @@ export default function StudioDesktop() {
       let lastFrameTime = 0;
       const frameInterval = 1000 / FPS; // 33.33ms для 30fps
 
-      // Загружаем фото один раз для экспорта
-      let exportPhotoImg = null;
-      if (photoUrl) {
-        exportPhotoImg = new Image();
-        exportPhotoImg.crossOrigin = 'anonymous';
-        await new Promise((resolve, reject) => {
-          exportPhotoImg.onload = resolve;
-          exportPhotoImg.onerror = reject;
-          exportPhotoImg.src = photoUrl;
-        });
+      // Находим previewElement (div с классом canvas-16x9, где рисуется предпросмотр)
+      const previewElement = canvasRef.current;
+      if (!previewElement) {
+        throw new Error('Элемент предпросмотра не найден');
+      }
+
+      // Получаем реальные размеры previewElement
+      const previewRect = previewElement.getBoundingClientRect();
+      const previewWidth = previewRect.width;
+      const previewHeight = previewRect.height;
+
+      // Вычисляем crop/scale для cover-логики (16:9)
+      const targetAspect = WIDTH / HEIGHT; // 16:9 = 1.777...
+      const previewAspect = previewWidth / previewHeight;
+      
+      let sourceX = 0, sourceY = 0, sourceWidth = previewWidth, sourceHeight = previewHeight;
+      
+      if (previewAspect > targetAspect) {
+        // Preview шире - кроп по ширине (обрезаем бока)
+        sourceHeight = previewHeight;
+        sourceWidth = previewHeight * targetAspect;
+        sourceX = (previewWidth - sourceWidth) / 2;
+      } else {
+        // Preview выше - кроп по высоте (обрезаем верх/низ)
+        sourceWidth = previewWidth;
+        sourceHeight = previewWidth / targetAspect;
+        sourceY = (previewHeight - sourceHeight) / 2;
       }
 
       // Запускаем аудио для синхронизации (но без звука)
@@ -8892,8 +8909,8 @@ export default function StudioDesktop() {
         await audioEngine.play();
       }
 
-      // Функция рендеринга кадра напрямую в exportCanvas
-      const renderFrame = (timestamp) => {
+      // Функция копирования кадра из previewElement в exportCanvas
+      const renderFrame = async (timestamp) => {
         if (!isRecording) return;
 
         const currentTime = audioEngine.getCurrentTime();
@@ -8916,32 +8933,28 @@ export default function StudioDesktop() {
           lastFrameTime = timestamp - (elapsed % frameInterval);
 
           try {
-            // Очищаем exportCanvas
-            exportCtx.fillStyle = '#000000';
-            exportCtx.fillRect(0, 0, WIDTH, HEIGHT);
+            // Используем html2canvas для захвата previewElement
+            const capturedCanvas = await html2canvas(previewElement, {
+              width: previewWidth,
+              height: previewHeight,
+              scale: 1,
+              useCORS: true,
+              allowTaint: false,
+              backgroundColor: '#000000',
+              logging: false,
+              x: 0,
+              y: 0,
+              scrollX: 0,
+              scrollY: 0,
+            });
 
-            // 1. Рендерим фон (ShaderToyBackground WebGL canvas или фото)
-            const previewElement = canvasRef.current;
-            if (previewElement) {
-              // Ищем WebGL canvas для шейдеров (первый canvas обычно шейдер)
-              const shaderCanvas = previewElement.querySelector('canvas');
-              if (shaderCanvas && shaderCanvas.width > 0 && shaderCanvas.height > 0) {
-                exportCtx.drawImage(shaderCanvas, 0, 0, WIDTH, HEIGHT);
-              } else if (exportPhotoImg) {
-                // Если нет шейдера, рисуем фото
-                exportCtx.drawImage(exportPhotoImg, 0, 0, WIDTH, HEIGHT);
-              }
-            }
-
-            // 2. Рендерим видео поверх (если есть)
-            if (canvasVideoRef.current && canvasVideoRef.current.readyState >= 2) {
-              exportCtx.drawImage(canvasVideoRef.current, 0, 0, WIDTH, HEIGHT);
-            }
-
-            // 3. Рендерим текст поверх (если есть textCanvas)
-            if (textCanvasRef.current && textCanvasRef.current.width > 0 && textCanvasRef.current.height > 0) {
-              exportCtx.drawImage(textCanvasRef.current, 0, 0, WIDTH, HEIGHT);
-            }
+            // Копируем с crop/scale в exportCanvas (cover-логика)
+            exportCtx.clearRect(0, 0, WIDTH, HEIGHT);
+            exportCtx.drawImage(
+              capturedCanvas,
+              sourceX, sourceY, sourceWidth, sourceHeight, // source (crop)
+              0, 0, WIDTH, HEIGHT // destination (scale to 1280x720)
+            );
 
             frameCount++;
           } catch (error) {
