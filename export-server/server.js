@@ -8,6 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
+import ffmpegPath from 'ffmpeg-static';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -44,6 +45,22 @@ app.use(express.json());
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+});
+
+// ========================================
+// GET / - Health check
+// ========================================
+
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'toqibox-export-server',
+    endpoints: {
+      'POST /export': 'Create export job',
+      'GET /export/:jobId': 'Get export status',
+      'GET /download/:jobId': 'Download MP4',
+    },
+  });
 });
 
 // ========================================
@@ -163,7 +180,7 @@ app.get('/download/:jobId', async (req, res) => {
     const fileBuffer = await readFile(job.outputPath);
 
     res.setHeader('Content-Type', 'video/mp4');
-    res.setHeader('Content-Disposition', `attachment; filename="TQ-STUDIO.mp4"`);
+    res.setHeader('Content-Disposition', `attachment; filename="TQ STUDIO.mp4"`);
     res.setHeader('Content-Length', fileBuffer.length);
     res.send(fileBuffer);
 
@@ -305,10 +322,11 @@ async function performExport(job) {
 
 function runFFmpeg(args, jobId) {
   return new Promise((resolve, reject) => {
-    // Полный путь к FFmpeg (для Windows)
-    const ffmpegPath = process.platform === 'win32' 
-      ? 'C:\\ffmpeg\\bin\\ffmpeg.exe' 
-      : 'ffmpeg';
+    // Используем ffmpeg-static для гарантированной работы на Railway
+    if (!ffmpegPath) {
+      reject(new Error('FFmpeg not found. Please install ffmpeg-static.'));
+      return;
+    }
     
     console.log(`[FFmpeg ${jobId}] Команда:`, ffmpegPath, args.join(' '));
 
@@ -374,11 +392,13 @@ async function cleanupJob(jobId) {
 // ЗАПУСК СЕРВЕРА
 // ========================================
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Server] Starting on port ${PORT}`);
+  console.log(`[Server] Listening on 0.0.0.0:${PORT}`);
   console.log(`
 ╔════════════════════════════════════════╗
 ║   TOQIBOX Export Server (FFmpeg)       ║
-║   http://localhost:${PORT}              ║
+║   Server running on port ${PORT}        ║
 ╚════════════════════════════════════════╝
 
 Endpoints:
