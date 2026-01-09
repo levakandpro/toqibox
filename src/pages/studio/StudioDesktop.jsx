@@ -7,6 +7,7 @@ import ShaderToyPreview from "../../features/track/ShaderToyPreview.jsx";
 import ShaderToyBackground from "../../features/track/ShaderToyBackground.jsx";
 import VantaHeaderBackground from "../../features/artist/VantaHeaderBackground.jsx";
 import html2canvas from "html2canvas";
+import { supabase } from "../../features/auth/supabaseClient.js";
 import srdImage from "../../assets/obl/srd.jpg";
 import pulsImage from "../../assets/obl/puls.jpg";
 import volniImage from "../../assets/obl/volni.jpg";
@@ -275,12 +276,13 @@ const generateFontFamilyName = (filename) => {
 
 // Генерируем список доступных шрифтов
 const AVAILABLE_FONTS = [
-  { id: 'system', name: 'System', cssName: 'System', file: null },
-  ...FONT_FILES.map(file => ({
+  { id: 'system', name: 'System', cssName: 'System', file: null, isPremium: false },
+  ...FONT_FILES.map((file, index) => ({
     id: generateFontId(file),
     name: generateFontName(file),
     cssName: generateFontFamilyName(file),
     file: file,
+    isPremium: index >= 20, // Первые 20 шрифтов (индексы 0-19) бесплатные, остальные PREMIUM
   })),
 ];
 
@@ -289,9 +291,17 @@ const MAX_AUDIO_DURATION = 240; // 4 минуты
 export default function StudioDesktop() {
   const navigate = useNavigate();
   
-  // ⚠️ PREMIUM: Проверка premium статуса пользователя
-  // TODO: Заменить на реальную проверку из Supabase (artists.is_premium)
-  const userHasPremium = false; // Пока hardcode - все эффекты платные для демо
+  // Состояния для авторизации и тарифов
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [effectivePlan, setEffectivePlan] = useState('free'); // free, premium, premium_plus
+  const [usageDaily, setUsageDaily] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  
+  // ⚠️ PREMIUM: Проверка premium статуса пользователя (используется для других функций)
+  const userHasPremium = effectivePlan === 'premium' || effectivePlan === 'premium_plus';
+  
   const [photoUrl, setPhotoUrl] = useState(null);
   const [photoKey, setPhotoKey] = useState(null);
   const [audioDuration, setAudioDuration] = useState(null);
@@ -343,6 +353,102 @@ export default function StudioDesktop() {
     // если end раньше чем start+duration — пододвигаем end
     if (e < s + d) e = Math.min(MAX_AUDIO_DURATION, s + d);
     return { s, d, e };
+  };
+
+  // Функции для работы с тарифами и лимитами
+  const loadUserData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        setUser(null);
+        setProfile(null);
+        setEffectivePlan('free');
+        setUsageDaily(null);
+        return;
+      }
+
+      setUser(session.user);
+
+      // Загружаем профиль пользователя
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('plan, plan_expires_at')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Ошибка загрузки профиля:', profileError);
+        setProfile(null);
+        setEffectivePlan('free');
+      } else {
+        setProfile(profileData);
+        
+        // Рассчитываем effectivePlan
+        const plan = profileData?.plan || 'free';
+        const planExpiresAt = profileData?.plan_expires_at;
+        
+        let calculatedPlan = 'free';
+        if ((plan === 'premium' || plan === 'premium_plus') && planExpiresAt) {
+          const expiresAt = new Date(planExpiresAt);
+          const now = new Date();
+          if (expiresAt > now) {
+            calculatedPlan = plan;
+          }
+        }
+        setEffectivePlan(calculatedPlan);
+      }
+
+      // Загружаем usage_daily за сегодня
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const { data: usageData, error: usageError } = await supabase
+        .from('usage_daily')
+        .select('exports_success')
+        .eq('user_id', session.user.id)
+        .eq('day', today)
+        .maybeSingle();
+
+      if (usageError) {
+        console.error('Ошибка загрузки usage_daily:', usageError);
+        setUsageDaily({ exports_success: 0 });
+      } else {
+        setUsageDaily(usageData || { exports_success: 0 });
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки данных пользователя:', error);
+      setUser(null);
+      setProfile(null);
+      setEffectivePlan('free');
+      setUsageDaily(null);
+    }
+  };
+
+  // Получаем лимиты по тарифу
+  const getExportLimits = (plan) => {
+    switch (plan) {
+      case 'premium':
+        return { success: 10, resolution: 1080, maxDuration: 240 };
+      case 'premium_plus':
+        return { success: 20, resolution: 1080, maxDuration: 240 };
+      default: // free
+        return { success: 3, resolution: 720, maxDuration: 240 };
+    }
+  };
+
+  // Обновляем usage_daily (вызывается при изменении данных пользователя или обновлении лимитов)
+  const refreshUsageDaily = async () => {
+    if (!user) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const { data: usageData, error: usageError } = await supabase
+      .from('usage_daily')
+      .select('exports_success')
+      .eq('user_id', user.id)
+      .eq('day', today)
+      .maybeSingle();
+
+    if (!usageError) {
+      setUsageDaily(usageData || { exports_success: 0 });
+    }
   };
 
   // ⚠️ PREMIUM: Обработчик клика на импульс (с проверкой premium для платных эффектов)
@@ -404,6 +510,8 @@ export default function StudioDesktop() {
   const [textArtistName, setTextArtistName] = useState('TQ Артист');
   const [textTrackName, setTextTrackName] = useState('Toqibox');
   const [textFont, setTextFont] = useState('tq'); // По умолчанию tq.ttf
+  const [isFontDropdownOpen, setIsFontDropdownOpen] = useState(false);
+  const fontDropdownRef = useRef(null);
   const [textFontSize, setTextFontSize] = useState(48);
   const [textAlignment, setTextAlignment] = useState('center'); // left, center, right
   const [textColor, setTextColor] = useState('#ffffff');
@@ -648,6 +756,28 @@ export default function StudioDesktop() {
   const [isCustomPlayer22Dragging, setIsCustomPlayer22Dragging] = useState(false);
   const [isCustomPlayer22Resizing, setIsCustomPlayer22Resizing] = useState(false);
   const customPlayer22Ref = useRef(null);
+
+  // Загрузка данных пользователя при монтировании и изменении сессии
+  useEffect(() => {
+    loadUserData();
+    
+    // Слушаем изменения сессии
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      loadUserData();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Обновляем usage_daily при изменении user
+  useEffect(() => {
+    if (user) {
+      refreshUsageDaily();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Загружаем CSS синхронно перед рендером и предзагружаем шрифты
   useLayoutEffect(() => {
@@ -2341,6 +2471,22 @@ export default function StudioDesktop() {
   const outlineColorPickerRef = useRef(null);
   const shadowColorPickerRef = useRef(null);
 
+  // Закрытие выпадающего списка шрифтов при клике вне его
+  useEffect(() => {
+    if (!isFontDropdownOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (fontDropdownRef.current && !fontDropdownRef.current.contains(event.target)) {
+        setIsFontDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isFontDropdownOpen]);
+
   useEffect(() => {
     if (!showColorPicker && !showOutlineColorPicker && !showShadowColorPicker && !showAppearanceDropdown && !showBreathingDropdown) return;
 
@@ -3666,7 +3812,7 @@ export default function StudioDesktop() {
               </div>
               
               {/* Шрифт */}
-              <div>
+              <div style={{ position: 'relative' }} ref={fontDropdownRef}>
                 <label style={{ 
                   fontSize: '10px', 
                   fontWeight: 600,
@@ -3678,13 +3824,8 @@ export default function StudioDesktop() {
                 }}>
                   Шрифт
                 </label>
-                <select
-                  value={textFont}
-                  onChange={(e) => {
-                    const selectedFontId = e.target.value;
-                    console.log('SELECT font =', selectedFontId);
-                    setTextFont(selectedFontId);
-                  }}
+                <div
+                  onClick={() => setIsFontDropdownOpen(!isFontDropdownOpen)}
                   style={{
                     width: '100%',
                     padding: '6px 10px',
@@ -3695,14 +3836,108 @@ export default function StudioDesktop() {
                     fontSize: '11px',
                     outline: 'none',
                     cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    position: 'relative',
                   }}
                 >
-                  {AVAILABLE_FONTS.map((font) => (
-                    <option key={font.id} value={font.id} style={{ background: '#1a1a1a', color: '#fff' }}>
-                      {font.name}
-                    </option>
-                  ))}
-                </select>
+                  <span>
+                    {AVAILABLE_FONTS.find(f => f.id === textFont)?.name || 'Выберите шрифт'}
+                  </span>
+                  <span style={{ 
+                    fontSize: '8px',
+                    transform: isFontDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }}>
+                    ▼
+                  </span>
+                </div>
+                
+                {isFontDropdownOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      marginTop: '4px',
+                      background: 'rgba(0, 0, 0, 0.95)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '6px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+                      backdropFilter: 'blur(10px)',
+                    }}
+                  >
+                    {AVAILABLE_FONTS.map((font) => {
+                      const isSelected = font.id === textFont;
+                      return (
+                        <div
+                          key={font.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            
+                            // Проверяем, является ли выбранный шрифт PREMIUM
+                            if (font.isPremium) {
+                              // Редирект на страницу pricing
+                              window.location.href = 'https://toqibox.win/studio/pricing';
+                              return;
+                            }
+                            
+                            setTextFont(font.id);
+                            setIsFontDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: '8px 10px',
+                            fontSize: '11px',
+                            color: '#fff',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: isSelected ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                            transition: 'background 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.target.style.background = 'rgba(255, 255, 255, 0.05)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.target.style.background = 'transparent';
+                            }
+                          }}
+                        >
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{font.name}</span>
+                          {font.isPremium && (
+                            <span
+                              style={{
+                                fontSize: '7px',
+                                fontWeight: 700,
+                                padding: '2px 5px',
+                                borderRadius: '3px',
+                                background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 165, 0, 0.2) 100%)',
+                                border: '1px solid rgba(255, 215, 0, 0.4)',
+                                color: '#FFD700',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.3px',
+                                marginLeft: '8px',
+                                flexShrink: 0,
+                                boxShadow: '0 1px 2px rgba(255, 215, 0, 0.2)',
+                              }}
+                            >
+                              PREMIUM
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Выравнивание */}
@@ -8683,6 +8918,26 @@ export default function StudioDesktop() {
 
   // Обработчик браузерного экспорта через MediaRecorder
   const handleExport = async () => {
+    // Проверка авторизации
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Загружаем актуальные данные перед экспортом
+    await loadUserData();
+
+    // Определяем лимиты по тарифу
+    const limits = getExportLimits(effectivePlan);
+    
+    // Проверка лимитов
+    const todayExports = usageDaily?.exports_success || 0;
+    
+    if (todayExports >= limits.success) {
+      setShowLimitModal(true);
+      return;
+    }
+
     if (!photoUrl || !audioUrl || !audioDuration) {
       alert('Загрузите фото и аудио для экспорта');
       return;
@@ -8702,13 +8957,13 @@ export default function StudioDesktop() {
       alert('Этот браузер не поддерживает экспорт видео. Откройте в Chrome/Edge');
       return;
     }
-
-    const MAX_SECONDS = 240; // 4 минуты
+    const MAX_SECONDS = limits.maxDuration;
     const exportDuration = Math.min(audioDuration, MAX_SECONDS);
     const FPS = 30;
-    const WIDTH = 1280;
-    const HEIGHT = 720;
-    const BITRATE = 8000000; // 8 Mbps
+    const WIDTH = limits.resolution === 1080 ? 1920 : 1280;
+    const HEIGHT = limits.resolution === 1080 ? 1080 : 720;
+    const BITRATE = 10000000; // 10 Mbps (8-12 Mbps диапазон)
+    const DPR = window.devicePixelRatio || 1; // Device Pixel Ratio для высокого качества
 
     // Сохраняем состояние аудио
     const savedVolume = audioEngine.getVolume();
@@ -8832,19 +9087,31 @@ export default function StudioDesktop() {
         overlay.style.display = 'flex';
       }, 100);
 
-      // Создаем отдельный скрытый exportCanvas для записи (НЕ используем UI canvas)
+      // Создаем отдельный скрытый exportCanvas для записи с учетом DPR (НЕ используем UI canvas)
       const exportCanvas = document.createElement('canvas');
       exportCanvas.setAttribute('data-export-canvas', 'true');
-      exportCanvas.width = WIDTH;
-      exportCanvas.height = HEIGHT;
+      // Учитываем devicePixelRatio для высокого качества
+      exportCanvas.width = WIDTH * DPR;
+      exportCanvas.height = HEIGHT * DPR;
       exportCanvas.style.cssText = 'position: fixed; top: -9999px; left: -9999px; visibility: hidden;';
       document.body.appendChild(exportCanvas);
-      const exportCtx = exportCanvas.getContext('2d');
+      const exportCtx = exportCanvas.getContext('2d', { 
+        alpha: false,
+        desynchronized: false,
+        willReadFrequently: false
+      });
+      
+      // Масштабируем контекст для правильного отображения
+      exportCtx.scale(DPR, DPR);
+      
+      // Включаем высококачественное сглаживание
+      exportCtx.imageSmoothingEnabled = true;
+      exportCtx.imageSmoothingQuality = 'high';
 
       // Создаем stream из exportCanvas
       const stream = exportCanvas.captureStream(FPS);
       
-      // Определяем MIME type
+      // Определяем MIME type - приоритет video/mp4 (H.264)
       let mimeType = 'video/webm';
       if (MediaRecorder.isTypeSupported('video/mp4')) {
         mimeType = 'video/mp4';
@@ -8854,10 +9121,10 @@ export default function StudioDesktop() {
         mimeType = 'video/webm;codecs=vp8';
       }
 
-      // Создаем MediaRecorder
+      // Создаем MediaRecorder с высоким bitrate
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: mimeType,
-        videoBitsPerSecond: BITRATE,
+        videoBitsPerSecond: BITRATE, // 10 Mbps для высокого качества
       });
 
       const chunks = [];
@@ -8949,7 +9216,9 @@ export default function StudioDesktop() {
             });
 
             // Копируем с crop/scale в exportCanvas (cover-логика)
+            // clearRect использует логические координаты (уже масштабированы через ctx.scale)
             exportCtx.clearRect(0, 0, WIDTH, HEIGHT);
+            // drawImage также использует логические координаты благодаря ctx.scale
             exportCtx.drawImage(
               capturedCanvas,
               sourceX, sourceY, sourceWidth, sourceHeight, // source (crop)
@@ -9005,6 +9274,24 @@ export default function StudioDesktop() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
+      // Записываем успешный экспорт в exports
+      try {
+        await supabase.from('exports').insert({
+          user_id: user.id,
+          status: 'success',
+          duration_seconds: Math.min(exportDuration, limits.maxDuration),
+          resolution: limits.resolution,
+          template_id: selectedTemplate || null,
+          visual_id: null, // visual_id нет в текущей реализации
+        });
+        
+        // Обновляем usage_daily (триггер в БД должен обновить автоматически, но обновим для UI)
+        await refreshUsageDaily();
+      } catch (exportLogError) {
+        console.error('Ошибка записи экспорта в БД:', exportLogError);
+        // Не показываем ошибку пользователю, экспорт успешен
+      }
+
       // Восстанавливаем состояние аудио
       audioEngine.setVolume(savedVolume);
       if (!wasPlaying) {
@@ -9020,10 +9307,109 @@ export default function StudioDesktop() {
         document.head.removeChild(loaderStyle);
       }
       
-      alert('Экспорт завершен! MP4 скачан.');
+      // Показываем стильное сообщение об успехе
+      const successModal = document.createElement('div');
+      successModal.id = 'export-success-modal';
+      successModal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 100000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      `;
+      successModal.innerHTML = `
+        <div style="
+          background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 16px;
+          padding: 40px 50px;
+          text-align: center;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+          max-width: 400px;
+          width: 90%;
+        ">
+          <div style="
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 24px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(76, 175, 80, 0.4);
+          ">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <h2 style="
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 12px 0;
+            letter-spacing: -0.5px;
+          ">Экспорт завершен!</h2>
+          <p style="
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 16px;
+            margin: 0 0 32px 0;
+            line-height: 1.5;
+          ">MP4 файл скачан</p>
+          <button id="export-success-ok" style="
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+          " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(76, 175, 80, 0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(76, 175, 80, 0.3)';">
+            OK
+          </button>
+        </div>
+      `;
+      document.body.appendChild(successModal);
+      
+      // Закрытие по клику на кнопку или вне модалки
+      const okButton = document.getElementById('export-success-ok');
+      okButton.onclick = () => {
+        document.body.removeChild(successModal);
+      };
+      successModal.onclick = (e) => {
+        if (e.target === successModal) {
+          document.body.removeChild(successModal);
+        }
+      };
 
     } catch (error) {
       console.error('Ошибка экспорта:', error);
+      
+      // Записываем failed экспорт в exports (только если пользователь авторизован)
+      if (user) {
+        try {
+          const limits = getExportLimits(effectivePlan);
+          await supabase.from('exports').insert({
+            user_id: user.id,
+            status: 'failed',
+            duration_seconds: 0,
+            resolution: limits.resolution,
+            template_id: selectedTemplate || null,
+            visual_id: null,
+          });
+        } catch (exportLogError) {
+          console.error('Ошибка записи failed экспорта в БД:', exportLogError);
+        }
+      }
       
       // Восстанавливаем состояние аудио
       audioEngine.setVolume(savedVolume);
@@ -9603,7 +9989,22 @@ export default function StudioDesktop() {
           </div>
         </div>
 
-        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexDirection: 'column' }}>
+          {user && usageDaily !== null && (() => {
+            const limits = getExportLimits(effectivePlan);
+            const todayExports = usageDaily?.exports_success || 0;
+            const remaining = Math.max(0, limits.success - todayExports);
+            return (
+              <div style={{ 
+                fontSize: '10px', 
+                color: 'rgba(255, 255, 255, 0.6)',
+                textAlign: 'center',
+                whiteSpace: 'nowrap'
+              }}>
+                Осталось сегодня: {remaining}/{limits.success}
+              </div>
+            );
+          })()}
           <button type="button" className="button" data-text="Awesome" onClick={handleExport}>
             <span className="actual-text">&nbsp;ЭКСПОРТ&nbsp;</span>
             <span aria-hidden="true" className="hover-text">
@@ -9612,6 +10013,158 @@ export default function StudioDesktop() {
           </button>
         </div>
       </header>
+
+      {/* Модалка для незалогиненных пользователей */}
+      {showLoginModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 100000,
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'center',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          }}
+          onClick={() => setShowLoginModal(false)}
+        >
+          <div 
+            style={{
+              background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              padding: '40px 50px',
+              textAlign: 'center',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+              maxWidth: '400px',
+              width: '90%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ color: '#ffffff', fontSize: '24px', fontWeight: 600, margin: '0 0 12px 0' }}>
+              Войдите или Зарегистрируйтесь
+            </h2>
+            <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '16px', margin: '0 0 32px 0' }}>
+              Для экспорта видео необходимо войти в аккаунт
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => {
+                  setShowLoginModal(false);
+                  navigate('/login');
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '12px 32px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Войти
+              </button>
+              <button
+                onClick={() => setShowLoginModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '8px',
+                  padding: '12px 32px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка для лимитов */}
+      {showLimitModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 100000,
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'center',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          }}
+          onClick={() => setShowLimitModal(false)}
+        >
+          <div 
+            style={{
+              background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              padding: '40px 50px',
+              textAlign: 'center',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+              maxWidth: '400px',
+              width: '90%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ color: '#ffffff', fontSize: '24px', fontWeight: 600, margin: '0 0 12px 0' }}>
+              Лимит на сегодня исчерпан
+            </h2>
+            <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '16px', margin: '0 0 32px 0' }}>
+              Вы исчерпали лимит экспортов на сегодня. Обновите тариф для увеличения лимита.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => {
+                  setShowLimitModal(false);
+                  navigate('/studio/pricing');
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '12px 32px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Апгрейд
+              </button>
+              <button
+                onClick={() => setShowLimitModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '8px',
+                  padding: '12px 32px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
 

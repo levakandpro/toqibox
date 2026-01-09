@@ -245,9 +245,9 @@ export default function HomePage() {
           СОЗДАТЬ
         </Link>
 
-        <a href="#" className="tq-studio-btn">
+        <Link to="/studio" className="tq-studio-btn">
           <span>TQ STUDIO</span>
-        </a>
+        </Link>
       </div>
     </main>
   );
@@ -444,7 +444,7 @@ h1[style*="fontWeight"] {
   width: 160px;
   height: 50px;
   line-height: 48px;
-  background: rgba(255, 255, 255, 0.15);
+  background: transparent;
   text-transform: uppercase;
   font-weight: bolder;
   font-size: 25px;
@@ -454,8 +454,6 @@ h1[style*="fontWeight"] {
   transition: 0.5s;
   -webkit-box-reflect: below 1px linear-gradient(transparent, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .tq-studio-btn span {
@@ -466,8 +464,8 @@ h1[style*="fontWeight"] {
   right: 1px;
   bottom: 1px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.4);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
   transition: 0.5s;
   border-radius: 7px;
   line-height: 48px;
@@ -485,7 +483,7 @@ h1[style*="fontWeight"] {
   left: 0;
   width: 100%;
   height: 50%;
-  background: rgba(255, 255, 255, 0.15);
+  background: transparent;
   z-index: 10;
   border-radius: 7px 7px 0 0;
 }
