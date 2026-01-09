@@ -8748,35 +8748,64 @@ export default function StudioDesktop() {
       style.setAttribute('data-export-loader', 'true');
       style.textContent = `
         .browser-export-loader {
+          width: 160px;
+          height: 185px;
           position: relative;
-          margin-bottom: 40px;
+          background: #fff;
+          border-radius: 100px 100px 0 0;
+          margin: 0 auto 40px;
         }
-        .browser-export-loader span {
+        .browser-export-loader:after {
+          content: "";
           position: absolute;
-          color: #fff;
-          transform: translate(-50%, -50%);
-          font-size: 38px;
-          letter-spacing: 5px;
+          width: 100px;
+          height: 125px;
           left: 50%;
-          top: 50%;
+          top: 25px;
+          transform: translateX(-50%);
+          background-image: radial-gradient(circle, #000 48%, transparent 55%),
+            radial-gradient(circle, #000 48%, transparent 55%),
+            radial-gradient(circle, #fff 30%, transparent 45%),
+            radial-gradient(circle, #000 48%, transparent 51%),
+            linear-gradient(#000 20px, transparent 0),
+            linear-gradient(#cfecf9 60px, transparent 0),
+            radial-gradient(circle, #cfecf9 50%, transparent 51%),
+            radial-gradient(circle, #cfecf9 50%, transparent 51%);
+          background-repeat: no-repeat;
+          background-size: 16px 16px, 16px 16px, 10px 10px, 42px 42px, 12px 3px,
+            50px 25px, 70px 70px, 70px 70px;
+          background-position: 25px 10px, 55px 10px, 36px 44px, 50% 30px, 50% 85px,
+            50% 50px, 50% 22px, 50% 45px;
+          animation: faceLift 3s linear infinite alternate;
         }
-        .browser-export-loader span:nth-child(1) {
-          color: transparent;
-          -webkit-text-stroke: 0.3px #4CAF50;
+        .browser-export-loader:before {
+          content: "";
+          position: absolute;
+          width: 140%;
+          height: 125px;
+          left: -20%;
+          top: 0;
+          background-image: radial-gradient(circle, #fff 48%, transparent 50%),
+            radial-gradient(circle, #fff 48%, transparent 50%);
+          background-repeat: no-repeat;
+          background-size: 65px 65px;
+          background-position: 0px 12px, 145px 12px;
+          animation: earLift 3s linear infinite alternate;
         }
-        .browser-export-loader span:nth-child(2) {
-          color: #4CAF50;
-          -webkit-text-stroke: 1px #4CAF50;
-          animation: browser-export-wave 3s ease-in-out infinite;
-        }
-        @keyframes browser-export-wave {
-          0%, 100% {
-            clip-path: polygon(0% 45%, 15% 44%, 32% 50%, 
-             54% 60%, 70% 61%, 84% 59%, 100% 52%, 100% 100%, 0% 100%);
+        @keyframes faceLift {
+          0% {
+            transform: translateX(-60%);
           }
-          50% {
-            clip-path: polygon(0% 60%, 16% 65%, 34% 66%, 
-             51% 62%, 67% 50%, 84% 45%, 100% 46%, 100% 100%, 0% 100%);
+          100% {
+            transform: translateX(-30%);
+          }
+        }
+        @keyframes earLift {
+          0% {
+            transform: translateX(10px);
+          }
+          100% {
+            transform: translateX(0px);
           }
         }
       `;
@@ -8784,10 +8813,7 @@ export default function StudioDesktop() {
       
       overlay.innerHTML = `
         <div style="text-align: center; padding: 40px;">
-          <div class="browser-export-loader">
-            <span>TQ Studio</span>
-            <span>TQ Studio</span>
-          </div>
+          <div class="browser-export-loader"></div>
           <div id="export-time" style="font-size: 18px; margin-bottom: 20px; color: rgba(255, 255, 255, 0.8);">0:00 / ${Math.floor(exportDuration / 60)}:${String(Math.floor(exportDuration % 60)).padStart(2, '0')}</div>
           <div style="width: 400px; height: 4px; background: rgba(255, 255, 255, 0.2); border-radius: 2px; overflow: hidden; margin-bottom: 10px;">
             <div id="export-progress" style="width: 0%; height: 100%; background: #4CAF50; transition: width 0.1s;"></div>
