@@ -17,7 +17,7 @@ export async function onRequestPost(context) {
   };
 
   try {
-    console.log('[notify-new-user] Function called');
+    console.log('[notify-new-user] Function called at', new Date().toISOString());
     
     // Проверяем наличие обязательных переменных окружения
     const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -30,21 +30,33 @@ export async function onRequestPost(context) {
       hasChatId: !!chatId,
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseKey: !!supabaseKey,
-      notifyNewUsers: env.TELEGRAM_NOTIFY_NEW_USERS
+      notifyNewUsers: env.TELEGRAM_NOTIFY_NEW_USERS,
+      botTokenLength: botToken?.length || 0,
+      chatIdValue: chatId || 'MISSING',
+      supabaseUrlValue: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'MISSING'
     });
     
-    if (!botToken || !chatId || !supabaseUrl || !supabaseKey) {
+    // Для отправки в Telegram достаточно только токена и chat_id
+    // Supabase нужен только для получения email, но если его нет - используем переданный email
+    if (!botToken || !chatId) {
       const missing = [];
       if (!botToken) missing.push('TELEGRAM_BOT_TOKEN');
       if (!chatId) missing.push('TELEGRAM_ADMIN_CHAT_ID');
-      if (!supabaseUrl) missing.push('SUPABASE_URL');
-      if (!supabaseKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
       
-      console.error('[notify-new-user] Missing environment variables:', missing);
+      console.error('[notify-new-user] ❌ Missing REQUIRED environment variables:', missing);
       return new Response(
-        JSON.stringify({ error: "Server configuration error", missing }),
+        JSON.stringify({ 
+          error: "Server configuration error", 
+          missing,
+          message: "Добавь TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID в Cloudflare Pages → Settings → Environment Variables"
+        }),
         { status: 500, headers: corsHeaders }
       );
+    }
+    
+    // Предупреждение, если Supabase переменные отсутствуют (но продолжаем работу)
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('[notify-new-user] ⚠️ SUPABASE_URL или SUPABASE_SERVICE_ROLE_KEY отсутствуют, но продолжаем работу с переданным email');
     }
 
     // Опционально: проверяем флаг включения уведомлений о регистрации (по умолчанию включено)
@@ -78,7 +90,9 @@ export async function onRequestPost(context) {
 
     // Получаем email пользователя (приоритет переданному email)
     let userEmail = email;
-    if (!userEmail && user_id) {
+    
+    // Пытаемся получить email из Supabase только если переменные установлены И email не передан
+    if (!userEmail && user_id && supabaseUrl && supabaseKey) {
       try {
         console.log('[notify-new-user] Fetching email from Supabase for user_id:', user_id);
         const profileResponse = await fetch(
@@ -97,19 +111,24 @@ export async function onRequestPost(context) {
           const profiles = await profileResponse.json();
           if (profiles?.[0]?.email) {
             userEmail = profiles[0].email;
-            console.log('[notify-new-user] Email fetched from Supabase');
+            console.log('[notify-new-user] Email fetched from Supabase:', userEmail);
+          } else {
+            console.warn('[notify-new-user] Profile not found in Supabase for user_id:', user_id);
           }
         } else {
-          console.warn('[notify-new-user] Failed to fetch email from Supabase:', profileResponse.status);
+          const errorText = await profileResponse.text().catch(() => 'Unknown error');
+          console.warn('[notify-new-user] Failed to fetch email from Supabase:', profileResponse.status, errorText.substring(0, 100));
         }
       } catch (profileError) {
-        console.warn('[notify-new-user] Error fetching user email:', profileError.message);
+        console.warn('[notify-new-user] Error fetching user email from Supabase:', profileError.message || profileError);
       }
+    } else if (!userEmail && !supabaseUrl) {
+      console.warn('[notify-new-user] SUPABASE_URL не установлен, пропускаем получение email из БД');
     }
 
     if (!userEmail) {
-      userEmail = 'Не указан';
-      console.warn('[notify-new-user] Using default email placeholder');
+      userEmail = user_id ? `User ID: ${user_id.substring(0, 8)}...` : 'Не указан';
+      console.warn('[notify-new-user] Using fallback email/identifier:', userEmail);
     }
 
     // Формируем текст сообщения

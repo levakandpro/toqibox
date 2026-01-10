@@ -61,16 +61,27 @@ export default function AuthCallbackPage() {
             email: user.email 
           })
         }).then(async res => {
+          const errorText = await res.text().catch(() => 'Unknown error');
           if (res.ok) {
-            const result = await res.json().catch(() => ({}));
-            console.log('[Auth] ✅ Уведомление о регистрации отправлено в Telegram');
+            const result = JSON.parse(errorText).catch(() => ({}));
+            console.log('[Auth] ✅ Уведомление о регистрации отправлено в Telegram:', result);
           } else {
-            const errorText = await res.text().catch(() => 'Unknown error');
+            let errorBody;
+            try {
+              errorBody = JSON.parse(errorText);
+            } catch {
+              errorBody = errorText;
+            }
             console.error('[Auth] ❌ Ошибка отправки уведомления в Telegram:', {
               status: res.status,
               statusText: res.statusText,
-              body: errorText.substring(0, 200) // Первые 200 символов ошибки
+              error: errorBody
             });
+            // Показываем пользователю конкретную ошибку
+            if (errorBody?.missing) {
+              console.error('[Auth] ❌ Отсутствуют переменные окружения в Cloudflare Pages:', errorBody.missing);
+              console.error('[Auth] 💡 Добавь эти переменные в Cloudflare Pages Dashboard → Settings → Environment Variables');
+            }
           }
         }).catch(err => {
           console.error('[Auth] ❌ Ошибка при вызове notify-new-user:', err.message || err);
