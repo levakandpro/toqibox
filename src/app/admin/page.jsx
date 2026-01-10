@@ -1203,8 +1203,9 @@ export default function AdminPage() {
                     <thead>
                       <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Email/ID</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Plan</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Expires At</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Продукт</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Истекает</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
                       </tr>
                     </thead>
@@ -1228,6 +1229,19 @@ export default function AdminPage() {
                                 {user.email || '—'}
                               </div>
                               <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#6b7280' }}>{user.id}</div>
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '4px 10px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                backgroundColor: '#007aff',
+                                color: '#ffffff'
+                              }}>
+                                TOQIBOX
+                              </span>
                             </td>
                             <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
                               {user.toqibox_plan === 'free' || !user.toqibox_plan ? 'БЕСПЛАТНЫЙ' : (user.toqibox_plan || 'free').toUpperCase()}
@@ -1293,8 +1307,9 @@ export default function AdminPage() {
                     <thead>
                       <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Email/ID</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Plan</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Expires At</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Продукт</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Истекает</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Действия</th>
                       </tr>
@@ -1319,6 +1334,19 @@ export default function AdminPage() {
                                 {user.email || '—'}
                               </div>
                               <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#6b7280' }}>{user.id}</div>
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '4px 10px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                backgroundColor: '#10b981',
+                                color: '#ffffff'
+                              }}>
+                                Studio
+                              </span>
                             </td>
                             <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
                               {user.studio_plan === 'free' || !user.studio_plan ? 'БЕСПЛАТНЫЙ' : (user.studio_plan || 'free').toUpperCase()}
@@ -1414,6 +1442,7 @@ export default function AdminPage() {
                   <thead>
                     <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Email/ID</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Продукт</th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Истекает</th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
@@ -1440,6 +1469,19 @@ export default function AdminPage() {
                               {user.email || '—'}
                             </div>
                             <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#6b7280' }}>{user.id}</div>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              backgroundColor: '#10b981',
+                              color: '#ffffff'
+                            }}>
+                              Studio
+                            </span>
                           </td>
                           <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
                             {(user.studio_plan || 'free').toUpperCase()}
