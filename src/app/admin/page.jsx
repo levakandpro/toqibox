@@ -1180,9 +1180,11 @@ export default function AdminPage() {
                         
                         return (
                           <tr key={user.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
-                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
-                              <div>{user.email || '—'}</div>
-                              <div style={{ fontSize: '9px', opacity: 0.5, fontFamily: 'monospace', marginTop: '2px', color: '#86868b' }}>{user.id}</div>
+                            <td style={{ padding: '12px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1d1d1f', marginBottom: '4px' }}>
+                                {user.email || '—'}
+                              </div>
+                              <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#6b7280' }}>{user.id}</div>
                             </td>
                             <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
                               {user.toqibox_plan === 'free' || !user.toqibox_plan ? 'БЕСПЛАТНЫЙ' : (user.toqibox_plan || 'free').toUpperCase()}
@@ -1246,9 +1248,11 @@ export default function AdminPage() {
                         
                         return (
                           <tr key={user.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
-                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
-                              <div>{user.email || '—'}</div>
-                              <div style={{ fontSize: '9px', opacity: 0.5, fontFamily: 'monospace', marginTop: '2px', color: '#86868b' }}>{user.id}</div>
+                            <td style={{ padding: '12px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1d1d1f', marginBottom: '4px' }}>
+                                {user.email || '—'}
+                              </div>
+                              <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#6b7280' }}>{user.id}</div>
                             </td>
                             <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
                               {user.studio_plan === 'free' || !user.studio_plan ? 'БЕСПЛАТНЫЙ' : (user.studio_plan || 'free').toUpperCase()}
@@ -1342,9 +1346,11 @@ export default function AdminPage() {
                       
                       return (
                         <tr key={user.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
-                          <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
-                            <div>{user.email || '—'}</div>
-                            <div style={{ fontSize: '9px', opacity: 0.5, fontFamily: 'monospace', marginTop: '2px', color: '#86868b' }}>{user.id}</div>
+                          <td style={{ padding: '12px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1d1d1f', marginBottom: '4px' }}>
+                              {user.email || '—'}
+                            </div>
+                            <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#6b7280' }}>{user.id}</div>
                           </td>
                           <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
                             {(user.studio_plan || 'free').toUpperCase()}
