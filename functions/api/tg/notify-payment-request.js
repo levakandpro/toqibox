@@ -161,9 +161,6 @@ export async function onRequestPost(context) {
       `👤 ${userEmail}\n` +
       `🆔 ID: ${paymentRequest.id.substring(0, 8)}...`;
 
-    const botToken = env.TELEGRAM_BOT_TOKEN;
-    const chatId = env.TELEGRAM_ADMIN_CHAT_ID;
-
     // Создаем inline клавиатуру с кнопками Одобрить/Отклонить
     const inlineKeyboard = {
       inline_keyboard: [[
