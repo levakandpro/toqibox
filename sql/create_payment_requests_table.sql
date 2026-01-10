@@ -40,28 +40,39 @@ CREATE POLICY "pr_insert_own"
   ON public.payment_requests FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
+-- Обновляем функцию для проверки, является ли пользователь админом (по таблице admins или email)
+-- Используем CREATE OR REPLACE, чтобы не удалять зависимые политики
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+DECLARE
+  user_email TEXT;
+BEGIN
+  -- Проверяем по таблице admins
+  IF EXISTS (
+    SELECT 1 FROM public.admins
+    WHERE user_id = auth.uid() AND is_active = true
+  ) THEN
+    RETURN true;
+  END IF;
+  
+  -- Fallback: проверка по email из JWT токена (levakandproduction@gmail.com)
+  -- В Supabase email доступен через auth.jwt() ->> 'email'
+  user_email := (auth.jwt() ->> 'email');
+  IF user_email = 'levakandproduction@gmail.com' THEN
+    RETURN true;
+  END IF;
+  
+  RETURN false;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
 -- Политика: админы могут читать все заявки (для админки)
 CREATE POLICY "pr_admin_select"
   ON public.payment_requests FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.admins
-      WHERE user_id = auth.uid() AND is_active = true
-    )
-  );
+  USING (public.is_admin());
 
 -- Политика: админы могут обновлять заявки (подтверждение/отклонение)
 CREATE POLICY "pr_admin_update"
   ON public.payment_requests FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.admins
-      WHERE user_id = auth.uid() AND is_active = true
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.admins
-      WHERE user_id = auth.uid() AND is_active = true
-    )
-  );
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());

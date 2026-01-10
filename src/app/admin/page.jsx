@@ -219,20 +219,47 @@ export default function AdminPage() {
       // Загружаем заявки на оплату
       let paymentRequestsData = [];
       try {
+        console.log('[Admin] Загружаем заявки на оплату...');
+        
+        // Проверяем, является ли текущий пользователь админом
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: adminCheck } = await supabase
+            .from("admins")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .eq("is_active", true)
+            .maybeSingle();
+          console.log('[Admin] Проверка прав админа:', {
+            userId: session.user.id,
+            email: session.user.email,
+            isAdmin: !!adminCheck,
+            adminRecord: adminCheck
+          });
+        }
+        
         const { data, error } = await supabase
           .from("payment_requests")
           .select("*")
           .order("created_at", { ascending: false });
         
         if (error) {
-          console.warn("Таблица payment_requests не найдена или ошибка:", error);
+          console.error("[Admin] Ошибка загрузки payment_requests:", error);
+          console.error("[Admin] Детали ошибки:", {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
         } else {
+          console.log('[Admin] Загружено заявок на оплату:', data?.length || 0);
           paymentRequestsData = data || [];
-          // Получаем email для каждой заявки из auth или payments
+          
+          // Получаем email для каждой заявки из auth.users через функцию
           paymentRequestsData = await Promise.all(
             (paymentRequestsData || []).map(async (request) => {
               try {
-                // Пытаемся получить email из payments
+                // Пытаемся получить email из auth.users через admin функцию или из payments
                 const { data: paymentData } = await supabase
                   .from("payments")
                   .select("user_email")
@@ -244,14 +271,15 @@ export default function AdminPage() {
                   ...request,
                   user_email: paymentData?.user_email || null,
                 };
-              } catch {
+              } catch (err) {
+                console.warn('[Admin] Ошибка получения email для заявки:', request.id, err);
                 return request;
               }
             })
           );
         }
       } catch (e) {
-        console.warn("Ошибка загрузки заявок на оплату:", e);
+        console.error("[Admin] Критическая ошибка загрузки заявок на оплату:", e);
       }
 
       setUsers(usersWithEmail);

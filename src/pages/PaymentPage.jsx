@@ -77,7 +77,14 @@ export default function PaymentPage() {
 
         if (uploadError) {
           console.error("Ошибка загрузки файла в Storage:", uploadError);
-          alert(`Ошибка загрузки чека: ${uploadError.message || 'Storage недоступен. Обратитесь в поддержку.'}`);
+          
+          // Проверяем конкретную ошибку "Bucket not found"
+          if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('not found')) {
+            alert(`Ошибка: Storage бакет "payments" не найден.\n\nЧтобы исправить:\n1. Откройте Supabase Dashboard\n2. Перейдите в Storage\n3. Создайте бакет с названием "payments"\n4. Включите Public access в настройках бакета\n5. Добавьте Policy: разрешить INSERT для авторизованных пользователей`);
+          } else {
+            alert(`Ошибка загрузки чека: ${uploadError.message || 'Storage недоступен. Обратитесь в поддержку.'}`);
+          }
+          
           setBtnDisabled(false);
           setBtnText("Отправить отчет");
           setBtnGreen(false);
@@ -94,7 +101,8 @@ export default function PaymentPage() {
         }
         
         receiptUrl = publicUrl;
-        console.log('[Payment] Файл успешно загружен в Storage:', receiptUrl);
+        console.log('[Payment] ✅ Файл успешно загружен в Storage:', receiptUrl);
+        console.log('[Payment] 📋 Публичный URL для админки:', receiptUrl);
       } catch (storageError) {
         console.error("Критическая ошибка Storage:", storageError);
         alert(`Ошибка загрузки чека: ${storageError.message || 'Storage недоступен. Обратитесь в поддержку.'}`);
