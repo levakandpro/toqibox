@@ -17,15 +17,27 @@ export async function onRequestPost(context) {
   };
 
   try {
-    console.log('[notify-payment-request] Function called');
+    console.log('[notify-payment-request] ⚡ Function called at', new Date().toISOString());
     
     // Проверяем наличие обязательных переменных окружения
-    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_ADMIN_CHAT_ID || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    const botToken = env.TELEGRAM_BOT_TOKEN;
+    const chatId = env.TELEGRAM_ADMIN_CHAT_ID;
+    const supabaseUrl = env.SUPABASE_URL;
+    const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    console.log('[notify-payment-request] Environment check:', {
+      hasBotToken: !!botToken,
+      hasChatId: !!chatId,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseKey: !!supabaseKey
+    });
+    
+    if (!botToken || !chatId || !supabaseUrl || !supabaseKey) {
       const missing = [];
-      if (!env.TELEGRAM_BOT_TOKEN) missing.push('TELEGRAM_BOT_TOKEN');
-      if (!env.TELEGRAM_ADMIN_CHAT_ID) missing.push('TELEGRAM_ADMIN_CHAT_ID');
-      if (!env.SUPABASE_URL) missing.push('SUPABASE_URL');
-      if (!env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+      if (!botToken) missing.push('TELEGRAM_BOT_TOKEN');
+      if (!chatId) missing.push('TELEGRAM_ADMIN_CHAT_ID');
+      if (!supabaseUrl) missing.push('SUPABASE_URL');
+      if (!supabaseKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
       console.error('[notify-payment-request] ❌ Missing required environment variables:', missing);
       return new Response(
         JSON.stringify({ error: "Server configuration error", missing }),
@@ -50,9 +62,7 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Используем Supabase REST API напрямую (service role)
-    const supabaseUrl = env.SUPABASE_URL;
-    const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+    // Используем переменные, которые уже извлечены выше
 
     // Получаем данные заявки из БД через REST API
     console.log('[notify-payment-request] Fetching payment request from Supabase:', payment_request_id);
