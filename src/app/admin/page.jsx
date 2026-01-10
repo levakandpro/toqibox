@@ -1190,9 +1190,32 @@ export default function AdminPage() {
                               {user.toqibox_plan === 'free' || !user.toqibox_plan ? 'БЕСПЛАТНЫЙ' : (user.toqibox_plan || 'free').toUpperCase()}
                             </td>
                             <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
-                              {user.toqibox_plan_expires_at 
-                                ? new Date(user.toqibox_plan_expires_at).toLocaleString("ru-RU")
-                                : '-'}
+                              {user.toqibox_plan_expires_at ? (() => {
+                                const expiresDate = new Date(user.toqibox_plan_expires_at);
+                                const now = new Date();
+                                const daysLeft = Math.ceil((expiresDate - now) / (1000 * 60 * 60 * 24));
+                                
+                                const dateStr = expiresDate.toLocaleDateString("ru-RU", {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                });
+                                
+                                if (daysLeft < 0) {
+                                  return <span style={{ color: '#ef4444' }}>Истек: {dateStr}</span>;
+                                } else if (daysLeft <= 7) {
+                                  return (
+                                    <div>
+                                      <div style={{ fontWeight: 600 }}>До {dateStr}</div>
+                                      <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>
+                                        Осталось: {daysLeft} {daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  return <span style={{ fontWeight: 600 }}>До {dateStr}</span>;
+                                }
+                              })() : '-'}
                             </td>
                             <td style={{ padding: '12px' }}>
                               <span 
@@ -1258,9 +1281,32 @@ export default function AdminPage() {
                               {user.studio_plan === 'free' || !user.studio_plan ? 'БЕСПЛАТНЫЙ' : (user.studio_plan || 'free').toUpperCase()}
                             </td>
                             <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
-                              {user.studio_plan_expires_at 
-                                ? new Date(user.studio_plan_expires_at).toLocaleString("ru-RU")
-                                : '-'}
+                              {user.studio_plan_expires_at ? (() => {
+                                const expiresDate = new Date(user.studio_plan_expires_at);
+                                const now = new Date();
+                                const daysLeft = Math.ceil((expiresDate - now) / (1000 * 60 * 60 * 24));
+                                
+                                const dateStr = expiresDate.toLocaleDateString("ru-RU", {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                });
+                                
+                                if (daysLeft < 0) {
+                                  return <span style={{ color: '#ef4444' }}>Истек: {dateStr}</span>;
+                                } else if (daysLeft <= 7) {
+                                  return (
+                                    <div>
+                                      <div style={{ fontWeight: 600 }}>До {dateStr}</div>
+                                      <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>
+                                        Осталось: {daysLeft} {daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  return <span style={{ fontWeight: 600 }}>До {dateStr}</span>;
+                                }
+                              })() : '-'}
                             </td>
                             <td style={{ padding: '12px' }}>
                               <span 
@@ -1356,9 +1402,32 @@ export default function AdminPage() {
                             {(user.studio_plan || 'free').toUpperCase()}
                           </td>
                           <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
-                            {user.studio_plan_expires_at 
-                              ? new Date(user.studio_plan_expires_at).toLocaleString("ru-RU")
-                              : '-'}
+                            {user.studio_plan_expires_at ? (() => {
+                              const expiresDate = new Date(user.studio_plan_expires_at);
+                              const now = new Date();
+                              const daysLeft = Math.ceil((expiresDate - now) / (1000 * 60 * 60 * 24));
+                              
+                              const dateStr = expiresDate.toLocaleDateString("ru-RU", {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              });
+                              
+                              if (daysLeft < 0) {
+                                return <span style={{ color: '#ef4444' }}>Истек: {dateStr}</span>;
+                              } else if (daysLeft <= 7) {
+                                return (
+                                  <div>
+                                    <div style={{ fontWeight: 600 }}>До {dateStr}</div>
+                                    <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>
+                                      Осталось: {daysLeft} {daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}
+                                    </div>
+                                  </div>
+                                );
+                              } else {
+                                return <span style={{ fontWeight: 600 }}>До {dateStr}</span>;
+                              }
+                            })() : '-'}
                           </td>
                           <td style={{ padding: '12px' }}>
                             <span 
