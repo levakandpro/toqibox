@@ -159,8 +159,7 @@ export async function onRequestPost(context) {
         body: JSON.stringify({
           chat_id: chatId,
           text: messageText,
-          reply_markup: inlineKeyboard,
-          parse_mode: 'HTML'
+          reply_markup: inlineKeyboard
         })
       });
 
@@ -191,8 +190,7 @@ export async function onRequestPost(context) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 chat_id: chatId,
-                text: `📎 Чек: <a href="${receiptUrl}">Открыть</a>`,
-                parse_mode: 'HTML'
+                text: `📎 Чек: ${receiptUrl}`
               })
             }).catch(err => console.error("Error sending receipt URL:", err));
           } else {
@@ -265,8 +263,7 @@ export async function onRequestPost(context) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   chat_id: chatId,
-                  text: `📎 Чек: <a href="${receiptUrl}">Открыть</a>`,
-                  parse_mode: 'HTML'
+                  text: `📎 Чек: ${receiptUrl}`
                 })
               }).catch(err => console.error("Error sending receipt URL fallback:", err));
             }
