@@ -23,6 +23,13 @@ CREATE INDEX IF NOT EXISTS idx_payment_requests_created_at ON public.payment_req
 -- RLS
 ALTER TABLE public.payment_requests ENABLE ROW LEVEL SECURITY;
 
+-- Удаляем существующие политики, если они есть (для обновления)
+DROP POLICY IF EXISTS "pr_select_own" ON public.payment_requests;
+DROP POLICY IF EXISTS "pr_insert_own" ON public.payment_requests;
+DROP POLICY IF EXISTS "pr_admin_all" ON public.payment_requests;
+DROP POLICY IF EXISTS "pr_admin_select" ON public.payment_requests;
+DROP POLICY IF EXISTS "pr_admin_update" ON public.payment_requests;
+
 -- Политика: пользователь видит только свои заявки
 CREATE POLICY "pr_select_own"
   ON public.payment_requests FOR SELECT
@@ -33,18 +40,28 @@ CREATE POLICY "pr_insert_own"
   ON public.payment_requests FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
--- Политика: админы могут все операции (SELECT, UPDATE, INSERT, DELETE)
-CREATE POLICY "pr_admin_all"
-  ON public.payment_requests FOR ALL
+-- Политика: админы могут читать все заявки (для админки)
+CREATE POLICY "pr_admin_select"
+  ON public.payment_requests FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND is_admin = true
+      SELECT 1 FROM public.admins
+      WHERE user_id = auth.uid() AND is_active = true
+    )
+  );
+
+-- Политика: админы могут обновлять заявки (подтверждение/отклонение)
+CREATE POLICY "pr_admin_update"
+  ON public.payment_requests FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.admins
+      WHERE user_id = auth.uid() AND is_active = true
     )
   )
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND is_admin = true
+      SELECT 1 FROM public.admins
+      WHERE user_id = auth.uid() AND is_active = true
     )
   );

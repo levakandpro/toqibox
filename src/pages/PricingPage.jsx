@@ -77,27 +77,50 @@ export default function PricingPage() {
       const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
       const filePath = `payments/${fileName}`;
 
-      let screenshotUrl = previewUrl;
-
-      // Пытаемся загрузить файл в Supabase Storage (если бакет существует)
+      // КРИТИЧЕСКИ ВАЖНО: Файл ДОЛЖЕН быть загружен в Storage, иначе blob URL не будет работать
+      // Загружаем файл в Supabase Storage
+      let screenshotUrl = null;
       try {
         const { error: uploadError } = await supabase.storage
           .from('payments')
-          .upload(filePath, file);
+          .upload(filePath, file, {
+            upsert: false, // Не перезаписывать существующие файлы
+            cacheControl: '3600',
+          });
 
-        if (!uploadError) {
-          // Получаем публичный URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('payments')
-            .getPublicUrl(filePath);
-          screenshotUrl = publicUrl;
-        } else {
-          console.warn("Ошибка загрузки файла в Storage:", uploadError);
-          // Используем previewUrl (blob URL) как fallback
+        if (uploadError) {
+          console.error("Ошибка загрузки файла в Storage:", uploadError);
+          alert(`Ошибка загрузки чека: ${uploadError.message || 'Storage недоступен. Обратитесь в поддержку.'}`);
+          setBtnDisabled(false);
+          setBtnText("Отправить отчет");
+          return;
         }
+
+        // Получаем публичный URL только после успешной загрузки
+        const { data: { publicUrl } } = supabase.storage
+          .from('payments')
+          .getPublicUrl(filePath);
+        
+        if (!publicUrl) {
+          throw new Error('Не удалось получить публичный URL файла');
+        }
+        
+        screenshotUrl = publicUrl;
+        console.log('[Payment] Файл успешно загружен в Storage:', screenshotUrl);
       } catch (storageError) {
-        console.warn("Storage недоступен:", storageError);
-        // Используем previewUrl как fallback
+        console.error("Критическая ошибка Storage:", storageError);
+        alert(`Ошибка загрузки чека: ${storageError.message || 'Storage недоступен. Обратитесь в поддержку.'}`);
+        setBtnDisabled(false);
+        setBtnText("Отправить отчет");
+        return;
+      }
+
+      // Проверяем, что получили валидный URL (НЕ blob URL)
+      if (!screenshotUrl || screenshotUrl.startsWith('blob:')) {
+        alert('Ошибка: не удалось загрузить чек. Попробуйте еще раз или обратитесь в поддержку.');
+        setBtnDisabled(false);
+        setBtnText("Отправить отчет");
+        return;
       }
 
       // Создаем запись в таблице payment_requests для TOQIBOX
@@ -106,7 +129,15 @@ export default function PricingPage() {
         const planLower = selectedPlan === 'PREMIUM+' ? 'premium_plus' : 'premium';
         const amountNum = parseFloat(selectedAmount) || 0;
 
-        const { error: dbError } = await supabase
+        console.log('[Payment] Сохраняем заявку в БД:', {
+          user_id: session.user.id,
+          product: 'toqibox',
+          plan: planLower,
+          amount: amountNum,
+          receipt_url: screenshotUrl,
+        });
+
+        const { data: insertedData, error: dbError } = await supabase
           .from('payment_requests')
           .insert({
             user_id: session.user.id,
@@ -115,23 +146,36 @@ export default function PricingPage() {
             amount: amountNum,
             receipt_url: screenshotUrl,
             status: 'pending'
-          });
+          })
+          .select();
 
         if (dbError) {
+          console.error('[Payment] Ошибка сохранения в БД:', dbError);
           // Если таблицы нет, просто показываем сообщение
           if (dbError.code === '42P01' || dbError.message?.includes('does not exist')) {
             console.warn("Таблица payment_requests не найдена. Создайте её через SQL скрипт.");
-            alert("Платеж отправлен. Ожидайте подтверждения. (Таблица payment_requests не настроена)");
-            handleBack();
+            alert("Ошибка: Таблица payment_requests не найдена. Обратитесь в поддержку.");
+            setBtnDisabled(false);
+            setBtnText("Отправить отчет");
+            return;
+          }
+          // Ошибка RLS - политики не позволяют вставить
+          if (dbError.code === '42501' || dbError.message?.includes('permission denied') || dbError.message?.includes('RLS')) {
+            console.error("Ошибка RLS: нет прав на вставку. Проверьте политики payment_requests.");
+            alert("Ошибка сохранения: нет прав доступа. Обратитесь в поддержку.");
+            setBtnDisabled(false);
+            setBtnText("Отправить отчет");
             return;
           }
           throw dbError;
         }
+
+        console.log('[Payment] Заявка успешно сохранена:', insertedData);
       } catch (dbError) {
-        console.error("Ошибка сохранения заявки на оплату:", dbError);
-        // Показываем сообщение, но не блокируем пользователя
-        alert("Платеж отправлен. Ожидайте подтверждения.");
-        handleBack();
+        console.error("[Payment] Критическая ошибка сохранения заявки:", dbError);
+        alert(`Ошибка отправки заявки: ${dbError.message || 'Неизвестная ошибка'}. Обратитесь в поддержку.`);
+        setBtnDisabled(false);
+        setBtnText("Отправить отчет");
         return;
       }
 
