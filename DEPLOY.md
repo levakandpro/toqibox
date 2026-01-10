@@ -1,74 +1,54 @@
 # Инструкция по деплою TOQIBOX
 
-## Переменные окружения
+## Деплой через Cloudflare Pages
 
-Для работы приложения нужны следующие переменные окружения:
+Проект настроен на автоматический деплой через Cloudflare Pages при push в репозиторий GitHub.
 
-- `VITE_SUPABASE_URL` - URL вашего Supabase проекта
-- `VITE_SUPABASE_ANON_KEY` - Anon ключ Supabase
+### Настройка переменных окружения
 
-## Деплой на Vercel
+В Cloudflare Pages Dashboard:
+1. Откройте проект `toqibox`
+2. Перейдите в **Settings** → **Environment Variables**
+3. Добавьте следующие переменные:
+   - `VITE_SUPABASE_URL` - URL вашего Supabase проекта
+   - `VITE_SUPABASE_ANON_KEY` - Anon ключ Supabase
 
-1. Установите Vercel CLI:
-```bash
-npm i -g vercel
-```
+### Процесс деплоя
 
-2. Войдите в Vercel:
-```bash
-vercel login
-```
+1. **Push изменений в GitHub:**
+   ```bash
+   git add .
+   git commit -m "Описание изменений"
+   git push
+   ```
 
-3. Добавьте переменные окружения в Vercel Dashboard:
-   - Settings → Environment Variables
-   - Добавьте `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`
+2. **Автоматический деплой:**
+   - Cloudflare Pages автоматически обнаружит новый коммит
+   - Начнется процесс сборки (`npm run build`)
+   - После успешной сборки сайт будет задеплоен
 
-4. Деплой:
-```bash
-vercel --prod
-```
+3. **Проверка статуса:**
+   - Откройте [Cloudflare Pages Dashboard](https://dash.cloudflare.com)
+   - Перейдите в раздел **Deployments**
+   - Проверьте статус последнего деплоя
 
-Или через GitHub:
-- Подключите репозиторий к Vercel
-- Vercel автоматически определит настройки из `vercel.json`
-- Добавьте переменные окружения в настройках проекта
-
-## Деплой на Netlify
-
-1. Создайте файл `netlify.toml` в корне проекта:
-```toml
-[build]
-  command = "npm run build"
-  publish = "dist"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-```
-
-2. Добавьте переменные окружения в Netlify Dashboard:
-   - Site settings → Environment variables
-   - Добавьте `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`
-
-3. Деплой через Netlify CLI:
-```bash
-npm i -g netlify-cli
-netlify login
-netlify deploy --prod
-```
-
-## Проверка после деплоя
+### Проверка после деплоя
 
 1. Проверьте, что главная страница открывается
 2. Проверьте авторизацию через Google
 3. Проверьте создание страницы артиста
 4. Проверьте редактирование на странице артиста
 
-## Настройка Supabase
+### Настройка Supabase
 
 Убедитесь, что в настройках Supabase добавлены правильные URL для редиректов:
 - Authentication → URL Configuration
-- Site URL: ваш домен (например, https://toqibox.vercel.app)
+- Site URL: ваш домен (например, `https://toqibox.pages.dev` или `https://toqibox.win`)
 - Redirect URLs: добавьте `https://ваш-домен/auth/callback`
 
+### Ручной перезапуск деплоя
+
+Если нужно принудительно перезапустить деплой:
+- В Cloudflare Pages Dashboard найдите нужный деплой
+- Нажмите на кнопку с тремя точками (⋯)
+- Выберите **Retry deployment**
