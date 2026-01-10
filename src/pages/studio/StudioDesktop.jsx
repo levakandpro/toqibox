@@ -10504,7 +10504,15 @@ export default function StudioDesktop() {
             
             const limits = getExportLimits(effectivePlan);
             const todayExports = usageDaily?.exports_success || 0;
-            const remaining = Math.max(0, limits.success - todayExports);
+            
+            // Для free плана учитываем лимит как по аккаунту, так и по устройству
+            let remaining = Math.max(0, limits.success - todayExports);
+            if (effectivePlan === 'free' && deviceUsageDaily !== null) {
+              const todayDeviceExports = deviceUsageDaily?.exports_success || 0;
+              const remainingByDevice = Math.max(0, limits.success - todayDeviceExports);
+              // Берем минимум из двух лимитов (по аккаунту и по устройству)
+              remaining = Math.min(remaining, remainingByDevice);
+            }
             
             return (
               <div style={{ 
@@ -10636,7 +10644,7 @@ export default function StudioDesktop() {
             zIndex: 100000,
             display: 'flex',
             alignItems: 'center',
-            justify: 'center',
+            justifyContent: 'center',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           }}
           onClick={() => setShowLimitModal(false)}
@@ -10722,7 +10730,15 @@ export default function StudioDesktop() {
         
         const limits = getExportLimits(effectivePlan);
         const todayExports = usageDaily?.exports_success || 0;
-        const remaining = Math.max(0, limits.success - todayExports);
+        
+        // Для free плана учитываем лимит как по аккаунту, так и по устройству
+        let remaining = Math.max(0, limits.success - todayExports);
+        if (effectivePlan === 'free' && deviceUsageDaily !== null) {
+          const todayDeviceExports = deviceUsageDaily?.exports_success || 0;
+          const remainingByDevice = Math.max(0, limits.success - todayDeviceExports);
+          // Берем минимум из двух лимитов (по аккаунту и по устройству)
+          remaining = Math.min(remaining, remainingByDevice);
+        }
         
         return (
           <div 
