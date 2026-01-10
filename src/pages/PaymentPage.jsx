@@ -171,6 +171,29 @@ export default function PaymentPage() {
         }
 
         console.log('[Payment] Заявка успешно сохранена:', insertedData);
+
+        // Отправляем уведомление в Telegram после успешного сохранения
+        if (insertedData && insertedData[0] && insertedData[0].id) {
+          const paymentRequestId = insertedData[0].id;
+          
+          try {
+            // Вызываем серверный endpoint для уведомления в Telegram
+            const notifyResponse = await fetch('/api/tg/notify-payment-request', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ payment_request_id: paymentRequestId })
+            });
+
+            if (!notifyResponse.ok) {
+              console.warn('[Payment] Не удалось отправить уведомление в Telegram, но заявка сохранена');
+            } else {
+              console.log('[Payment] Уведомление в Telegram отправлено');
+            }
+          } catch (notifyError) {
+            // Не блокируем успешную отправку заявки, если уведомление не отправилось
+            console.warn('[Payment] Ошибка отправки уведомления в Telegram:', notifyError);
+          }
+        }
       } catch (dbError) {
         console.error("[Payment] Критическая ошибка сохранения заявки:", dbError);
         alert(`Ошибка отправки заявки: ${dbError.message || 'Неизвестная ошибка'}. Обратитесь в поддержку.`);
