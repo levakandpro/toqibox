@@ -494,16 +494,31 @@ export default function AdminPage() {
   };
 
   const handleStudioRemove = async (userId) => {
+    if (!confirm('Убрать премиум подписку и вернуть пользователя на бесплатный план?')) return;
+    
     try {
-      await supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminId = session?.user?.id || null;
+      
+      const { error } = await supabase
         .from('profiles')
         .update({
           studio_plan: 'free',
           studio_plan_expires_at: null,
+          studio_approved_at: null,
+          studio_approved_by: null,
         })
         .eq('id', userId);
       
+      if (error) {
+        throw error;
+      }
+      
+      // Обновляем данные
       await loadStudioData();
+      await loadData(); // Также обновляем общие данные
+      
+      alert('Премиум подписка успешно убрана. Пользователь переведен на бесплатный план.');
     } catch (error) {
       console.error('Ошибка снятия Studio тарифа:', error);
       alert('Ошибка: ' + error.message);
@@ -1148,7 +1163,7 @@ export default function AdminPage() {
                               <div style={{ fontSize: '9px', opacity: 0.5, fontFamily: 'monospace', marginTop: '2px', color: '#86868b' }}>{user.id}</div>
                             </td>
                             <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
-                              {(user.toqibox_plan || 'free').toUpperCase()}
+                              {user.toqibox_plan === 'free' || !user.toqibox_plan ? 'БЕСПЛАТНЫЙ' : (user.toqibox_plan || 'free').toUpperCase()}
                             </td>
                             <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
                               {user.toqibox_plan_expires_at 
@@ -1214,7 +1229,7 @@ export default function AdminPage() {
                               <div style={{ fontSize: '9px', opacity: 0.5, fontFamily: 'monospace', marginTop: '2px', color: '#86868b' }}>{user.id}</div>
                             </td>
                             <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
-                              {(user.studio_plan || 'free').toUpperCase()}
+                              {user.studio_plan === 'free' || !user.studio_plan ? 'БЕСПЛАТНЫЙ' : (user.studio_plan || 'free').toUpperCase()}
                             </td>
                             <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
                               {user.studio_plan_expires_at 
@@ -1284,8 +1299,8 @@ export default function AdminPage() {
                   <thead>
                     <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Email/ID</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Plan</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Expires At</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Истекает</th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Действия</th>
                     </tr>
@@ -1445,7 +1460,7 @@ export default function AdminPage() {
                     <thead>
                       <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Дата создания</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>User ID</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Пользователь</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Длительность</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Разрешение</th>
@@ -1505,15 +1520,33 @@ export default function AdminPage() {
 
         {activeTab === "payment_requests" && (
           <div className="admin-list">
+            {paymentRequestStatusFilter === 'all' && filteredPaymentRequests.length > 0 && (
+              <div style={{ 
+                marginBottom: '16px', 
+                padding: '12px', 
+                backgroundColor: '#f0f9ff', 
+                borderRadius: '8px', 
+                fontSize: '12px', 
+                color: '#1d1d1f',
+                border: '1px solid #bae6fd'
+              }}>
+                <strong>💡 Подсказка:</strong> Используйте фильтр "Ожидающие" чтобы видеть только необработанные заявки. 
+                Обработанные заявки остаются в списке для истории.
+              </div>
+            )}
             {filteredPaymentRequests.length === 0 ? (
               <div className="admin-empty">
                 <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#1d1d1f' }}>
                   Заявки на оплату не найдены
                 </div>
                 <div style={{ fontSize: '12px', color: '#86868b', lineHeight: '1.5', maxWidth: '500px', margin: '0 auto' }}>
-                  Здесь будут отображаться заявки пользователей, которые оплатили подписку и прикрепили чек об оплате.
-                  <br />
-                  После проверки чека вы можете одобрить или отклонить заявку.
+                  {paymentRequestStatusFilter === 'all' 
+                    ? 'Заявки на оплату не найдены. Используйте фильтры для поиска.'
+                    : paymentRequestStatusFilter === 'pending'
+                    ? 'Нет заявок, ожидающих обработки.'
+                    : paymentRequestStatusFilter === 'approved'
+                    ? 'Нет одобренных заявок.'
+                    : 'Нет отклоненных заявок.'}
                 </div>
               </div>
             ) : (
@@ -1521,7 +1554,7 @@ export default function AdminPage() {
                 <thead>
                   <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
                     <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Дата</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>User ID</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Пользователь</th>
                     <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Продукт</th>
                     <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
                     <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Сумма</th>
@@ -1552,7 +1585,14 @@ export default function AdminPage() {
                     };
                     
                     return (
-                      <tr key={request.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                      <tr 
+                        key={request.id} 
+                        style={{ 
+                          borderBottom: '1px solid #f5f5f7',
+                          backgroundColor: request.status === 'approved' ? '#f0fdf4' : request.status === 'rejected' ? '#fef2f2' : 'transparent',
+                          opacity: request.status !== 'pending' ? 0.85 : 1
+                        }}
+                      >
                         <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
                           {new Date(request.created_at).toLocaleString("ru-RU")}
                         </td>
@@ -1574,6 +1614,12 @@ export default function AdminPage() {
                             <button
                               className="btn-edit"
                               onClick={() => {
+                                console.log('[Admin] Открываем чек:', {
+                                  requestId: request.id,
+                                  receiptUrl: request.receipt_url,
+                                  isBlob: request.receipt_url?.startsWith('blob:'),
+                                  isStorage: request.receipt_url?.includes('supabase.co')
+                                });
                                 setSelectedReceiptUrl(request.receipt_url);
                                 setShowReceiptModal(true);
                               }}
@@ -1619,13 +1665,13 @@ export default function AdminPage() {
                             </div>
                           )}
                           {request.status === 'approved' && request.approved_at && (
-                            <div style={{ fontSize: '10px', opacity: 0.7, color: '#86868b' }}>
-                              Одобрено: {new Date(request.approved_at).toLocaleString("ru-RU")}
+                            <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 500 }}>
+                              ✓ Одобрено: {new Date(request.approved_at).toLocaleString("ru-RU")}
                             </div>
                           )}
                           {request.status === 'rejected' && request.rejected_at && (
-                            <div style={{ fontSize: '10px', opacity: 0.7, color: '#86868b' }}>
-                              Отклонено: {new Date(request.rejected_at).toLocaleString("ru-RU")}
+                            <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 500 }}>
+                              ✗ Отклонено: {new Date(request.rejected_at).toLocaleString("ru-RU")}
                             </div>
                           )}
                         </td>
@@ -1732,10 +1778,24 @@ export default function AdminPage() {
         }}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', overflow: 'auto' }}>
             <h3>Просмотр чека</h3>
+            {selectedReceiptUrl && (
+              <div style={{ marginBottom: '12px', fontSize: '11px', color: '#86868b', wordBreak: 'break-all' }}>
+                URL: {selectedReceiptUrl}
+              </div>
+            )}
             <div style={{ marginBottom: '20px' }}>
               <img 
                 src={selectedReceiptUrl} 
                 alt="Чек об оплате" 
+                onError={(e) => {
+                  console.error('[Admin] Ошибка загрузки чека:', {
+                    url: selectedReceiptUrl,
+                    error: e,
+                    isBlob: selectedReceiptUrl?.startsWith('blob:')
+                  });
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
                 style={{ 
                   width: '100%', 
                   height: 'auto', 
@@ -1743,6 +1803,22 @@ export default function AdminPage() {
                   border: '1px solid #d2d2d7'
                 }} 
               />
+              <div style={{ 
+                display: 'none', 
+                padding: '40px', 
+                textAlign: 'center', 
+                color: '#ef4444',
+                border: '2px dashed #ef4444',
+                borderRadius: '8px'
+              }}>
+                <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>Ошибка загрузки чека</div>
+                <div style={{ fontSize: '12px', color: '#86868b', marginBottom: '12px' }}>
+                  URL может быть недействительным (blob URL) или файл не найден в Storage
+                </div>
+                <div style={{ fontSize: '11px', color: '#86868b', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                  {selectedReceiptUrl}
+                </div>
+              </div>
             </div>
             <div className="modal-actions">
               <button
