@@ -18,6 +18,7 @@ export default function PricingPage() {
   const [btnText, setBtnText] = useState("Отправить отчет");
   const [btnDisabled, setBtnDisabled] = useState(false);
   const [btnGreen, setBtnGreen] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const links = {
     login: "/login",
@@ -211,22 +212,31 @@ export default function PricingPage() {
               body: JSON.stringify({ payment_request_id: paymentRequestId })
             });
 
+            const responseText = await notifyResponse.text().catch(() => 'Unknown error');
             if (!notifyResponse.ok) {
-              const errorText = await notifyResponse.text().catch(() => 'Unknown error');
-              console.error('[Payment] Ошибка отправки уведомления в Telegram:', {
+              console.error('[Payment] ❌ Ошибка отправки уведомления в Telegram:', {
                 status: notifyResponse.status,
                 statusText: notifyResponse.statusText,
-                body: errorText
+                body: responseText.substring(0, 500)
               });
-              console.warn('[Payment] Заявка сохранена, но уведомление в Telegram не отправлено');
+              console.warn('[Payment] ⚠️ Заявка сохранена, но уведомление в Telegram не отправлено.');
+              console.warn('[Payment] Проверьте переменные окружения в Cloudflare Pages:');
+              console.warn('  - TELEGRAM_BOT_TOKEN');
+              console.warn('  - TELEGRAM_ADMIN_CHAT_ID');
+              console.warn('  - SUPABASE_URL');
+              console.warn('  - SUPABASE_SERVICE_ROLE_KEY');
             } else {
-              const result = await notifyResponse.json().catch(() => ({}));
-              console.log('[Payment] ✅ Уведомление в Telegram отправлено:', result);
+              try {
+                const result = JSON.parse(responseText || '{}');
+                console.log('[Payment] ✅ Уведомление в Telegram отправлено:', result);
+              } catch (parseError) {
+                console.log('[Payment] ✅ Уведомление отправлено (ответ не JSON):', responseText.substring(0, 200));
+              }
             }
           } catch (notifyError) {
             // Не блокируем успешную отправку заявки, если уведомление не отправилось
             console.error('[Payment] ❌ Критическая ошибка при отправке уведомления в Telegram:', notifyError);
-            console.warn('[Payment] Заявка сохранена в БД, но уведомление в Telegram не отправлено. Проверьте логи Cloudflare Pages Functions.');
+            console.warn('[Payment] ⚠️ Заявка сохранена в БД, но уведомление в Telegram не отправлено. Проверьте логи Cloudflare Pages Functions и переменные окружения.');
           }
         }
       } catch (dbError) {
@@ -237,12 +247,13 @@ export default function PricingPage() {
         return;
       }
 
-      alert("Чек успешно отправлен. Ожидайте уведомления.");
-      handleBack();
-      // Возвращаемся назад, если был returnTo
-      if (returnTo) {
-        navigate(returnTo);
-      }
+      // Показываем красивое модальное окно успеха
+      setShowSuccessModal(true);
+      setBtnDisabled(false);
+      setBtnText("Отправить отчет");
+      setBtnGreen(false);
+      setPreviewUrl("");
+      input.value = "";
     } catch (error) {
       console.error("Ошибка отправки:", error);
       alert("Ошибка отправки: " + error.message);
@@ -337,6 +348,126 @@ export default function PricingPage() {
             </main>
           </div>
         </div>
+
+        {/* Модальное окно успеха */}
+        {showSuccessModal && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.85)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000,
+              backdropFilter: 'blur(10px)',
+            }}
+            onClick={() => {
+              setShowSuccessModal(false);
+              handleBack();
+              if (returnTo) {
+                navigate(returnTo);
+              }
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#1a1a1a',
+                borderRadius: '16px',
+                padding: '32px 40px',
+                maxWidth: '420px',
+                width: '90%',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                  margin: '0 auto 24px',
+                }}
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#22c55e"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+
+              <h2
+                style={{
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  textAlign: 'center',
+                  marginBottom: '12px',
+                  lineHeight: 1.3,
+                }}
+              >
+                Чек успешно отправлен
+              </h2>
+
+              <p
+                style={{
+                  fontSize: '15px',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  textAlign: 'center',
+                  marginBottom: '32px',
+                  lineHeight: 1.6,
+                }}
+              >
+                Ваша заявка на оплату получена. Ожидайте уведомления о статусе проверки.
+              </p>
+
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  handleBack();
+                  if (returnTo) {
+                    navigate(returnTo);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '14px 24px',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: '#ffffff',
+                  backgroundColor: '#22c55e',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.backgroundColor = '#16a34a';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.backgroundColor = '#22c55e';
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
