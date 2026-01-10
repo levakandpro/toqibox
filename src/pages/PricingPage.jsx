@@ -74,8 +74,8 @@ export default function PricingPage() {
 
       const file = input.files[0];
       const fileExt = file.name.split('.').pop();
-      const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
-      const filePath = `payments/${fileName}`;
+      // Путь должен быть БЕЗ префикса "payments/", т.к. bucket уже "payments"
+      const filePath = `${session.user.id}/${Date.now()}.${fileExt}`;
 
       // КРИТИЧЕСКИ ВАЖНО: Файл ДОЛЖЕН быть загружен в Storage, иначе blob URL не будет работать
       // Загружаем файл в Supabase Storage
