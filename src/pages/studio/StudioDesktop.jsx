@@ -9665,6 +9665,11 @@ export default function StudioDesktop() {
         console.error('[Export] Error rendering first frame:', firstFrameError);
       }
       
+      // ОТЛАДКА: Проверяем, что визуалы действительно скопированы в exportCanvas
+      const debugDataURL = exportCanvas.toDataURL('image/png');
+      console.log('[Export DEBUG] First frame dataURL:', debugDataURL.substring(0, 100) + '...');
+      window.open(debugDataURL, '_blank');
+      
       // ТОЛЬКО ПОСЛЕ рендеринга первого кадра запускаем MediaRecorder
       // captureStream() уже вызван ранее (строка 9286), он отслеживает изменения exportCanvas
       mediaRecorder.start();
