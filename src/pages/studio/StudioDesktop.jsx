@@ -9001,14 +9001,21 @@ export default function StudioDesktop() {
 
   // Обработчик браузерного экспорта через MediaRecorder
   const handleExport = async () => {
+    console.log('EXPORT_STEP_1');
+    
     // Проверка авторизации
     if (!user) {
       setShowLoginModal(true);
       return;
     }
 
-    // Загружаем актуальные данные перед экспортом
-    await loadUserData();
+    // Загружаем актуальные данные перед экспортом (не падаем при ошибках БД)
+    try {
+      await loadUserData();
+    } catch (loadError) {
+      console.warn('[Export] Ошибка загрузки данных пользователя (продолжаем):', loadError);
+      // Продолжаем работу даже если данные не загрузились
+    }
 
     // Определяем лимиты по тарифу
     const limits = getExportLimits(effectivePlan);
@@ -9016,31 +9023,39 @@ export default function StudioDesktop() {
     // Объявляем переменную для ID записи экспорта
     let exportRecordId = null;
     
-    // 1. Проверка cooldown: проверяем последний exports.created_at (для всех статусов)
-    const { data: lastExport, error: cooldownError } = await supabase
-      .from('exports')
-      .select('created_at')
-      .eq('user_id', user.id)
-      .eq('product', 'studio')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 1. Проверка cooldown: проверяем последний exports.created_at (не падаем при ошибках БД)
+    console.log('EXPORT_STEP_2');
+    let cooldownPassed = true;
+    try {
+      const { data: lastExport, error: cooldownError } = await supabase
+        .from('exports')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .eq('product', 'studio')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (!cooldownError && lastExport) {
-      const lastExportTime = new Date(lastExport.created_at);
-      const now = new Date();
-      const secondsSinceLastExport = (now - lastExportTime) / 1000;
-      
-      // Cooldown: 30-60 секунд (используем 30 секунд как минимум)
-      const COOLDOWN_SECONDS = 30;
-      if (secondsSinceLastExport < COOLDOWN_SECONDS) {
-        const remainingSeconds = Math.ceil(COOLDOWN_SECONDS - secondsSinceLastExport);
-        alert(`Подождите ${remainingSeconds} секунд перед следующим экспортом`);
-        return;
+      if (!cooldownError && lastExport) {
+        const lastExportTime = new Date(lastExport.created_at);
+        const now = new Date();
+        const secondsSinceLastExport = (now - lastExportTime) / 1000;
+        
+        // Cooldown: 30-60 секунд (используем 30 секунд как минимум)
+        const COOLDOWN_SECONDS = 30;
+        if (secondsSinceLastExport < COOLDOWN_SECONDS) {
+          const remainingSeconds = Math.ceil(COOLDOWN_SECONDS - secondsSinceLastExport);
+          alert(`Подождите ${remainingSeconds} секунд перед следующим экспортом`);
+          return;
+        }
       }
+    } catch (cooldownCheckError) {
+      console.warn('[Export] Ошибка проверки cooldown (пропускаем проверку):', cooldownCheckError);
+      // Пропускаем проверку cooldown при ошибках БД - продолжаем работу
+      cooldownPassed = true;
     }
 
-    // 2. Проверка лимитов по аккаунту (используем usageDaily, который обновляется триггером при status='success')
+    // 2. Проверка лимитов по аккаунту (используем дефолтные значения при ошибках БД)
     const todayExports = usageDaily?.exports_success || 0;
     
     // Для FREE плана проверяем также лимит по устройству
@@ -9235,7 +9250,7 @@ export default function StudioDesktop() {
       exportCtx.imageSmoothingEnabled = true;
       exportCtx.imageSmoothingQuality = 'high';
 
-      // 0. Сначала создаем запись в БД со status='started' (до всех операций)
+      // 0. Сначала создаем запись в БД со status='started' (не падаем при ошибках БД)
       let exportRecordId = null;
       try {
         const { data: startedExport, error: insertError } = await supabase
@@ -9253,24 +9268,17 @@ export default function StudioDesktop() {
           .single();
 
         if (insertError) {
-          console.error('Ошибка создания записи экспорта:', insertError);
-          throw new Error('Не удалось начать экспорт. Попробуйте снова.');
+          console.warn('[Export] Ошибка создания записи в БД (продолжаем экспорт):', insertError);
+          // Не падаем - продолжаем экспорт без записи в БД
+          exportRecordId = null;
+        } else {
+          exportRecordId = startedExport?.id;
+          console.log('[Export] Запись в БД создана:', exportRecordId);
         }
-
-        exportRecordId = startedExport?.id;
       } catch (exportStartError) {
-        console.error('Ошибка при старте экспорта (БД):', exportStartError);
-        alert('Ошибка при старте экспорта: ' + exportStartError.message);
-        // Очищаем UI
-        if (document.getElementById('browser-export-overlay')) {
-          document.body.removeChild(document.getElementById('browser-export-overlay'));
-        }
-        document.body.style.overflow = '';
-        const loaderStyle = document.querySelector('style[data-export-loader]');
-        if (loaderStyle) {
-          document.head.removeChild(loaderStyle);
-        }
-        return;
+        console.warn('[Export] Ошибка при создании записи в БД (продолжаем экспорт):', exportStartError);
+        // Не падаем - продолжаем экспорт без записи в БД
+        exportRecordId = null;
       }
 
       // 1. AUDIO: Добавляем audio track в MediaStream
