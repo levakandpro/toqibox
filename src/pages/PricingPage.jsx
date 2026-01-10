@@ -136,6 +136,18 @@ export default function PricingPage() {
         const planLower = selectedPlan === 'PREMIUM+' ? 'premium_plus' : 'premium';
         const amountNum = parseFloat(selectedAmount) || 0;
 
+        // Перед созданием новой заявки отменяем старые pending заявки для того же продукта
+        console.log('[Payment] Отменяем старые pending заявки для TOQIBOX...');
+        await supabase
+          .from('payment_requests')
+          .update({
+            status: 'rejected',
+            rejected_at: new Date().toISOString()
+          })
+          .eq('user_id', session.user.id)
+          .eq('product', 'toqibox')
+          .eq('status', 'pending');
+
         console.log('[Payment] Сохраняем заявку в БД:', {
           user_id: session.user.id,
           product: 'toqibox',
@@ -162,6 +174,14 @@ export default function PricingPage() {
           if (dbError.code === '42P01' || dbError.message?.includes('does not exist')) {
             console.warn("Таблица payment_requests не найдена. Создайте её через SQL скрипт.");
             alert("Ошибка: Таблица payment_requests не найдена. Обратитесь в поддержку.");
+            setBtnDisabled(false);
+            setBtnText("Отправить отчет");
+            return;
+          }
+          // Ошибка duplicate key - уникальный индекс
+          if (dbError.code === '23505' || dbError.message?.includes('duplicate key') || dbError.message?.includes('unique constraint')) {
+            console.error("Ошибка: уже есть pending заявка для этого продукта");
+            alert("Ошибка отправки заявки: у вас уже есть активная заявка на оплату для TOQIBOX. Дождитесь её обработки или обратитесь в поддержку.");
             setBtnDisabled(false);
             setBtnText("Отправить отчет");
             return;

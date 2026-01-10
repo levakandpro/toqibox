@@ -1,0 +1,40 @@
+-- Удаляем уникальный индекс, который не позволяет создавать несколько pending заявок
+-- на один продукт от одного пользователя
+-- 
+-- ШАГ 1: Сначала проверим, какие индексы есть на таблице payment_requests
+-- Раскомментируйте и выполните этот запрос, чтобы найти правильное имя индекса:
+--
+-- SELECT 
+--   schemaname,
+--   tablename,
+--   indexname,
+--   indexdef
+-- FROM pg_indexes 
+-- WHERE tablename = 'payment_requests' 
+--   AND schemaname = 'public'
+-- ORDER BY indexname;
+--
+-- ШАГ 2: Удаляем индекс по имени (самый распространенный вариант)
+DROP INDEX IF EXISTS public.payment_requests_one_pending_per_product_idx;
+
+-- ШАГ 3 (альтернатива): Если индекс называется по-другому, 
+-- раскомментируйте и выполните этот блок для автоматического поиска и удаления:
+-- DO $$
+-- DECLARE
+--   idx_name TEXT;
+--   idx_schema TEXT;
+-- BEGIN
+--   FOR idx_name, idx_schema IN 
+--     SELECT i.indexname, i.schemaname
+--     FROM pg_indexes i
+--     JOIN pg_class c ON c.relname = i.indexname
+--     JOIN pg_index idx ON idx.indexrelid = c.oid
+--     WHERE i.tablename = 'payment_requests' 
+--       AND i.schemaname = 'public'
+--       AND idx.indisunique = true
+--       AND (i.indexname LIKE '%pending%' OR i.indexname LIKE '%unique%' OR i.indexname LIKE '%product%')
+--   LOOP
+--     RAISE NOTICE 'Удаляем индекс: %.%', idx_schema, idx_name;
+--     EXECUTE format('DROP INDEX IF EXISTS %I.%I', idx_schema, idx_name);
+--   END LOOP;
+-- END $$;
