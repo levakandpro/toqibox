@@ -5,7 +5,9 @@
  * Отправляет текст сообщения с деталями заявки + чек (photo/document) + inline кнопки
  */
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost(context) {
+  const { request, env } = context;
+
   // CORS headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
