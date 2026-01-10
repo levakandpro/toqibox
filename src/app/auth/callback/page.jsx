@@ -28,66 +28,65 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      // Проверяем, новая ли это регистрация (проверяем, существует ли профиль в БД)
-      // Если профиля нет - значит это новый пользователь
+      // ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ О НОВОЙ РЕГИСТРАЦИИ СНАЧАЛА (до проверки админа)
+      // Проверяем, новая ли это регистрация по created_at пользователя
+      // Если пользователь создан меньше 30 секунд назад - считаем новым
       let isNewUser = false;
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', user.id)
-          .maybeSingle();
-        
-        // Если профиля нет и ошибка не "не найдено" - значит новый пользователь
-        if (!profileData && (!profileError || profileError.code === 'PGRST116')) {
-          isNewUser = true;
-          console.log('[Auth] Новый пользователь обнаружен:', user.email);
-        }
-      } catch (e) {
-        // Если ошибка при проверке профиля - предполагаем, что это может быть новый пользователь
-        // Проверяем по created_at как запасной вариант
-        if (user.created_at) {
-          const userAge = new Date() - new Date(user.created_at);
-          isNewUser = userAge < 10000; // Меньше 10 секунд - вероятно новый
-        }
+      if (user.created_at) {
+        const userAge = new Date() - new Date(user.created_at);
+        isNewUser = userAge < 30000; // Меньше 30 секунд - новый пользователь
+        console.log('[Auth] Проверка нового пользователя:', {
+          email: user.email,
+          created_at: user.created_at,
+          age_ms: userAge,
+          isNewUser
+        });
       }
       
       // Отправляем уведомление о новой регистрации (если это новый пользователь)
+      // Выполняем асинхронно, не блокируя остальной код
       if (isNewUser) {
-        try {
-          console.log('[Auth] Отправка уведомления о новой регистрации...');
-          fetch('/api/tg/notify-new-user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              user_id: user.id,
-              email: user.email 
-            })
-          }).then(res => {
-            if (res.ok) {
-              console.log('[Auth] Уведомление о регистрации отправлено');
-            } else {
-              console.warn('[Auth] Ошибка отправки уведомления:', res.status);
-            }
-          }).catch(err => {
-            console.warn('[Auth] Ошибка при вызове notify-new-user:', err);
-          });
-        } catch (e) {
-          console.warn('[Auth] Ошибка отправки уведомления о регистрации:', e);
-        }
+        console.log('[Auth] 🆕 Отправка уведомления о новой регистрации...');
+        fetch('/api/tg/notify-new-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            user_id: user.id,
+            email: user.email 
+          })
+        }).then(async res => {
+          if (res.ok) {
+            const result = await res.json().catch(() => ({}));
+            console.log('[Auth] ✅ Уведомление о регистрации отправлено:', result);
+          } else {
+            const errorText = await res.text().catch(() => 'Unknown error');
+            console.error('[Auth] ❌ Ошибка отправки уведомления:', {
+              status: res.status,
+              statusText: res.statusText,
+              body: errorText
+            });
+          }
+        }).catch(err => {
+          console.error('[Auth] ❌ Ошибка при вызове notify-new-user:', err);
+        });
       }
 
-      // Проверяем, является ли пользователь админом
+      // Проверяем, является ли пользователь админом (не блокируем, если ошибка)
       let isAdmin = false;
       try {
-        const { data: adminData } = await supabase
+        const { data: adminData, error: adminError } = await supabase
           .from("admins")
           .select("id")
           .eq("user_id", user.id)
           .eq("is_active", true)
-          .single();
+          .maybeSingle(); // Используем maybeSingle вместо single, чтобы не падать при отсутствии записи
         
-        isAdmin = !!adminData;
+        if (adminError) {
+          console.warn('[Auth] Ошибка проверки админа (не критично):', adminError);
+          // Не падаем, просто продолжаем без проверки через таблицу
+        } else {
+          isAdmin = !!adminData;
+        }
         
         // Также проверяем по email для надежности
         if (!isAdmin && user.email === "levakandproduction@gmail.com") {
@@ -95,7 +94,8 @@ export default function AuthCallbackPage() {
           console.log("🔑 Admin access granted by email:", user.email);
         }
       } catch (e) {
-        // Если таблица admins не существует или ошибка, проверяем только по email
+        // Если таблица admins не существует или критическая ошибка, проверяем только по email
+        console.warn('[Auth] Ошибка при проверке админа (не критично):', e);
         if (user.email === "levakandproduction@gmail.com") {
           isAdmin = true;
           console.log("🔑 Admin access granted by email (fallback):", user.email);
