@@ -288,7 +288,8 @@ export default function AdminPage() {
       setPayments(paymentsData || []);
       setPaymentRequests(paymentRequestsData || []);
 
-      // Статистика
+      // Статистика PREMIUM/PREMIUM+ только для артистов (TOQIBOX)
+      // Для Studio статистика считается отдельно в loadStudioData
       const premiumCount = artistsData?.filter(a => 
         a.premium_type && 
         a.premium_until && 
@@ -433,31 +434,48 @@ export default function AdminPage() {
         }));
       }
 
-      // Загружаем экспорты Studio
-      const { data: exportsData, error: exportsError } = await supabase
-        .from('exports')
-        .select('*')
-        .eq('product', 'studio')
-        .order('created_at', { ascending: false });
+      // Загружаем экспорты Studio (если таблица существует)
+      try {
+        const { data: exportsData, error: exportsError } = await supabase
+          .from('exports')
+          .select('*')
+          .eq('product', 'studio')
+          .order('created_at', { ascending: false });
 
-      if (exportsError) {
-        console.error('Ошибка загрузки Studio экспортов:', exportsError);
+        if (exportsError) {
+          // Таблица exports может не существовать - это нормально
+          console.warn('Таблица exports не найдена или ошибка:', exportsError);
+          setStudioExports([]);
+          setStudioStats(prev => ({
+            ...prev,
+            exportsToday: 0,
+            exportsTotal: 0,
+          }));
+        } else {
+          setStudioExports(exportsData || []);
+          
+          // Подсчитываем статистику экспортов
+          const today = new Date().toISOString().split('T')[0];
+          const exportsToday = (exportsData || []).filter(e => {
+            if (!e.created_at || !e.status) return false;
+            const exportDate = new Date(e.created_at).toISOString().split('T')[0];
+            return exportDate === today && e.status === 'success';
+          }).length;
+          const exportsTotal = (exportsData || []).filter(e => e.status === 'success').length;
+          
+          setStudioStats(prev => ({
+            ...prev,
+            exportsToday,
+            exportsTotal,
+          }));
+        }
+      } catch (exportsErr) {
+        console.warn('Ошибка при загрузке экспортов:', exportsErr);
         setStudioExports([]);
-      } else {
-        setStudioExports(exportsData || []);
-        
-        // Подсчитываем статистику экспортов
-        const today = new Date().toISOString().split('T')[0];
-        const exportsToday = (exportsData || []).filter(e => {
-          const exportDate = new Date(e.created_at).toISOString().split('T')[0];
-          return exportDate === today && e.status === 'success';
-        }).length;
-        const exportsTotal = (exportsData || []).filter(e => e.status === 'success').length;
-        
         setStudioStats(prev => ({
           ...prev,
-          exportsToday,
-          exportsTotal,
+          exportsToday: 0,
+          exportsTotal: 0,
         }));
       }
     } catch (error) {
@@ -903,30 +921,42 @@ export default function AdminPage() {
           <div className="stat-value">{stats.totalTracks}</div>
           <div className="stat-label">Треков</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-value">{stats.premiumUsers}</div>
-          <div className="stat-label">PREMIUM</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{stats.premiumPlusUsers}</div>
-          <div className="stat-label">PREMIUM+</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{studioStats.activePremium}</div>
-          <div className="stat-label">Активный PREMIUM (Studio)</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{studioStats.activePremiumPlus}</div>
-          <div className="stat-label">Активный PREMIUM+ (Studio)</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{studioStats.exportsToday}</div>
-          <div className="stat-label">Экспортов сегодня (Studio)</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{studioStats.exportsTotal}</div>
-          <div className="stat-label">Экспортов всего (Studio)</div>
-        </div>
+        {studioStats.activePremium > 0 && (
+          <div className="stat-card">
+            <div className="stat-value">{studioStats.activePremium}</div>
+            <div className="stat-label">PREMIUM (Studio)</div>
+          </div>
+        )}
+        {studioStats.activePremiumPlus > 0 && (
+          <div className="stat-card">
+            <div className="stat-value">{studioStats.activePremiumPlus}</div>
+            <div className="stat-label">PREMIUM+ (Studio)</div>
+          </div>
+        )}
+        {stats.premiumUsers > 0 && (
+          <div className="stat-card">
+            <div className="stat-value">{stats.premiumUsers}</div>
+            <div className="stat-label">PREMIUM (TOQIBOX)</div>
+          </div>
+        )}
+        {stats.premiumPlusUsers > 0 && (
+          <div className="stat-card">
+            <div className="stat-value">{stats.premiumPlusUsers}</div>
+            <div className="stat-label">PREMIUM+ (TOQIBOX)</div>
+          </div>
+        )}
+        {studioStats.exportsToday > 0 && (
+          <div className="stat-card">
+            <div className="stat-value">{studioStats.exportsToday}</div>
+            <div className="stat-label">Экспортов сегодня</div>
+          </div>
+        )}
+        {studioStats.exportsTotal > 0 && (
+          <div className="stat-card">
+            <div className="stat-value">{studioStats.exportsTotal}</div>
+            <div className="stat-label">Экспортов всего</div>
+          </div>
+        )}
       </div>
 
       {/* Поиск и фильтры */}
