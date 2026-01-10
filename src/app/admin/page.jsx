@@ -472,7 +472,12 @@ export default function AdminPage() {
       const adminId = session?.user?.id || null;
       
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
+      // PREMIUM+ дается на 1 год (365 дней), PREMIUM на 30 дней
+      if (planType === 'premium_plus') {
+        expiresAt.setDate(expiresAt.getDate() + 365);
+      } else {
+        expiresAt.setDate(expiresAt.getDate() + 30);
+      }
       
       const updateData = {
         studio_plan: planType,
@@ -487,6 +492,8 @@ export default function AdminPage() {
         .eq('id', userId);
       
       await loadStudioData();
+      const planLabel = planType === 'premium_plus' ? 'PREMIUM+ на 1 год' : 'PREMIUM на 30 дней';
+      alert(`Подписка ${planLabel} успешно активирована.`);
     } catch (error) {
       console.error('Ошибка обновления Studio тарифа:', error);
       alert('Ошибка: ' + error.message);
@@ -767,7 +774,12 @@ export default function AdminPage() {
 
       // Только если обновление успешно - продлеваем план
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
+      // PREMIUM+ дается на 1 год (365 дней), PREMIUM на 30 дней
+      if (plan === 'premium_plus') {
+        expiresAt.setDate(expiresAt.getDate() + 365);
+      } else {
+        expiresAt.setDate(expiresAt.getDate() + 30);
+      }
 
       // Обновляем профиль пользователя в зависимости от продукта
       if (product === 'studio') {
@@ -789,7 +801,8 @@ export default function AdminPage() {
       }
 
       await loadData();
-      alert('Заявка одобрена. Подписка активирована на 30 дней. Заявка перемещена в раздел "Одобренные".');
+      const planDuration = plan === 'premium_plus' ? '1 год' : '30 дней';
+      alert(`Заявка одобрена. Подписка ${plan.toUpperCase()} активирована на ${planDuration}. Заявка перемещена в раздел "Одобренные".`);
     } catch (error) {
       console.error('Ошибка одобрения заявки:', error);
       alert('Ошибка: ' + error.message);
@@ -1336,7 +1349,7 @@ export default function AdminPage() {
                                   onClick={() => handleStudioApprove(user.id, 'premium_plus')}
                                   style={{ fontSize: '11px', padding: '6px 12px' }}
                                 >
-                                  Дать PREMIUM+ на 30 дней
+                                  Дать PREMIUM+ на 1 год
                                 </button>
                                 <button
                                   className="btn-danger"
