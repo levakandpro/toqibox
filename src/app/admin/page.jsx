@@ -1227,8 +1227,9 @@ export default function AdminPage() {
                                   className="btn-danger"
                                   onClick={() => handleStudioRemove(user.id)}
                                   style={{ fontSize: '11px', padding: '6px 12px' }}
+                                  title="Убрать премиум подписку и вернуть пользователя на бесплатный план"
                                 >
-                                  Снять (FREE)
+                                  Убрать премиум
                                 </button>
                               </div>
                             </td>
@@ -1318,13 +1319,14 @@ export default function AdminPage() {
                               >
                                 Дать PREMIUM+ на 30 дней
                               </button>
-                              <button
-                                className="btn-danger"
-                                onClick={() => handleStudioRemove(user.id)}
-                                style={{ fontSize: '11px', padding: '6px 12px' }}
-                              >
-                                Снять (FREE)
-                              </button>
+                                <button
+                                  className="btn-danger"
+                                  onClick={() => handleStudioRemove(user.id)}
+                                  style={{ fontSize: '11px', padding: '6px 12px' }}
+                                  title="Убрать премиум подписку и вернуть пользователя на бесплатный план"
+                                >
+                                  Убрать премиум
+                                </button>
                             </div>
                           </td>
                         </tr>
@@ -1476,7 +1478,16 @@ export default function AdminPage() {
         {activeTab === "payment_requests" && (
           <div className="admin-list">
             {filteredPaymentRequests.length === 0 ? (
-              <div className="admin-empty">Заявки на оплату не найдены</div>
+              <div className="admin-empty">
+                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#1d1d1f' }}>
+                  Заявки на оплату не найдены
+                </div>
+                <div style={{ fontSize: '12px', color: '#86868b', lineHeight: '1.5', maxWidth: '500px', margin: '0 auto' }}>
+                  Здесь будут отображаться заявки пользователей, которые оплатили подписку и прикрепили чек об оплате.
+                  <br />
+                  После проверки чека вы можете одобрить или отклонить заявку.
+                </div>
+              </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
