@@ -9434,7 +9434,8 @@ export default function StudioDesktop() {
       const exportFrameInterval = 1000 / FPS; // Интервал между кадрами в мс
       
       // Функция рендеринга одного кадра в exportCanvas
-      const renderExportFrame = async () => {
+      // КРИТИЧЕСКИ ВАЖНО: функция ДОЛЖНА быть синхронной, все визуалы копируются через drawImage
+      const renderExportFrame = () => {
         if (!isRecording) return;
 
         const currentTime = audioEngine.getCurrentTime();
@@ -9459,7 +9460,10 @@ export default function StudioDesktop() {
           lastExportFrameTime = now - (elapsed % exportFrameInterval);
           
           try {
-            // 2. BACKGROUND: Рисуем фон ПЕРВЫМ слоем в exportCanvas
+            // КРИТИЧЕСКИ ВАЖНО: Все визуалы ДОЛЖНЫ быть скопированы в exportCanvas СИНХРОННО
+            // MediaRecorder записывает ТОЛЬКО то, что реально нарисовано в exportCanvas
+            
+            // 1. BACKGROUND: Рисуем фон ПЕРВЫМ слоем в exportCanvas
             exportCtx.clearRect(0, 0, WIDTH, HEIGHT);
             
             if (backgroundImage) {
@@ -9488,14 +9492,12 @@ export default function StudioDesktop() {
               exportCtx.fillRect(0, 0, WIDTH, HEIGHT);
             }
 
-            // 3. WEBGL VISUALS: Копируем WebGL canvas напрямую из previewElement в exportCanvas
-            // Находим все canvas элементы внутри previewElement (WebGL canvas от ShaderToyBackground)
-            // Исключаем grainCanvas и textCanvas - они обрабатываются отдельно
+            // 2. WEBGL VISUALS: Копируем WebGL canvas СИНХРОННО через drawImage
+            // ВАЖНО: WebGL canvas должен иметь preserveDrawingBuffer: true (исправлено в ShaderToyBackground.jsx)
             const webglCanvases = Array.from(previewElement.querySelectorAll('canvas')).filter(canvas => {
               return canvas !== grainCanvasRef.current && canvas !== textCanvasRef.current;
             });
             
-            // Копируем каждый WebGL canvas напрямую в exportCanvas
             for (const visualCanvas of webglCanvases) {
               try {
                 // Проверяем, что canvas действительно имеет содержимое
@@ -9515,7 +9517,7 @@ export default function StudioDesktop() {
                 const scaledWidth = (canvasRect.width / previewWidth) * WIDTH;
                 const scaledHeight = (canvasRect.height / previewHeight) * HEIGHT;
                 
-                // Копируем содержимое canvas в exportCanvas
+                // КРИТИЧЕСКИ ВАЖНО: Синхронное копирование WebGL canvas в exportCanvas
                 exportCtx.drawImage(
                   visualCanvas,
                   0, 0, visualCanvas.width, visualCanvas.height, // source: весь canvas
@@ -9527,116 +9529,58 @@ export default function StudioDesktop() {
               }
             }
             
-            // 4. GRAIN CANVAS: Копируем grainCanvas (эффект Плёнка) в exportCanvas
+            // 3. GRAIN CANVAS: Копируем grainCanvas (эффект Плёнка) СИНХРОННО
             if (grainCanvasRef.current && selectedCoverEffect === 'grain') {
               try {
                 const grainCanvas = grainCanvasRef.current;
-                // Проверяем, что canvas имеет размеры
                 if (grainCanvas.width > 0 && grainCanvas.height > 0) {
                   const canvasRect = grainCanvas.getBoundingClientRect();
                   const previewRect = previewElement.getBoundingClientRect();
                   
-                  // Вычисляем относительную позицию canvas внутри previewElement
                   const relativeX = canvasRect.left - previewRect.left;
                   const relativeY = canvasRect.top - previewRect.top;
                   
-                  // Масштабируем координаты для exportCanvas (1280x720)
                   const scaledX = (relativeX / previewWidth) * WIDTH;
                   const scaledY = (relativeY / previewHeight) * HEIGHT;
                   const scaledWidth = (canvasRect.width / previewWidth) * WIDTH;
                   const scaledHeight = (canvasRect.height / previewHeight) * HEIGHT;
                   
-                  // Копируем grain canvas в exportCanvas
+                  // Синхронное копирование grain canvas в exportCanvas
                   exportCtx.drawImage(
                     grainCanvas,
-                    0, 0, grainCanvas.width, grainCanvas.height, // source: весь canvas
-                    scaledX, scaledY, scaledWidth, scaledHeight // destination: масштабированная позиция
+                    0, 0, grainCanvas.width, grainCanvas.height,
+                    scaledX, scaledY, scaledWidth, scaledHeight
                   );
                 }
               } catch (grainError) {
                 console.warn('[Export] Error copying grain canvas:', grainError);
-                // Продолжаем без grain canvas
               }
             }
             
-            // 5. TEXT CANVAS: Копируем textCanvas в exportCanvas
-            // textCanvas скрыт (opacity: 0), но должен рендериться для экспорта
+            // 4. TEXT CANVAS: Копируем textCanvas СИНХРОННО
             if (textCanvasRef.current && photoUrl && textFont) {
               try {
                 const textCanvas = textCanvasRef.current;
-                // Проверяем, что canvas имеет размеры (1920x1080)
                 if (textCanvas.width > 0 && textCanvas.height > 0) {
                   // textCanvas имеет размеры 1920x1080, масштабируем для exportCanvas (1280x720)
-                  const scaleX = WIDTH / textCanvas.width; // 1280 / 1920 = 0.666...
-                  const scaleY = HEIGHT / textCanvas.height; // 720 / 1080 = 0.666...
-                  
-                  // Копируем text canvas в exportCanvas с масштабированием
+                  // Синхронное копирование text canvas в exportCanvas
                   exportCtx.drawImage(
                     textCanvas,
-                    0, 0, textCanvas.width, textCanvas.height, // source: весь canvas
-                    0, 0, WIDTH, HEIGHT // destination: весь exportCanvas (масштабировано)
+                    0, 0, textCanvas.width, textCanvas.height,
+                    0, 0, WIDTH, HEIGHT
                   );
                 }
               } catch (textError) {
                 console.warn('[Export] Error copying text canvas:', textError);
-                // Продолжаем без text canvas
               }
-            }
-            
-            // 6. DOM-ВИЗУАЛЫ: Копируем overlay элементы (progress bars, etc.) через html2canvas
-            // Создаем временный контейнер без canvas элементов для захвата только DOM-визуалов
-            const domOverlay = document.createElement('div');
-            domOverlay.style.cssText = 'position: absolute; top: -9999px; left: -9999px; width: ' + previewWidth + 'px; height: ' + previewHeight + 'px;';
-            document.body.appendChild(domOverlay);
-            
-            try {
-              // Копируем только DOM-элементы (без canvas) из previewElement
-              const clonedPreview = previewElement.cloneNode(true);
-              // Удаляем все canvas из клона (они уже нарисованы в exportCanvas)
-              const clonedCanvases = clonedPreview.querySelectorAll('canvas');
-              clonedCanvases.forEach(canvas => canvas.remove());
-              
-              // Удаляем фоновое изображение из клона (оно уже нарисовано в exportCanvas)
-              const clonedImages = clonedPreview.querySelectorAll('img');
-              clonedImages.forEach(img => img.remove());
-              
-              domOverlay.appendChild(clonedPreview);
-              
-              // Захватываем только DOM-визуалы (без canvas и изображений)
-              const domCanvas = await html2canvas(domOverlay, {
-                width: previewWidth,
-                height: previewHeight,
-                scale: 1,
-                useCORS: true,
-                allowTaint: false,
-                backgroundColor: 'transparent',
-                logging: false,
-                x: 0,
-                y: 0,
-                scrollX: 0,
-                scrollY: 0,
-              });
-              
-              // Копируем DOM-визуалы поверх всех canvas с crop/scale
-              exportCtx.drawImage(
-                domCanvas,
-                sourceX, sourceY, sourceWidth, sourceHeight, // source (crop)
-                0, 0, WIDTH, HEIGHT // destination (scale to 1280x720)
-              );
-              
-              // Удаляем временный контейнер
-              document.body.removeChild(domOverlay);
-            } catch (domError) {
-              console.warn('[Export] Error capturing DOM overlays:', domError);
-              // Удаляем временный контейнер в любом случае
-              if (domOverlay.parentNode) {
-                document.body.removeChild(domOverlay);
-              }
-              // Продолжаем без DOM-визуалов, не падаем
             }
 
+            // ВАЖНО: DOM визуалы НЕ экспортируются согласно требованиям
+            // "НИКАКИХ CSS, DOM, overlay поверх canvas"
+            // Экспорт = ТОЛЬКО то, что реально нарисовано в exportCanvas через drawImage
+
             frameCount++;
-            exportTime = currentTime; // Обновляем экспортное время
+            exportTime = currentTime;
           } catch (error) {
             console.error('[Export] Error rendering frame:', error);
           }
@@ -9644,17 +9588,87 @@ export default function StudioDesktop() {
 
         // Продолжаем render loop с фиксированным timestep (не requestAnimationFrame!)
         if (isRecording) {
-          // Используем setTimeout для фиксированного timestep вместо rAF
           const nextFrameDelay = Math.max(0, exportFrameInterval - (Date.now() - lastExportFrameTime));
           setTimeout(renderExportFrame, nextFrameDelay);
         }
       };
 
 
-      // Запускаем запись
+      // КРИТИЧЕСКИ ВАЖНО: Сначала рендерим первый кадр в exportCanvas ПЕРЕД запуском MediaRecorder
+      // Это гарантирует, что MediaRecorder записывает кадры с визуалами, а не пустые кадры
+      lastExportFrameTime = Date.now();
+      
+      // Рендерим первый кадр синхронно
+      try {
+        // 1. BACKGROUND
+        exportCtx.clearRect(0, 0, WIDTH, HEIGHT);
+        if (backgroundImage) {
+          const bgAspect = backgroundImage.width / backgroundImage.height;
+          const targetAspect = WIDTH / HEIGHT;
+          let bgX = 0, bgY = 0, bgWidth = WIDTH, bgHeight = HEIGHT;
+          if (bgAspect > targetAspect) {
+            bgHeight = HEIGHT;
+            bgWidth = HEIGHT * bgAspect;
+            bgX = (WIDTH - bgWidth) / 2;
+          } else {
+            bgWidth = WIDTH;
+            bgHeight = WIDTH / bgAspect;
+            bgY = (HEIGHT - bgHeight) / 2;
+          }
+          exportCtx.drawImage(backgroundImage, bgX, bgY, bgWidth, bgHeight);
+        } else {
+          exportCtx.fillStyle = '#000000';
+          exportCtx.fillRect(0, 0, WIDTH, HEIGHT);
+        }
+        
+        // 2. WEBGL VISUALS
+        const webglCanvases = Array.from(previewElement.querySelectorAll('canvas')).filter(canvas => {
+          return canvas !== grainCanvasRef.current && canvas !== textCanvasRef.current;
+        });
+        for (const visualCanvas of webglCanvases) {
+          if (!visualCanvas.width || !visualCanvas.height) continue;
+          const canvasRect = visualCanvas.getBoundingClientRect();
+          const previewRect = previewElement.getBoundingClientRect();
+          const relativeX = canvasRect.left - previewRect.left;
+          const relativeY = canvasRect.top - previewRect.top;
+          const scaledX = (relativeX / previewWidth) * WIDTH;
+          const scaledY = (relativeY / previewHeight) * HEIGHT;
+          const scaledWidth = (canvasRect.width / previewWidth) * WIDTH;
+          const scaledHeight = (canvasRect.height / previewHeight) * HEIGHT;
+          exportCtx.drawImage(visualCanvas, 0, 0, visualCanvas.width, visualCanvas.height, scaledX, scaledY, scaledWidth, scaledHeight);
+        }
+        
+        // 3. GRAIN CANVAS
+        if (grainCanvasRef.current && selectedCoverEffect === 'grain') {
+          const grainCanvas = grainCanvasRef.current;
+          if (grainCanvas.width > 0 && grainCanvas.height > 0) {
+            const canvasRect = grainCanvas.getBoundingClientRect();
+            const previewRect = previewElement.getBoundingClientRect();
+            const relativeX = canvasRect.left - previewRect.left;
+            const relativeY = canvasRect.top - previewRect.top;
+            const scaledX = (relativeX / previewWidth) * WIDTH;
+            const scaledY = (relativeY / previewHeight) * HEIGHT;
+            const scaledWidth = (canvasRect.width / previewWidth) * WIDTH;
+            const scaledHeight = (canvasRect.height / previewHeight) * HEIGHT;
+            exportCtx.drawImage(grainCanvas, 0, 0, grainCanvas.width, grainCanvas.height, scaledX, scaledY, scaledWidth, scaledHeight);
+          }
+        }
+        
+        // 4. TEXT CANVAS
+        if (textCanvasRef.current && photoUrl && textFont) {
+          const textCanvas = textCanvasRef.current;
+          if (textCanvas.width > 0 && textCanvas.height > 0) {
+            exportCtx.drawImage(textCanvas, 0, 0, textCanvas.width, textCanvas.height, 0, 0, WIDTH, HEIGHT);
+          }
+        }
+      } catch (firstFrameError) {
+        console.error('[Export] Error rendering first frame:', firstFrameError);
+      }
+      
+      // ТОЛЬКО ПОСЛЕ рендеринга первого кадра запускаем MediaRecorder
+      // captureStream() уже вызван ранее (строка 9286), он отслеживает изменения exportCanvas
       mediaRecorder.start();
       recordingStartTime = Date.now();
-      lastExportFrameTime = Date.now();
       
       // Начинаем экспортный render loop с фиксированным timestep (НЕ requestAnimationFrame!)
       renderExportFrame();

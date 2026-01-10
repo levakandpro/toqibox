@@ -44,13 +44,15 @@ export default function ShaderToyBackground({ backgroundId, beatIntensity = 0 })
     setError(null);
     const canvas = canvasRef.current;
     // Создаем WebGL контекст с альфа-каналом для прозрачности
+    // ВАЖНО: preserveDrawingBuffer: true нужен для возможности копирования через drawImage
     const gl = canvas.getContext("webgl", { 
       alpha: true, 
       antialias: true,
       premultipliedAlpha: false,
-      preserveDrawingBuffer: false
+      preserveDrawingBuffer: true // ОБЯЗАТЕЛЬНО для экспорта через drawImage
     }) || canvas.getContext("experimental-webgl", { 
-      alpha: true 
+      alpha: true,
+      preserveDrawingBuffer: true // ОБЯЗАТЕЛЬНО для экспорта через drawImage
     });
     
         if (!gl) {
