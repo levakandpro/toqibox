@@ -177,20 +177,9 @@ export async function onRequestPost(context) {
       // Теперь отправляем чек, если есть receipt_url
       if (paymentRequest.receipt_url) {
         try {
-          // Определяем тип файла по расширению
+          // Определяем тип файла по URL и content-type
           const receiptUrl = paymentRequest.receipt_url;
-          const urlLower = receiptUrl.toLowerCase();
           
-          let isImage = false;
-          let isPdf = false;
-
-          if (urlLower.includes('.png') || urlLower.includes('.jpg') || 
-              urlLower.includes('.jpeg') || urlLower.includes('.webp')) {
-            isImage = true;
-          } else if (urlLower.includes('.pdf')) {
-            isPdf = true;
-          }
-
           // Скачиваем файл с Supabase Storage
           const fileResponse = await fetch(receiptUrl);
           
@@ -205,45 +194,81 @@ export async function onRequestPost(context) {
                 text: `📎 Чек: <a href="${receiptUrl}">Открыть</a>`,
                 parse_mode: 'HTML'
               })
-            });
+            }).catch(err => console.error("Error sending receipt URL:", err));
           } else {
-            const fileBuffer = await fileResponse.arrayBuffer();
-            const contentType = fileResponse.headers.get('content-type') || 'image/png';
-            
-            // Создаем FormData для отправки файла в Telegram
-            const formData = new FormData();
-            const blob = new Blob([fileBuffer], { type: contentType });
-            
-            if (isImage) {
-              // Отправляем как photo
-              formData.append('photo', blob, 'receipt.png');
-              formData.append('chat_id', chatId);
-              formData.append('caption', `Чек об оплате (${productLabel})`);
+            try {
+              const fileBuffer = await fileResponse.arrayBuffer();
+              const contentType = fileResponse.headers.get('content-type') || '';
+              const urlLower = receiptUrl.toLowerCase();
               
-              await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-                method: 'POST',
-                body: formData
-              });
-            } else if (isPdf) {
-              // Отправляем как document
-              formData.append('document', blob, 'receipt.pdf');
-              formData.append('chat_id', chatId);
-              formData.append('caption', `Чек об оплате (${productLabel})`);
+              // Определяем тип файла по content-type и URL
+              let isImage = false;
+              let isPdf = false;
+              let fileName = 'receipt';
+
+              if (contentType.startsWith('image/') || 
+                  urlLower.includes('.png') || urlLower.includes('.jpg') || 
+                  urlLower.includes('.jpeg') || urlLower.includes('.webp')) {
+                isImage = true;
+                fileName = 'receipt.png';
+              } else if (contentType === 'application/pdf' || urlLower.includes('.pdf')) {
+                isPdf = true;
+                fileName = 'receipt.pdf';
+              }
+
+              // Создаем FormData для отправки файла в Telegram
+              // В Cloudflare Workers FormData поддерживается
+              const formData = new FormData();
               
-              await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
-                method: 'POST',
-                body: formData
-              });
-            } else {
-              // Неизвестный тип - отправляем как document
-              formData.append('document', blob, 'receipt');
-              formData.append('chat_id', chatId);
-              formData.append('caption', `Чек об оплате (${productLabel})`);
+              // В Cloudflare Workers нужно создать File или Blob
+              const fileBlob = new Blob([fileBuffer], { type: contentType || 'application/octet-stream' });
               
-              await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+              if (isImage) {
+                // Отправляем как photo
+                formData.append('photo', fileBlob, fileName);
+                formData.append('chat_id', chatId);
+                formData.append('caption', `Чек об оплате (${productLabel})`);
+                
+                const photoResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                  method: 'POST',
+                  body: formData
+                });
+                
+                if (!photoResponse.ok) {
+                  const errorText = await photoResponse.text().catch(() => 'Unknown error');
+                  console.error("Error sending photo:", errorText);
+                  throw new Error(`Telegram photo send failed: ${photoResponse.status}`);
+                }
+              } else {
+                // Отправляем как document (PDF или неизвестный тип)
+                const docFormData = new FormData();
+                docFormData.append('document', fileBlob, fileName);
+                docFormData.append('chat_id', chatId);
+                docFormData.append('caption', `Чек об оплате (${productLabel})`);
+                
+                const docResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+                  method: 'POST',
+                  body: docFormData
+                });
+                
+                if (!docResponse.ok) {
+                  const errorText = await docResponse.text().catch(() => 'Unknown error');
+                  console.error("Error sending document:", errorText);
+                  throw new Error(`Telegram document send failed: ${docResponse.status}`);
+                }
+              }
+            } catch (fileError) {
+              console.error("Error processing receipt file:", fileError);
+              // Если не удалось отправить файл, отправляем ссылку в тексте
+              await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
-                body: formData
-              });
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: chatId,
+                  text: `📎 Чек: <a href="${receiptUrl}">Открыть</a>`,
+                  parse_mode: 'HTML'
+                })
+              }).catch(err => console.error("Error sending receipt URL fallback:", err));
             }
           }
         } catch (receiptError) {
