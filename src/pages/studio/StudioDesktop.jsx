@@ -9235,8 +9235,39 @@ export default function StudioDesktop() {
       exportCtx.imageSmoothingEnabled = true;
       exportCtx.imageSmoothingQuality = 'high';
 
-      // Создаем stream из exportCanvas
-      const stream = exportCanvas.captureStream(FPS);
+      // 1. AUDIO: Добавляем audio track в MediaStream
+      // Создаем video stream из exportCanvas
+      const videoStream = exportCanvas.captureStream(FPS);
+      
+      // Получаем audio track из audioEngine (HTMLAudioElement)
+      let audioStream = null;
+      try {
+        // Инициализируем AudioContext если еще не инициализирован
+        if (!audioEngine.getAudioContext()) {
+          audioEngine.initAudioContext();
+        }
+        
+        // Получаем audio track через captureStream() от HTMLAudioElement
+        audioStream = audioEngine.audio.captureStream();
+        const audioTracks = audioStream.getAudioTracks();
+        
+        if (audioTracks.length > 0) {
+          // Добавляем audio track в video stream
+          const audioTrack = audioTracks[0];
+          videoStream.addTrack(audioTrack);
+          console.log('[Export] Audio track added to stream');
+        } else {
+          console.warn('[Export] No audio tracks found in audioStream');
+        }
+      } catch (audioError) {
+        console.error('[Export] Error adding audio track:', audioError);
+      }
+      
+      // Проверяем, что в stream есть audio track
+      const finalAudioTracks = videoStream.getAudioTracks();
+      if (finalAudioTracks.length !== 1) {
+        console.warn(`[Export] Expected 1 audio track, found ${finalAudioTracks.length}`);
+      }
       
       // Определяем MIME type - приоритет video/mp4 (H.264)
       let mimeType = 'video/webm';
@@ -9248,10 +9279,11 @@ export default function StudioDesktop() {
         mimeType = 'video/webm;codecs=vp8';
       }
 
-      // Создаем MediaRecorder с высоким bitrate
-      const mediaRecorder = new MediaRecorder(stream, {
+      // Создаем MediaRecorder с высоким bitrate и audio
+      const mediaRecorder = new MediaRecorder(videoStream, {
         mimeType: mimeType,
         videoBitsPerSecond: BITRATE, // 10 Mbps для высокого качества
+        audioBitsPerSecond: 128000, // 128 kbps для audio
       });
 
       const chunks = [];
@@ -9297,14 +9329,44 @@ export default function StudioDesktop() {
         sourceY = (previewHeight - sourceHeight) / 2;
       }
 
+      // 2. BACKGROUND IMAGE: Загружаем фото с CORS для экспорта
+      let backgroundImage = null;
+      if (photoUrl) {
+        try {
+          const bgImg = new Image();
+          bgImg.crossOrigin = 'anonymous'; // Критично для CORS
+          
+          await new Promise((resolve, reject) => {
+            bgImg.onload = () => {
+              backgroundImage = bgImg;
+              resolve();
+            };
+            bgImg.onerror = (err) => {
+              console.error('[Export] Error loading background image:', err);
+              reject(err);
+            };
+            bgImg.src = photoUrl;
+          });
+        } catch (bgError) {
+          console.error('[Export] Failed to load background image with CORS:', bgError);
+          // Продолжаем без фона
+        }
+      }
+
       // Запускаем аудио для синхронизации (но без звука)
       if (!wasPlaying) {
         audioEngine.seek(0);
         await audioEngine.play();
       }
 
-      // Функция копирования кадра из previewElement в exportCanvas
-      const renderFrame = async (timestamp) => {
+      // 3. VISUALS FREEZE: Создаем отдельный render loop с фиксированным timestep
+      // Экспортный таймер независим от UI/rAF
+      let exportTime = 0; // Время экспорта в секундах
+      let lastExportFrameTime = Date.now(); // Время последнего кадра в мс
+      const exportFrameInterval = 1000 / FPS; // Интервал между кадрами в мс
+      
+      // Функция рендеринга одного кадра в exportCanvas
+      const renderExportFrame = async () => {
         if (!isRecording) return;
 
         const currentTime = audioEngine.getCurrentTime();
@@ -9314,27 +9376,59 @@ export default function StudioDesktop() {
           return;
         }
 
-        // Обновляем прогресс
+        // Обновляем прогресс (только для UI)
         const progress = (currentTime / exportDuration) * 100;
         progressEl.style.width = `${progress}%`;
         const minutes = Math.floor(currentTime / 60);
         const seconds = Math.floor(currentTime % 60);
         timeEl.textContent = `${minutes}:${String(seconds).padStart(2, '0')} / ${Math.floor(exportDuration / 60)}:${String(Math.floor(exportDuration % 60)).padStart(2, '0')}`;
 
-        // Рендерим кадр только если прошло достаточно времени
-        const elapsed = timestamp - lastFrameTime;
-        if (elapsed >= frameInterval) {
-          lastFrameTime = timestamp - (elapsed % frameInterval);
-
+        // Используем фиксированный timestep для экспорта
+        const now = Date.now();
+        const elapsed = now - lastExportFrameTime;
+        
+        if (elapsed >= exportFrameInterval) {
+          lastExportFrameTime = now - (elapsed % exportFrameInterval);
+          
           try {
-            // Используем html2canvas для захвата previewElement
+            // 2. BACKGROUND: Рисуем фон ПЕРВЫМ слоем в exportCanvas
+            exportCtx.clearRect(0, 0, WIDTH, HEIGHT);
+            
+            if (backgroundImage) {
+              // Рисуем фон на весь кадр (cover-логика)
+              const bgAspect = backgroundImage.width / backgroundImage.height;
+              const targetAspect = WIDTH / HEIGHT;
+              
+              let bgX = 0, bgY = 0, bgWidth = WIDTH, bgHeight = HEIGHT;
+              
+              if (bgAspect > targetAspect) {
+                // Фон шире - кроп по ширине
+                bgHeight = HEIGHT;
+                bgWidth = HEIGHT * bgAspect;
+                bgX = (WIDTH - bgWidth) / 2;
+              } else {
+                // Фон выше - кроп по высоте
+                bgWidth = WIDTH;
+                bgHeight = WIDTH / bgAspect;
+                bgY = (HEIGHT - bgHeight) / 2;
+              }
+              
+              exportCtx.drawImage(backgroundImage, bgX, bgY, bgWidth, bgHeight);
+            } else {
+              // Если фона нет - черный фон
+              exportCtx.fillStyle = '#000000';
+              exportCtx.fillRect(0, 0, WIDTH, HEIGHT);
+            }
+
+            // 3. VISUALS: Поверх фона рисуем визуалы через html2canvas
+            // Используем экспортное время (currentTime) для синхронизации визуалов
             const capturedCanvas = await html2canvas(previewElement, {
               width: previewWidth,
               height: previewHeight,
               scale: 1,
               useCORS: true,
               allowTaint: false,
-              backgroundColor: '#000000',
+              backgroundColor: 'transparent', // Прозрачный, т.к. фон уже нарисован
               logging: false,
               x: 0,
               y: 0,
@@ -9342,10 +9436,7 @@ export default function StudioDesktop() {
               scrollY: 0,
             });
 
-            // Копируем с crop/scale в exportCanvas (cover-логика)
-            // clearRect использует логические координаты (уже масштабированы через ctx.scale)
-            exportCtx.clearRect(0, 0, WIDTH, HEIGHT);
-            // drawImage также использует логические координаты благодаря ctx.scale
+            // Копируем визуалы с crop/scale поверх фона
             exportCtx.drawImage(
               capturedCanvas,
               sourceX, sourceY, sourceWidth, sourceHeight, // source (crop)
@@ -9353,14 +9444,17 @@ export default function StudioDesktop() {
             );
 
             frameCount++;
+            exportTime = currentTime; // Обновляем экспортное время
           } catch (error) {
-            console.error('Ошибка рендеринга кадра:', error);
+            console.error('[Export] Error rendering frame:', error);
           }
         }
 
-        // Продолжаем рендеринг
+        // Продолжаем render loop с фиксированным timestep (не requestAnimationFrame!)
         if (isRecording) {
-          requestAnimationFrame(renderFrame);
+          // Используем setTimeout для фиксированного timestep вместо rAF
+          const nextFrameDelay = Math.max(0, exportFrameInterval - (Date.now() - lastExportFrameTime));
+          setTimeout(renderExportFrame, nextFrameDelay);
         }
       };
 
@@ -9404,10 +9498,10 @@ export default function StudioDesktop() {
       // Запускаем запись
       mediaRecorder.start();
       recordingStartTime = Date.now();
-      lastFrameTime = performance.now();
+      lastExportFrameTime = Date.now();
       
-      // Начинаем рендеринг кадров
-      requestAnimationFrame(renderFrame);
+      // Начинаем экспортный render loop с фиксированным timestep (НЕ requestAnimationFrame!)
+      renderExportFrame();
 
       // Автоматическая остановка через exportDuration
       setTimeout(() => {
