@@ -968,18 +968,6 @@ export default function AdminPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="admin-search"
         />
-        {activeTab === "payments" && (
-          <select
-            value={paymentStatusFilter}
-            onChange={(e) => setPaymentStatusFilter(e.target.value)}
-            className="admin-filter-select"
-          >
-            <option value="all">Все статусы</option>
-            <option value="pending">Ожидающие</option>
-            <option value="approved">Подтвержденные</option>
-            <option value="rejected">Отклоненные</option>
-          </select>
-        )}
         {(activeTab === "payment_requests" || activeTab === "payment_requests_approved" || activeTab === "payment_requests_rejected") && (
           <select
             value={paymentRequestProductFilter}
@@ -1019,16 +1007,16 @@ export default function AdminPage() {
           Артисты ({filteredArtists.length})
         </button>
         <button
-          className={activeTab === "payments" ? "active" : ""}
-          onClick={() => setActiveTab("payments")}
+          className={activeTab === "toqibox" ? "active" : ""}
+          onClick={() => setActiveTab("toqibox")}
         >
-          Подписки ({filteredPayments.length})
+          TOQIBOX ({toqiboxUsers.filter(u => u.toqibox_plan !== 'free' && u.toqibox_plan).length})
         </button>
         <button
           className={activeTab === "studio" ? "active" : ""}
           onClick={() => setActiveTab("studio")}
         >
-          TQ STUDIO ({studioUsers.length})
+          Studio ({studioUsers.filter(u => u.studio_plan !== 'free' && u.studio_plan).length})
         </button>
         <button
           className={activeTab === "payment_requests" ? "active" : ""}
@@ -1155,50 +1143,14 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === "payments" && (
+        {/* TOQIBOX раздел */}
+        {activeTab === "toqibox" && (
           <div>
-            {/* Под-вкладки для подписок */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #d2d2d7' }}>
-              <button
-                className={subscriptionsSubTab === "toqibox" ? "active" : ""}
-                onClick={() => setSubscriptionsSubTab("toqibox")}
-                style={{
-                  padding: '8px 16px',
-                  background: subscriptionsSubTab === "toqibox" ? '#f5f5f7' : 'transparent',
-                  border: 'none',
-                  borderBottom: subscriptionsSubTab === "toqibox" ? '2px solid #007aff' : '2px solid transparent',
-                  color: subscriptionsSubTab === "toqibox" ? '#007aff' : '#86868b',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                }}
-              >
-                Подписки TOQIBOX ({toqiboxUsers.length})
-              </button>
-              <button
-                className={subscriptionsSubTab === "studio" ? "active" : ""}
-                onClick={() => setSubscriptionsSubTab("studio")}
-                style={{
-                  padding: '8px 16px',
-                  background: subscriptionsSubTab === "studio" ? '#f5f5f7' : 'transparent',
-                  border: 'none',
-                  borderBottom: subscriptionsSubTab === "studio" ? '2px solid #007aff' : '2px solid transparent',
-                  color: subscriptionsSubTab === "studio" ? '#007aff' : '#86868b',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                }}
-              >
-                Подписки Studio ({studioUsers.length})
-              </button>
-            </div>
-
-            {/* Подписки TOQIBOX */}
-            {subscriptionsSubTab === "toqibox" && (
-              <div className="admin-list">
-                {toqiboxUsers.length === 0 ? (
-                  <div className="admin-empty">Подписки TOQIBOX не найдены</div>
-                ) : (
+            <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1d1d1f' }}>Подписки TOQIBOX</h2>
+            <div className="admin-list" style={{ marginBottom: '32px' }}>
+              {toqiboxUsers.length === 0 ? (
+                <div className="admin-empty">Подписки TOQIBOX не найдены</div>
+              ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
@@ -1293,145 +1245,54 @@ export default function AdminPage() {
                       })}
                     </tbody>
                   </table>
-                )}
+              )}
+            </div>
+            
+            {/* Статистика PREMIUM/PREMIUM+ для артистов (TOQIBOX) */}
+            <div style={{ marginTop: '32px' }}>
+              <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600, color: '#1d1d1f' }}>
+                PREMIUM артисты (TOQIBOX)
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div className="stat-card">
+                  <div className="stat-value">{stats.premiumUsers}</div>
+                  <div className="stat-label">PREMIUM</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value">{stats.premiumPlusUsers}</div>
+                  <div className="stat-label">PREMIUM+</div>
+                </div>
               </div>
-            )}
-
-            {/* Подписки Studio */}
-            {subscriptionsSubTab === "studio" && (
-              <div className="admin-list">
-                {studioUsers.length === 0 ? (
-                  <div className="admin-empty">Подписки Studio не найдены</div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Email/ID</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Продукт</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Истекает</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Действия</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {studioUsers.map((user) => {
-                        const statusColors = {
-                          active: "#10b981",
-                          expired: "#f59e0b",
-                          free: "#6b7280"
-                        };
-                        const statusLabels = {
-                          active: "Активен",
-                          expired: "Истёк",
-                          free: "Бесплатный"
-                        };
-                        
-                        return (
-                          <tr key={user.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
-                            <td style={{ padding: '12px' }}>
-                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1d1d1f', marginBottom: '4px' }}>
-                                {user.email || '—'}
-                              </div>
-                              <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#6b7280' }}>{user.id}</div>
-                            </td>
-                            <td style={{ padding: '12px' }}>
-                              <span style={{
-                                display: 'inline-block',
-                                padding: '4px 10px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                backgroundColor: '#10b981',
-                                color: '#ffffff'
-                              }}>
-                                Studio
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
-                              {user.studio_plan === 'free' || !user.studio_plan ? 'БЕСПЛАТНЫЙ' : (user.studio_plan || 'free').toUpperCase()}
-                            </td>
-                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
-                              {user.studio_plan_expires_at ? (() => {
-                                const expiresDate = new Date(user.studio_plan_expires_at);
-                                const now = new Date();
-                                const daysLeft = Math.ceil((expiresDate - now) / (1000 * 60 * 60 * 24));
-                                
-                                const dateStr = expiresDate.toLocaleDateString("ru-RU", {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric'
-                                });
-                                
-                                if (daysLeft < 0) {
-                                  return <span style={{ color: '#ef4444' }}>Истек: {dateStr}</span>;
-                                } else if (daysLeft <= 7) {
-                                  return (
-                                    <div>
-                                      <div style={{ fontWeight: 600 }}>До {dateStr}</div>
-                                      <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>
-                                        Осталось: {daysLeft} {daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}
-                                      </div>
-                                    </div>
-                                  );
-                                } else {
-                                  return <span style={{ fontWeight: 600 }}>До {dateStr}</span>;
-                                }
-                              })() : '-'}
-                            </td>
-                            <td style={{ padding: '12px' }}>
-                              <span 
-                                className="badge-status" 
-                                style={{ 
-                                  backgroundColor: statusColors[user.status],
-                                  fontSize: '10px',
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  color: '#ffffff'
-                                }}
-                              >
-                                {statusLabels[user.status]}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px' }}>
-                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                <button
-                                  className="btn-success"
-                                  onClick={() => handleStudioApprove(user.id, 'premium')}
-                                  style={{ fontSize: '11px', padding: '6px 12px' }}
-                                >
-                                  Дать PREMIUM на 30 дней
-                                </button>
-                                <button
-                                  className="btn-success"
-                                  onClick={() => handleStudioApprove(user.id, 'premium_plus')}
-                                  style={{ fontSize: '11px', padding: '6px 12px' }}
-                                >
-                                  Дать PREMIUM+ на 1 год
-                                </button>
-                                <button
-                                  className="btn-danger"
-                                  onClick={() => handleStudioRemove(user.id)}
-                                  style={{ fontSize: '11px', padding: '6px 12px' }}
-                                  title="Убрать премиум подписку и вернуть пользователя на бесплатный план"
-                                >
-                                  Убрать премиум
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
+            </div>
           </div>
         )}
 
         {activeTab === "studio" && (
           <div>
+            {/* Статистика Studio */}
+            <div style={{ marginBottom: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div className="stat-card">
+                <div className="stat-value">{studioStats.activePremium}</div>
+                <div className="stat-label">Активный PREMIUM</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{studioStats.activePremiumPlus}</div>
+                <div className="stat-label">Активный PREMIUM+</div>
+              </div>
+              {studioStats.exportsToday > 0 && (
+                <div className="stat-card">
+                  <div className="stat-value">{studioStats.exportsToday}</div>
+                  <div className="stat-label">Экспортов сегодня</div>
+                </div>
+              )}
+              {studioStats.exportsTotal > 0 && (
+                <div className="stat-card">
+                  <div className="stat-value">{studioStats.exportsTotal}</div>
+                  <div className="stat-label">Экспортов всего</div>
+                </div>
+              )}
+            </div>
+
             {/* Таблица пользователей Studio */}
             <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1d1d1f' }}>Подписки Studio</h2>
             <div className="admin-list" style={{ marginBottom: '32px' }}>
@@ -1542,7 +1403,7 @@ export default function AdminPage() {
                                 onClick={() => handleStudioApprove(user.id, 'premium_plus')}
                                 style={{ fontSize: '11px', padding: '6px 12px' }}
                               >
-                                Дать PREMIUM+ на 30 дней
+                                Дать PREMIUM+ на 1 год
                               </button>
                                 <button
                                   className="btn-danger"
