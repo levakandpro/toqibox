@@ -9235,38 +9235,75 @@ export default function StudioDesktop() {
       exportCtx.imageSmoothingEnabled = true;
       exportCtx.imageSmoothingQuality = 'high';
 
+      // 0. Сначала создаем запись в БД со status='started' (до всех операций)
+      let exportRecordId = null;
+      try {
+        const { data: startedExport, error: insertError } = await supabase
+          .from('exports')
+          .insert({
+            user_id: user.id,
+            status: 'started',
+            duration_seconds: 0, // Будет обновлено при завершении
+            resolution: limits.resolution,
+            template_id: selectedTemplate || null,
+            visual_id: null,
+            product: 'studio',
+          })
+          .select('id')
+          .single();
+
+        if (insertError) {
+          console.error('Ошибка создания записи экспорта:', insertError);
+          throw new Error('Не удалось начать экспорт. Попробуйте снова.');
+        }
+
+        exportRecordId = startedExport?.id;
+      } catch (exportStartError) {
+        console.error('Ошибка при старте экспорта (БД):', exportStartError);
+        alert('Ошибка при старте экспорта: ' + exportStartError.message);
+        // Очищаем UI
+        if (document.getElementById('browser-export-overlay')) {
+          document.body.removeChild(document.getElementById('browser-export-overlay'));
+        }
+        document.body.style.overflow = '';
+        const loaderStyle = document.querySelector('style[data-export-loader]');
+        if (loaderStyle) {
+          document.head.removeChild(loaderStyle);
+        }
+        return;
+      }
+
       // 1. AUDIO: Добавляем audio track в MediaStream
       // Создаем video stream из exportCanvas
       const videoStream = exportCanvas.captureStream(FPS);
       
       // Получаем audio track из audioEngine (HTMLAudioElement)
-      let audioStream = null;
-      try {
-        // Инициализируем AudioContext если еще не инициализирован
-        if (!audioEngine.getAudioContext()) {
-          audioEngine.initAudioContext();
+      // Проверяем, что audio готов и имеет src
+      if (audioEngine.audio && audioEngine.audio.src) {
+        try {
+          // Инициализируем AudioContext если еще не инициализирован
+          if (!audioEngine.getAudioContext()) {
+            audioEngine.initAudioContext();
+          }
+          
+          // Получаем audio track через captureStream() от HTMLAudioElement
+          const audioStream = audioEngine.audio.captureStream();
+          const audioTracks = audioStream.getAudioTracks();
+          
+          if (audioTracks.length > 0) {
+            // Добавляем audio track в video stream
+            const audioTrack = audioTracks[0];
+            videoStream.addTrack(audioTrack);
+            console.log('[Export] Audio track added to stream');
+          } else {
+            console.warn('[Export] No audio tracks found in audioStream');
+          }
+        } catch (audioError) {
+          console.error('[Export] Error adding audio track:', audioError);
+          // Продолжаем без audio, не падаем
         }
-        
-        // Получаем audio track через captureStream() от HTMLAudioElement
-        audioStream = audioEngine.audio.captureStream();
-        const audioTracks = audioStream.getAudioTracks();
-        
-        if (audioTracks.length > 0) {
-          // Добавляем audio track в video stream
-          const audioTrack = audioTracks[0];
-          videoStream.addTrack(audioTrack);
-          console.log('[Export] Audio track added to stream');
-        } else {
-          console.warn('[Export] No audio tracks found in audioStream');
-        }
-      } catch (audioError) {
-        console.error('[Export] Error adding audio track:', audioError);
-      }
-      
-      // Проверяем, что в stream есть audio track
-      const finalAudioTracks = videoStream.getAudioTracks();
-      if (finalAudioTracks.length !== 1) {
-        console.warn(`[Export] Expected 1 audio track, found ${finalAudioTracks.length}`);
+      } else {
+        console.warn('[Export] Audio not ready, continuing without audio track');
       }
       
       // Определяем MIME type - приоритет video/mp4 (H.264)
@@ -9279,12 +9316,25 @@ export default function StudioDesktop() {
         mimeType = 'video/webm;codecs=vp8';
       }
 
-      // Создаем MediaRecorder с высоким bitrate и audio
-      const mediaRecorder = new MediaRecorder(videoStream, {
-        mimeType: mimeType,
-        videoBitsPerSecond: BITRATE, // 10 Mbps для высокого качества
-        audioBitsPerSecond: 128000, // 128 kbps для audio
-      });
+      // Создаем MediaRecorder с высоким bitrate
+      let mediaRecorder = null;
+      try {
+        const options = {
+          mimeType: mimeType,
+          videoBitsPerSecond: BITRATE, // 10 Mbps для высокого качества
+        };
+        
+        // Добавляем audio настройки только если есть audio track
+        const finalAudioTracks = videoStream.getAudioTracks();
+        if (finalAudioTracks.length > 0) {
+          options.audioBitsPerSecond = 128000; // 128 kbps для audio
+        }
+        
+        mediaRecorder = new MediaRecorder(videoStream, options);
+      } catch (recorderError) {
+        console.error('[Export] Error creating MediaRecorder:', recorderError);
+        throw new Error('Не удалось создать MediaRecorder. Попробуйте другой браузер.');
+      }
 
       const chunks = [];
       mediaRecorder.ondataavailable = (e) => {
@@ -9334,22 +9384,32 @@ export default function StudioDesktop() {
       if (photoUrl) {
         try {
           const bgImg = new Image();
-          bgImg.crossOrigin = 'anonymous'; // Критично для CORS
+          // crossOrigin нужен только для внешних ресурсов, не для blob/data URLs
+          if (!photoUrl.startsWith('blob:') && !photoUrl.startsWith('data:')) {
+            bgImg.crossOrigin = 'anonymous'; // Критично для CORS для внешних ресурсов
+          }
           
           await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error('Timeout loading background image'));
+            }, 5000);
+            
             bgImg.onload = () => {
+              clearTimeout(timeout);
               backgroundImage = bgImg;
               resolve();
             };
             bgImg.onerror = (err) => {
+              clearTimeout(timeout);
               console.error('[Export] Error loading background image:', err);
-              reject(err);
+              // Не реджектим, просто продолжаем без фона
+              resolve();
             };
             bgImg.src = photoUrl;
           });
         } catch (bgError) {
-          console.error('[Export] Failed to load background image with CORS:', bgError);
-          // Продолжаем без фона
+          console.error('[Export] Failed to load background image:', bgError);
+          // Продолжаем без фона, не падаем
         }
       }
 
@@ -9458,42 +9518,6 @@ export default function StudioDesktop() {
         }
       };
 
-      // 3. При старте: INSERT в exports со status='started'
-      try {
-        const { data: startedExport, error: insertError } = await supabase
-          .from('exports')
-          .insert({
-            user_id: user.id,
-            status: 'started',
-            duration_seconds: 0, // Будет обновлено при завершении
-            resolution: limits.resolution,
-            template_id: selectedTemplate || null,
-            visual_id: null,
-            product: 'studio',
-          })
-          .select('id')
-          .single();
-
-        if (insertError) {
-          console.error('Ошибка создания записи экспорта:', insertError);
-          throw new Error('Не удалось начать экспорт. Попробуйте снова.');
-        }
-
-        exportRecordId = startedExport?.id;
-      } catch (exportStartError) {
-        console.error('Ошибка при старте экспорта:', exportStartError);
-        alert('Ошибка при старте экспорта: ' + exportStartError.message);
-        // На этом этапе аудио еще не изменено, просто очищаем UI
-        if (document.getElementById('browser-export-overlay')) {
-          document.body.removeChild(document.getElementById('browser-export-overlay'));
-        }
-        document.body.style.overflow = '';
-        const loaderStyle = document.querySelector('style[data-export-loader]');
-        if (loaderStyle) {
-          document.head.removeChild(loaderStyle);
-        }
-        return;
-      }
 
       // Запускаем запись
       mediaRecorder.start();
