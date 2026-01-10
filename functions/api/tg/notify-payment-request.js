@@ -17,20 +17,33 @@ export async function onRequestPost(context) {
   };
 
   try {
+    console.log('[notify-payment-request] Function called');
+    
     // Проверяем наличие обязательных переменных окружения
     if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_ADMIN_CHAT_ID || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error("Missing required environment variables");
+      const missing = [];
+      if (!env.TELEGRAM_BOT_TOKEN) missing.push('TELEGRAM_BOT_TOKEN');
+      if (!env.TELEGRAM_ADMIN_CHAT_ID) missing.push('TELEGRAM_ADMIN_CHAT_ID');
+      if (!env.SUPABASE_URL) missing.push('SUPABASE_URL');
+      if (!env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+      console.error('[notify-payment-request] ❌ Missing required environment variables:', missing);
       return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
+        JSON.stringify({ error: "Server configuration error", missing }),
         { status: 500, headers: corsHeaders }
       );
     }
 
     // Получаем payment_request_id из тела запроса
-    const body = await request.json().catch(() => ({}));
+    const body = await request.json().catch((e) => {
+      console.error('[notify-payment-request] ❌ Error parsing request body:', e);
+      return {};
+    });
     const { payment_request_id } = body;
 
+    console.log('[notify-payment-request] Payment request ID:', payment_request_id);
+
     if (!payment_request_id) {
+      console.error('[notify-payment-request] ❌ payment_request_id is required');
       return new Response(
         JSON.stringify({ error: "payment_request_id is required" }),
         { status: 400, headers: corsHeaders }
@@ -42,46 +55,64 @@ export async function onRequestPost(context) {
     const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
     // Получаем данные заявки из БД через REST API
-    const requestResponse = await fetch(
-      `${supabaseUrl}/rest/v1/payment_requests?id=eq.${payment_request_id}&select=id,user_id,product,plan,amount,receipt_url,status,created_at`,
-      {
-        method: 'GET',
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        }
+    console.log('[notify-payment-request] Fetching payment request from Supabase:', payment_request_id);
+    const requestUrl = `${supabaseUrl}/rest/v1/payment_requests?id=eq.${payment_request_id}&select=id,user_id,product,plan,amount,receipt_url,status,created_at`;
+    console.log('[notify-payment-request] Request URL:', requestUrl);
+    
+    const requestResponse = await fetch(requestUrl, {
+      method: 'GET',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
       }
-    );
+    });
+
+    const responseText = await requestResponse.text();
+    console.log('[notify-payment-request] Supabase response status:', requestResponse.status);
+    console.log('[notify-payment-request] Supabase response body:', responseText.substring(0, 500));
 
     if (!requestResponse.ok) {
-      console.error("Error fetching payment request:", requestResponse.status);
+      console.error('[notify-payment-request] ❌ Error fetching payment request:', requestResponse.status, responseText);
       return new Response(
-        JSON.stringify({ error: "Payment request not found" }),
+        JSON.stringify({ error: "Payment request not found", details: responseText }),
         { status: 404, headers: corsHeaders }
       );
     }
 
-    const paymentRequests = await requestResponse.json();
+    let paymentRequests;
+    try {
+      paymentRequests = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[notify-payment-request] ❌ Error parsing payment request response:', parseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid response from database", details: responseText }),
+        { status: 500, headers: corsHeaders }
+      );
+    }
+    
     const paymentRequest = paymentRequests?.[0];
+    console.log('[notify-payment-request] Payment request data:', paymentRequest);
 
     if (!paymentRequest) {
-      console.error("Payment request not found");
+      console.error('[notify-payment-request] ❌ Payment request not found in response. Array length:', paymentRequests?.length);
       return new Response(
-        JSON.stringify({ error: "Payment request not found" }),
+        JSON.stringify({ error: "Payment request not found", arrayLength: paymentRequests?.length }),
         { status: 404, headers: corsHeaders }
       );
     }
 
     // Проверяем, что заявка в статусе pending
     if (paymentRequest.status !== 'pending') {
-      console.warn("Payment request already processed:", paymentRequest.status);
+      console.warn('[notify-payment-request] ⚠️ Payment request already processed. Status:', paymentRequest.status);
       return new Response(
-        JSON.stringify({ success: false, message: "Request already processed" }),
+        JSON.stringify({ success: false, message: "Request already processed", status: paymentRequest.status }),
         { status: 200, headers: corsHeaders }
       );
     }
+    
+    console.log('[notify-payment-request] ✅ Payment request found and is pending');
 
     // Получаем email пользователя из profiles через REST API
     let userEmail = 'Не указан';
@@ -153,6 +184,9 @@ export async function onRequestPost(context) {
 
     try {
       // Отправляем текстовое сообщение с кнопками
+      console.log('[notify-payment-request] Sending message to Telegram. Chat ID:', chatId);
+      console.log('[notify-payment-request] Message text:', messageText);
+      
       const messageResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,15 +197,26 @@ export async function onRequestPost(context) {
         })
       });
 
+      const telegramResponseText = await messageResponse.text();
+      console.log('[notify-payment-request] Telegram API response status:', messageResponse.status);
+      console.log('[notify-payment-request] Telegram API response body:', telegramResponseText.substring(0, 500));
+
       if (!messageResponse.ok) {
-        const errorData = await messageResponse.text();
-        console.error("Telegram sendMessage error:", errorData);
-        throw new Error(`Telegram API error: ${messageResponse.status}`);
+        console.error('[notify-payment-request] ❌ Telegram sendMessage error:', telegramResponseText);
+        throw new Error(`Telegram API error: ${messageResponse.status} - ${telegramResponseText}`);
       }
 
-      const messageData = await messageResponse.json();
+      let messageData;
+      try {
+        messageData = JSON.parse(telegramResponseText);
+      } catch (parseError) {
+        console.error('[notify-payment-request] ❌ Error parsing Telegram response:', parseError);
+        throw new Error(`Invalid Telegram response: ${telegramResponseText.substring(0, 200)}`);
+      }
+      
       messageSent = true;
       messageId = messageData.result?.message_id;
+      console.log('[notify-payment-request] ✅ Message sent successfully. Message ID:', messageId);
 
       // Теперь отправляем чек, если есть receipt_url
       if (paymentRequest.receipt_url) {

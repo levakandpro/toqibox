@@ -192,14 +192,19 @@ export default function PaymentPage() {
           throw dbError;
         }
 
-        console.log('[Payment] Заявка успешно сохранена:', insertedData);
+        console.log('[Payment] ✅ Заявка успешно сохранена:', insertedData);
 
         // Отправляем уведомление в Telegram после успешного сохранения
-        if (insertedData && insertedData[0] && insertedData[0].id) {
+        if (insertedData && insertedData.length > 0 && insertedData[0] && insertedData[0].id) {
           const paymentRequestId = insertedData[0].id;
+          console.log('[Payment] 📤 Отправляем уведомление в Telegram для заявки:', paymentRequestId);
+          
+          // Небольшая задержка, чтобы заявка точно сохранилась в БД
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           try {
             // Вызываем серверный endpoint для уведомления в Telegram
+            console.log('[Payment] Вызываем /api/tg/notify-payment-request с payment_request_id:', paymentRequestId);
             const notifyResponse = await fetch('/api/tg/notify-payment-request', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
