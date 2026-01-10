@@ -192,13 +192,21 @@ export default function PricingPage() {
             });
 
             if (!notifyResponse.ok) {
-              console.warn('[Payment] Не удалось отправить уведомление в Telegram, но заявка сохранена');
+              const errorText = await notifyResponse.text().catch(() => 'Unknown error');
+              console.error('[Payment] Ошибка отправки уведомления в Telegram:', {
+                status: notifyResponse.status,
+                statusText: notifyResponse.statusText,
+                body: errorText
+              });
+              console.warn('[Payment] Заявка сохранена, но уведомление в Telegram не отправлено');
             } else {
-              console.log('[Payment] Уведомление в Telegram отправлено');
+              const result = await notifyResponse.json().catch(() => ({}));
+              console.log('[Payment] ✅ Уведомление в Telegram отправлено:', result);
             }
           } catch (notifyError) {
             // Не блокируем успешную отправку заявки, если уведомление не отправилось
-            console.warn('[Payment] Ошибка отправки уведомления в Telegram:', notifyError);
+            console.error('[Payment] ❌ Критическая ошибка при отправке уведомления в Telegram:', notifyError);
+            console.warn('[Payment] Заявка сохранена в БД, но уведомление в Telegram не отправлено. Проверьте логи Cloudflare Pages Functions.');
           }
         }
       } catch (dbError) {

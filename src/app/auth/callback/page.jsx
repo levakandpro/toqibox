@@ -28,6 +28,55 @@ export default function AuthCallbackPage() {
         return;
       }
 
+      // Проверяем, новая ли это регистрация (проверяем, существует ли профиль в БД)
+      // Если профиля нет - значит это новый пользователь
+      let isNewUser = false;
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        // Если профиля нет и ошибка не "не найдено" - значит новый пользователь
+        if (!profileData && (!profileError || profileError.code === 'PGRST116')) {
+          isNewUser = true;
+          console.log('[Auth] Новый пользователь обнаружен:', user.email);
+        }
+      } catch (e) {
+        // Если ошибка при проверке профиля - предполагаем, что это может быть новый пользователь
+        // Проверяем по created_at как запасной вариант
+        if (user.created_at) {
+          const userAge = new Date() - new Date(user.created_at);
+          isNewUser = userAge < 10000; // Меньше 10 секунд - вероятно новый
+        }
+      }
+      
+      // Отправляем уведомление о новой регистрации (если это новый пользователь)
+      if (isNewUser) {
+        try {
+          console.log('[Auth] Отправка уведомления о новой регистрации...');
+          fetch('/api/tg/notify-new-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              user_id: user.id,
+              email: user.email 
+            })
+          }).then(res => {
+            if (res.ok) {
+              console.log('[Auth] Уведомление о регистрации отправлено');
+            } else {
+              console.warn('[Auth] Ошибка отправки уведомления:', res.status);
+            }
+          }).catch(err => {
+            console.warn('[Auth] Ошибка при вызове notify-new-user:', err);
+          });
+        } catch (e) {
+          console.warn('[Auth] Ошибка отправки уведомления о регистрации:', e);
+        }
+      }
+
       // Проверяем, является ли пользователь админом
       let isAdmin = false;
       try {
