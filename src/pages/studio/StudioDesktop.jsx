@@ -9064,12 +9064,8 @@ export default function StudioDesktop() {
       
       // Проверяем оба лимита: по аккаунту И по устройству
       if (todayExports >= limits.success || todayDeviceExports >= limits.success) {
-        // Показываем правильное сообщение для каждого типа лимита
-        if (todayDeviceExports >= limits.success) {
-          setShowDeviceLimitModal(true);
-        } else {
-          setShowLimitModal(true);
-        }
+        // Используем существующий showLimitModal (он показывает правильное сообщение для free/premium)
+        setShowLimitModal(true);
         return;
       }
     } else {
