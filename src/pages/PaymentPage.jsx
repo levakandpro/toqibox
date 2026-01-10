@@ -1,6 +1,7 @@
 // PaymentPage.jsx
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { supabase } from "../features/auth/supabaseClient.js";
 import "./PaymentPage.css";
 
 import dcity from "../assets/dcity.jpg";
@@ -38,7 +39,7 @@ export default function PaymentPage() {
     }
   };
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     const input = document.getElementById("file-input");
     if (!input || !input.files || !input.files[0]) {
       alert("Сначала прикрепите фото чека");
@@ -48,14 +49,101 @@ export default function PaymentPage() {
     setBtnDisabled(true);
     setBtnText("Обработка...");
 
-    setTimeout(() => {
+    try {
+      // Получаем текущего пользователя
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        alert("Необходимо войти в аккаунт");
+        setBtnDisabled(false);
+        setBtnText("Отправить отчет");
+        return;
+      }
+
+      const file = input.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
+      const filePath = `payments/${fileName}`;
+
+      let receiptUrl = previewUrl;
+
+      // Пытаемся загрузить файл в Supabase Storage (если бакет существует)
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from('payments')
+          .upload(filePath, file);
+
+        if (!uploadError) {
+          // Получаем публичный URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('payments')
+            .getPublicUrl(filePath);
+          receiptUrl = publicUrl;
+        } else {
+          console.warn("Ошибка загрузки файла в Storage:", uploadError);
+          // Используем previewUrl (blob URL) как fallback
+        }
+      } catch (storageError) {
+        console.warn("Storage недоступен:", storageError);
+        // Используем previewUrl как fallback
+      }
+
+      // Создаем запись в таблице payment_requests для Studio
+      try {
+        // Преобразуем план в нижний регистр для единообразия
+        const planLower = plan === 'PREMIUM+' ? 'premium_plus' : 'premium';
+        const amountNum = parseFloat(amount) || 0;
+
+        const { error: dbError } = await supabase
+          .from('payment_requests')
+          .insert({
+            user_id: session.user.id,
+            product: 'studio',
+            plan: planLower,
+            amount: amountNum,
+            receipt_url: receiptUrl,
+            status: 'pending'
+          });
+
+        if (dbError) {
+          // Если таблицы нет, просто показываем сообщение
+          if (dbError.code === '42P01' || dbError.message?.includes('does not exist')) {
+            console.warn("Таблица payment_requests не найдена. Создайте её через SQL скрипт.");
+            alert("Платеж отправлен. Ожидайте подтверждения. (Таблица payment_requests не настроена)");
+            setBtnDisabled(false);
+            setBtnText("Отправить отчет");
+            setBtnGreen(false);
+            setPreviewUrl("");
+            input.value = "";
+            return;
+          }
+          throw dbError;
+        }
+      } catch (dbError) {
+        console.error("Ошибка сохранения заявки на оплату:", dbError);
+        // Показываем сообщение, но не блокируем пользователя
+        alert("Платеж отправлен. Ожидайте подтверждения.");
+        setBtnDisabled(false);
+        setBtnText("Отправить отчет");
+        setBtnGreen(false);
+        setPreviewUrl("");
+        input.value = "";
+        return;
+      }
+
       alert("Чек успешно отправлен. Ожидайте уведомления.");
       setBtnDisabled(false);
       setBtnText("Отправить отчет");
       setBtnGreen(false);
       setPreviewUrl("");
       input.value = "";
-    }, 1500);
+      // Возвращаемся на страницу тарифов
+      navigate("/studio/pricing");
+    } catch (error) {
+      console.error("Ошибка отправки:", error);
+      alert("Ошибка отправки: " + error.message);
+      setBtnDisabled(false);
+      setBtnText("Отправить отчет");
+    }
   };
 
   return (

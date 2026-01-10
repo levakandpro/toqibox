@@ -100,31 +100,35 @@ export default function PricingPage() {
         // Используем previewUrl как fallback
       }
 
-      // Создаем запись в таблице payments
+      // Создаем запись в таблице payment_requests для TOQIBOX
       try {
+        // Преобразуем план в нижний регистр для единообразия
+        const planLower = selectedPlan === 'PREMIUM+' ? 'premium_plus' : 'premium';
+        const amountNum = parseFloat(selectedAmount) || 0;
+
         const { error: dbError } = await supabase
-          .from('payments')
+          .from('payment_requests')
           .insert({
             user_id: session.user.id,
-            user_email: session.user.email,
-            plan: selectedPlan,
-            amount: selectedAmount,
-            screenshot_url: screenshotUrl,
+            product: 'toqibox',
+            plan: planLower,
+            amount: amountNum,
+            receipt_url: screenshotUrl,
             status: 'pending'
           });
 
         if (dbError) {
           // Если таблицы нет, просто показываем сообщение
           if (dbError.code === '42P01' || dbError.message?.includes('does not exist')) {
-            console.warn("Таблица payments не найдена. Создайте её через SQL скрипт.");
-            alert("Платеж отправлен. Ожидайте подтверждения. (Таблица payments не настроена)");
+            console.warn("Таблица payment_requests не найдена. Создайте её через SQL скрипт.");
+            alert("Платеж отправлен. Ожидайте подтверждения. (Таблица payment_requests не настроена)");
             handleBack();
             return;
           }
           throw dbError;
         }
       } catch (dbError) {
-        console.error("Ошибка сохранения платежа:", dbError);
+        console.error("Ошибка сохранения заявки на оплату:", dbError);
         // Показываем сообщение, но не блокируем пользователя
         alert("Платеж отправлен. Ожидайте подтверждения.");
         handleBack();
@@ -133,6 +137,10 @@ export default function PricingPage() {
 
       alert("Чек успешно отправлен. Ожидайте уведомления.");
       handleBack();
+      // Возвращаемся назад, если был returnTo
+      if (returnTo) {
+        navigate(returnTo);
+      }
     } catch (error) {
       console.error("Ошибка отправки:", error);
       alert("Ошибка отправки: " + error.message);

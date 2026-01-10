@@ -86,6 +86,19 @@
   padding: 0;
 }
 
+.admin-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-list table thead {
+  background: #fafafa;
+}
+
+.admin-list table tbody tr:hover {
+  background: #fafafa;
+}
+
 .admin-item {
   display: flex;
   justify-content: space-between;

@@ -296,8 +296,11 @@ export default function StudioDesktop() {
   const [profile, setProfile] = useState(null);
   const [effectivePlan, setEffectivePlan] = useState('free'); // free, premium, premium_plus
   const [usageDaily, setUsageDaily] = useState(null);
+  const [deviceUsageDaily, setDeviceUsageDaily] = useState(null);
+  const [fingerprintId, setFingerprintId] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [showTariffModal, setShowTariffModal] = useState(false);
   
   // ⚠️ PREMIUM: Проверка premium статуса пользователя (используется для других функций)
   const userHasPremium = effectivePlan === 'premium' || effectivePlan === 'premium_plus';
@@ -355,39 +358,85 @@ export default function StudioDesktop() {
     return { s, d, e };
   };
 
+  // Функция для получения/генерации fingerprint_id (стабильный идентификатор устройства)
+  const getOrCreateFingerprint = () => {
+    const STORAGE_KEY = 'tq_fingerprint_id';
+    let fingerprint = localStorage.getItem(STORAGE_KEY);
+    
+    if (!fingerprint) {
+      // Генерируем стабильный fingerprint на основе характеристик устройства
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillText('Fingerprint', 2, 2);
+      
+      // Используем только стабильные характеристики (без Date.now() для стабильности)
+      const fingerprintData = [
+        navigator.userAgent,
+        navigator.language,
+        screen.width + 'x' + screen.height,
+        screen.colorDepth,
+        screen.pixelDepth || 0,
+        new Date().getTimezoneOffset(),
+        navigator.hardwareConcurrency || 0,
+        navigator.platform,
+        canvas.toDataURL()
+      ].join('|');
+      
+      // Простое хеширование для получения стабильного ID
+      let hash = 0;
+      for (let i = 0; i < fingerprintData.length; i++) {
+        const char = fingerprintData.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      
+      // Генерируем стабильный fingerprint без временной метки
+      fingerprint = 'fp_' + Math.abs(hash).toString(36);
+      localStorage.setItem(STORAGE_KEY, fingerprint);
+    }
+    
+    return fingerprint;
+  };
+
   // Функции для работы с тарифами и лимитами
   const loadUserData = async () => {
     try {
+      // Инициализируем fingerprint_id (делаем это всегда, не только для авторизованных)
+      const fingerprint = getOrCreateFingerprint();
+      setFingerprintId(fingerprint);
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         setUser(null);
         setProfile(null);
         setEffectivePlan('free');
         setUsageDaily(null);
+        setDeviceUsageDaily(null);
         return;
       }
 
       setUser(session.user);
 
-      // Загружаем профиль пользователя
+      // Загружаем профиль пользователя (Studio использует studio_plan)
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('plan, plan_expires_at')
+        .select('studio_plan, studio_plan_expires_at')
         .eq('id', session.user.id)
         .single();
 
+      let calculatedPlan = 'free';
       if (profileError) {
         console.error('Ошибка загрузки профиля:', profileError);
         setProfile(null);
-        setEffectivePlan('free');
       } else {
         setProfile(profileData);
         
-        // Рассчитываем effectivePlan
-        const plan = profileData?.plan || 'free';
-        const planExpiresAt = profileData?.plan_expires_at;
+        // Рассчитываем effectivePlan для Studio
+        const plan = profileData?.studio_plan || 'free';
+        const planExpiresAt = profileData?.studio_plan_expires_at;
         
-        let calculatedPlan = 'free';
         if ((plan === 'premium' || plan === 'premium_plus') && planExpiresAt) {
           const expiresAt = new Date(planExpiresAt);
           const now = new Date();
@@ -395,10 +444,10 @@ export default function StudioDesktop() {
             calculatedPlan = plan;
           }
         }
-        setEffectivePlan(calculatedPlan);
       }
+      setEffectivePlan(calculatedPlan);
 
-      // Загружаем usage_daily за сегодня
+      // Загружаем usage_daily за сегодня (по аккаунту)
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
       const { data: usageData, error: usageError } = await supabase
         .from('usage_daily')
@@ -413,12 +462,32 @@ export default function StudioDesktop() {
       } else {
         setUsageDaily(usageData || { exports_success: 0 });
       }
+
+      // Загружаем device_usage_daily только для FREE плана
+      if (calculatedPlan === 'free' && fingerprint) {
+        const { data: deviceUsageData, error: deviceUsageError } = await supabase
+          .from('device_usage_daily')
+          .select('exports_success')
+          .eq('fingerprint_id', fingerprint)
+          .eq('day', today)
+          .maybeSingle();
+
+        if (deviceUsageError) {
+          console.error('Ошибка загрузки device_usage_daily:', deviceUsageError);
+          setDeviceUsageDaily({ exports_success: 0 });
+        } else {
+          setDeviceUsageDaily(deviceUsageData || { exports_success: 0 });
+        }
+      } else {
+        setDeviceUsageDaily(null);
+      }
     } catch (error) {
       console.error('Ошибка загрузки данных пользователя:', error);
       setUser(null);
       setProfile(null);
       setEffectivePlan('free');
       setUsageDaily(null);
+      setDeviceUsageDaily(null);
     }
   };
 
@@ -448,6 +517,20 @@ export default function StudioDesktop() {
 
     if (!usageError) {
       setUsageDaily(usageData || { exports_success: 0 });
+    }
+
+    // Обновляем device_usage_daily для FREE плана
+    if (effectivePlan === 'free' && fingerprintId) {
+      const { data: deviceUsageData, error: deviceUsageError } = await supabase
+        .from('device_usage_daily')
+        .select('exports_success')
+        .eq('fingerprint_id', fingerprintId)
+        .eq('day', today)
+        .maybeSingle();
+
+      if (!deviceUsageError) {
+        setDeviceUsageDaily(deviceUsageData || { exports_success: 0 });
+      }
     }
   };
 
@@ -8930,12 +9013,56 @@ export default function StudioDesktop() {
     // Определяем лимиты по тарифу
     const limits = getExportLimits(effectivePlan);
     
-    // Проверка лимитов
+    // Объявляем переменную для ID записи экспорта
+    let exportRecordId = null;
+    
+    // 1. Проверка cooldown: проверяем последний exports.created_at (для всех статусов)
+    const { data: lastExport, error: cooldownError } = await supabase
+      .from('exports')
+      .select('created_at')
+      .eq('user_id', user.id)
+      .eq('product', 'studio')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!cooldownError && lastExport) {
+      const lastExportTime = new Date(lastExport.created_at);
+      const now = new Date();
+      const secondsSinceLastExport = (now - lastExportTime) / 1000;
+      
+      // Cooldown: 30-60 секунд (используем 30 секунд как минимум)
+      const COOLDOWN_SECONDS = 30;
+      if (secondsSinceLastExport < COOLDOWN_SECONDS) {
+        const remainingSeconds = Math.ceil(COOLDOWN_SECONDS - secondsSinceLastExport);
+        alert(`Подождите ${remainingSeconds} секунд перед следующим экспортом`);
+        return;
+      }
+    }
+
+    // 2. Проверка лимитов по аккаунту (используем usageDaily, который обновляется триггером при status='success')
     const todayExports = usageDaily?.exports_success || 0;
     
-    if (todayExports >= limits.success) {
-      setShowLimitModal(true);
-      return;
+    // Для FREE плана проверяем также лимит по устройству
+    if (effectivePlan === 'free') {
+      const todayDeviceExports = deviceUsageDaily?.exports_success || 0;
+      
+      // Проверяем оба лимита: по аккаунту И по устройству
+      if (todayExports >= limits.success || todayDeviceExports >= limits.success) {
+        // Показываем правильное сообщение для каждого типа лимита
+        if (todayDeviceExports >= limits.success) {
+          setShowDeviceLimitModal(true);
+        } else {
+          setShowLimitModal(true);
+        }
+        return;
+      }
+    } else {
+      // Для premium/premium_plus проверяем только лимит по аккаунту
+      if (todayExports >= limits.success) {
+        setShowLimitModal(true);
+        return;
+      }
     }
 
     if (!photoUrl || !audioUrl || !audioDuration) {
@@ -9237,6 +9364,43 @@ export default function StudioDesktop() {
         }
       };
 
+      // 3. При старте: INSERT в exports со status='started'
+      try {
+        const { data: startedExport, error: insertError } = await supabase
+          .from('exports')
+          .insert({
+            user_id: user.id,
+            status: 'started',
+            duration_seconds: 0, // Будет обновлено при завершении
+            resolution: limits.resolution,
+            template_id: selectedTemplate || null,
+            visual_id: null,
+            product: 'studio',
+          })
+          .select('id')
+          .single();
+
+        if (insertError) {
+          console.error('Ошибка создания записи экспорта:', insertError);
+          throw new Error('Не удалось начать экспорт. Попробуйте снова.');
+        }
+
+        exportRecordId = startedExport?.id;
+      } catch (exportStartError) {
+        console.error('Ошибка при старте экспорта:', exportStartError);
+        alert('Ошибка при старте экспорта: ' + exportStartError.message);
+        // На этом этапе аудио еще не изменено, просто очищаем UI
+        if (document.getElementById('browser-export-overlay')) {
+          document.body.removeChild(document.getElementById('browser-export-overlay'));
+        }
+        document.body.style.overflow = '';
+        const loaderStyle = document.querySelector('style[data-export-loader]');
+        if (loaderStyle) {
+          document.head.removeChild(loaderStyle);
+        }
+        return;
+      }
+
       // Запускаем запись
       mediaRecorder.start();
       recordingStartTime = Date.now();
@@ -9274,22 +9438,64 @@ export default function StudioDesktop() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Записываем успешный экспорт в exports
-      try {
-        await supabase.from('exports').insert({
-          user_id: user.id,
-          status: 'success',
-          duration_seconds: Math.min(exportDuration, limits.maxDuration),
-          resolution: limits.resolution,
-          template_id: selectedTemplate || null,
-          visual_id: null, // visual_id нет в текущей реализации
-        });
-        
-        // Обновляем usage_daily (триггер в БД должен обновить автоматически, но обновим для UI)
-        await refreshUsageDaily();
-      } catch (exportLogError) {
-        console.error('Ошибка записи экспорта в БД:', exportLogError);
-        // Не показываем ошибку пользователю, экспорт успешен
+      // 4. После успешного завершения: UPDATE на status='success'
+      if (exportRecordId) {
+        try {
+          const finishedAt = new Date().toISOString();
+          const { error: updateError } = await supabase
+            .from('exports')
+            .update({
+              status: 'success',
+              duration_seconds: Math.min(exportDuration, limits.maxDuration),
+              finished_at: finishedAt,
+            })
+            .eq('id', exportRecordId);
+
+          if (updateError) {
+            console.error('Ошибка обновления записи экспорта:', updateError);
+          } else {
+            // Обновляем usage_daily (триггер в БД должен обновить автоматически, но обновим для UI)
+            await refreshUsageDaily();
+          }
+        } catch (exportUpdateError) {
+          console.error('Ошибка обновления записи экспорта:', exportUpdateError);
+        }
+      }
+
+      // Для FREE плана обновляем device_usage_daily после успешного экспорта
+      if (effectivePlan === 'free' && fingerprintId) {
+        const today = new Date().toISOString().split('T')[0];
+        try {
+          // Upsert в device_usage_daily: увеличиваем exports_success на 1
+          const { data: existingDeviceUsage, error: fetchError } = await supabase
+            .from('device_usage_daily')
+            .select('exports_success')
+            .eq('fingerprint_id', fingerprintId)
+            .eq('day', today)
+            .maybeSingle();
+
+          const currentExports = existingDeviceUsage?.exports_success || 0;
+          const newExports = currentExports + 1;
+
+          const { error: upsertError } = await supabase
+            .from('device_usage_daily')
+            .upsert({
+              fingerprint_id: fingerprintId,
+              day: today,
+              exports_success: newExports
+            }, {
+              onConflict: 'fingerprint_id,day'
+            });
+
+          if (upsertError) {
+            console.error('Ошибка обновления device_usage_daily:', upsertError);
+          } else {
+            // Обновляем состояние для UI
+            setDeviceUsageDaily({ exports_success: newExports });
+          }
+        } catch (deviceUsageError) {
+          console.error('Ошибка записи device_usage_daily:', deviceUsageError);
+        }
       }
 
       // Восстанавливаем состояние аудио
@@ -9394,8 +9600,28 @@ export default function StudioDesktop() {
     } catch (error) {
       console.error('Ошибка экспорта:', error);
       
-      // Записываем failed экспорт в exports (только если пользователь авторизован)
-      if (user) {
+      // 4. После ошибки: UPDATE на status='failed' с error_reason
+      if (exportRecordId) {
+        try {
+          const finishedAt = new Date().toISOString();
+          const errorReason = error.message || error.toString() || 'Неизвестная ошибка';
+          const { error: updateError } = await supabase
+            .from('exports')
+            .update({
+              status: 'failed',
+              finished_at: finishedAt,
+              error_reason: errorReason.substring(0, 500), // Ограничиваем длину
+            })
+            .eq('id', exportRecordId);
+
+          if (updateError) {
+            console.error('Ошибка обновления записи failed экспорта:', updateError);
+          }
+        } catch (exportLogError) {
+          console.error('Ошибка записи failed экспорта в БД:', exportLogError);
+        }
+      } else if (user) {
+        // Если exportRecordId нет, но была ошибка до старта - создаем failed запись
         try {
           const limits = getExportLimits(effectivePlan);
           await supabase.from('exports').insert({
@@ -9405,6 +9631,8 @@ export default function StudioDesktop() {
             resolution: limits.resolution,
             template_id: selectedTemplate || null,
             visual_id: null,
+            product: 'studio',
+            error_reason: error.message || error.toString() || 'Неизвестная ошибка',
           });
         } catch (exportLogError) {
           console.error('Ошибка записи failed экспорта в БД:', exportLogError);
@@ -9989,19 +10217,59 @@ export default function StudioDesktop() {
           </div>
         </div>
 
-        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexDirection: 'column' }}>
-          {user && usageDaily !== null && (() => {
+        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {user && profile && usageDaily !== null && (() => {
+            // Получаем информацию о тарифе Studio
+            const plan = profile?.studio_plan || 'free';
+            const planExpiresAt = profile?.studio_plan_expires_at;
+            let tariffType = 'БЕСПЛАТНЫЙ';
+            let isExpired = false;
+            let expiresAtDate = null;
+            
+            if (plan && planExpiresAt && (plan === 'premium' || plan === 'premium_plus')) {
+              const expiresAt = new Date(planExpiresAt);
+              const now = new Date();
+              if (expiresAt > now) {
+                tariffType = plan === 'premium_plus' ? 'PREMIUM+' : 'PREMIUM';
+                expiresAtDate = expiresAt;
+              } else {
+                isExpired = true;
+              }
+            }
+            
             const limits = getExportLimits(effectivePlan);
             const todayExports = usageDaily?.exports_success || 0;
             const remaining = Math.max(0, limits.success - todayExports);
+            
             return (
               <div style={{ 
-                fontSize: '10px', 
-                color: 'rgba(255, 255, 255, 0.6)',
-                textAlign: 'center',
+                fontSize: '11px', 
+                color: 'rgba(255, 255, 255, 0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
                 whiteSpace: 'nowrap'
               }}>
-                Осталось сегодня: {remaining}/{limits.success}
+                <span 
+                  onClick={() => setShowTariffModal(true)}
+                  style={{
+                    cursor: 'pointer',
+                    opacity: 0.7,
+                    transition: 'opacity 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = '1'}
+                  onMouseLeave={(e) => e.target.style.opacity = '0.7'}
+                >
+                  Тариф: <span style={{
+                    fontWeight: 700,
+                    letterSpacing: '0.05em',
+                    color: tariffType === 'БЕСПЛАТНЫЙ' ? 'rgba(255, 255, 255, 0.8)' : '#C8A24A',
+                  }}>{tariffType}</span>
+                </span>
+                <span style={{ opacity: 0.5 }}>•</span>
+                <span style={{ opacity: 0.7 }}>
+                  Осталось: {remaining}/{limits.success}
+                </span>
               </div>
             );
           })()}
@@ -10125,7 +10393,9 @@ export default function StudioDesktop() {
               Лимит на сегодня исчерпан
             </h2>
             <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '16px', margin: '0 0 32px 0' }}>
-              Вы исчерпали лимит экспортов на сегодня. Обновите тариф для увеличения лимита.
+              {effectivePlan === 'free' 
+                ? 'Бесплатный лимит исчерпан на этом устройстве. Попробуйте завтра или оформите PREMIUM.'
+                : 'Вы исчерпали лимит экспортов на сегодня. Обновите тариф для увеличения лимита.'}
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
@@ -10166,7 +10436,148 @@ export default function StudioDesktop() {
         </div>
       )}
 
-
+      {/* Модалка подписки Studio */}
+      {showTariffModal && user && profile && usageDaily !== null && (() => {
+        const plan = profile?.studio_plan || 'free';
+        const planExpiresAt = profile?.studio_plan_expires_at;
+        let tariffType = 'БЕСПЛАТНЫЙ';
+        let isExpired = false;
+        let expiresAtDate = null;
+        
+        if (plan && planExpiresAt && (plan === 'premium' || plan === 'premium_plus')) {
+          const expiresAt = new Date(planExpiresAt);
+          const now = new Date();
+          if (expiresAt > now) {
+            tariffType = plan === 'premium_plus' ? 'PREMIUM+' : 'PREMIUM';
+            expiresAtDate = expiresAt;
+          } else {
+            isExpired = true;
+          }
+        }
+        
+        const limits = getExportLimits(effectivePlan);
+        const todayExports = usageDaily?.exports_success || 0;
+        const remaining = Math.max(0, limits.success - todayExports);
+        
+        return (
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.85)',
+              zIndex: 100000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
+            onClick={() => setShowTariffModal(false)}
+          >
+            <div 
+              style={{
+                background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '16px',
+                padding: '40px 50px',
+                textAlign: 'center',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                maxWidth: '450px',
+                width: '90%',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ color: '#ffffff', fontSize: '24px', fontWeight: 600, margin: '0 0 24px 0' }}>
+                Подписка Studio
+              </h2>
+              
+              <div style={{ marginBottom: '24px', textAlign: 'left' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '4px' }}>План:</div>
+                  <div style={{ 
+                    fontSize: '20px', 
+                    fontWeight: 700,
+                    color: tariffType === 'БЕСПЛАТНЫЙ' ? 'rgba(255, 255, 255, 0.8)' : '#C8A24A',
+                    letterSpacing: '0.05em'
+                  }}>
+                    {tariffType}
+                  </div>
+                </div>
+                
+                {expiresAtDate && !isExpired && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '4px' }}>Срок:</div>
+                    <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)' }}>
+                      Действует до: {expiresAtDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </div>
+                  </div>
+                )}
+                
+                {isExpired && tariffType === 'БЕСПЛАТНЫЙ' && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '4px' }}>Статус:</div>
+                    <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.7)', fontStyle: 'italic' }}>
+                      Подписка истекла
+                    </div>
+                  </div>
+                )}
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '4px' }}>Лимит в день:</div>
+                  <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)' }}>
+                    {limits.success} экспортов ({limits.resolution}p)
+                  </div>
+                </div>
+                
+                <div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '4px' }}>Осталось сегодня:</div>
+                  <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)' }}>
+                    {remaining} из {limits.success}
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => {
+                    setShowTariffModal(false);
+                    navigate('/studio/pricing');
+                  }}
+                  style={{
+                    background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 32px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Перейти к тарифам
+                </button>
+                <button
+                  onClick={() => setShowTariffModal(false)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: 'white',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    padding: '12px 32px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Вертикальная панель инструментов */}
       <div ref={toolsPanelRef} className={`tools-panel ${isToolsOpen ? 'tools-panel-open' : ''} ${hasUserInteracted ? 'has-interacted' : ''}`}>

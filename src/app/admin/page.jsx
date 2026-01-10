@@ -16,6 +16,7 @@ export default function AdminPage() {
   const [artists, setArtists] = useState([]);
   const [tracks, setTracks] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [paymentRequests, setPaymentRequests] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalArtists: 0,
@@ -24,14 +25,35 @@ export default function AdminPage() {
     premiumPlusUsers: 0,
   });
   
+  // Studio данные
+  const [studioUsers, setStudioUsers] = useState([]);
+  const [studioExports, setStudioExports] = useState([]);
+  
+  // TOQIBOX подписки
+  const [toqiboxUsers, setToqiboxUsers] = useState([]);
+  const [studioStats, setStudioStats] = useState({
+    activePremium: 0,
+    activePremiumPlus: 0,
+    exportsToday: 0,
+    exportsTotal: 0,
+  });
+  
+  // Studio фильтры
+  const [studioExportStatusFilter, setStudioExportStatusFilter] = useState("all"); // all, success, failed, canceled
+  const [studioExportUserFilter, setStudioExportUserFilter] = useState("");
+  const [studioExportTodayFilter, setStudioExportTodayFilter] = useState(false);
+  
   // UI состояния
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("users");
+  const [subscriptionsSubTab, setSubscriptionsSubTab] = useState("toqibox"); // toqibox или studio
   
   // Поиск и фильтры
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all"); // all, pending, approved, rejected
   const [premiumFilter, setPremiumFilter] = useState("all"); // all, premium, premium_plus, none
+  const [paymentRequestStatusFilter, setPaymentRequestStatusFilter] = useState("all"); // all, pending, approved, rejected
+  const [paymentRequestProductFilter, setPaymentRequestProductFilter] = useState("all"); // all, studio, toqibox
   
   // Модальные окна
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -39,6 +61,8 @@ export default function AdminPage() {
   const [approveDays, setApproveDays] = useState(30);
   const [showEditArtistModal, setShowEditArtistModal] = useState(false);
   const [selectedArtist, setSelectedArtist] = useState(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState(null);
 
   // Проверка авторизации и прав доступа
   useEffect(() => {
@@ -192,10 +216,49 @@ export default function AdminPage() {
         console.warn("Ошибка загрузки платежей:", e);
       }
 
+      // Загружаем заявки на оплату
+      let paymentRequestsData = [];
+      try {
+        const { data, error } = await supabase
+          .from("payment_requests")
+          .select("*")
+          .order("created_at", { ascending: false });
+        
+        if (error) {
+          console.warn("Таблица payment_requests не найдена или ошибка:", error);
+        } else {
+          paymentRequestsData = data || [];
+          // Получаем email для каждой заявки из auth или payments
+          paymentRequestsData = await Promise.all(
+            (paymentRequestsData || []).map(async (request) => {
+              try {
+                // Пытаемся получить email из payments
+                const { data: paymentData } = await supabase
+                  .from("payments")
+                  .select("user_email")
+                  .eq("user_id", request.user_id)
+                  .limit(1)
+                  .maybeSingle();
+                
+                return {
+                  ...request,
+                  user_email: paymentData?.user_email || null,
+                };
+              } catch {
+                return request;
+              }
+            })
+          );
+        }
+      } catch (e) {
+        console.warn("Ошибка загрузки заявок на оплату:", e);
+      }
+
       setUsers(usersWithEmail);
       setArtists(artistsData || []);
       setTracks(tracksData || []);
       setPayments(paymentsData || []);
+      setPaymentRequests(paymentRequestsData || []);
 
       // Статистика
       const premiumCount = artistsData?.filter(a => 
@@ -217,10 +280,205 @@ export default function AdminPage() {
         premiumUsers: premiumCount,
         premiumPlusUsers: premiumPlusCount,
       });
+
+      // Загружаем Studio и TOQIBOX данные
+      await loadStudioData();
+      await loadToqiboxSubscriptions();
     } catch (error) {
       console.error("Ошибка загрузки данных:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Загрузка TOQIBOX подписок
+  const loadToqiboxSubscriptions = async () => {
+    try {
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, toqibox_plan, toqibox_plan_expires_at')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) {
+        console.error('Ошибка загрузки TOQIBOX профилей:', profilesError);
+        setToqiboxUsers([]);
+      } else {
+        // Рассчитываем статус для каждого пользователя
+        const usersWithStatus = (profilesData || []).map(profile => {
+          const plan = profile.toqibox_plan || 'free';
+          const expiresAt = profile.toqibox_plan_expires_at;
+          
+          let status = 'free';
+          if (plan === 'premium' || plan === 'premium_plus') {
+            if (expiresAt) {
+              const expires = new Date(expiresAt);
+              const now = new Date();
+              status = expires > now ? 'active' : 'expired';
+            } else {
+              status = 'expired';
+            }
+          }
+          
+          return {
+            ...profile,
+            status,
+          };
+        });
+        
+        setToqiboxUsers(usersWithStatus);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки TOQIBOX подписок:', error);
+    }
+  };
+
+  // Загрузка Studio данных
+  const loadStudioData = async () => {
+    try {
+      // Загружаем пользователей с Studio тарифами из profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, studio_plan, studio_plan_expires_at, studio_approved_at, studio_approved_by')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) {
+        console.error('Ошибка загрузки Studio профилей:', profilesError);
+        setStudioUsers([]);
+      } else {
+        // Пытаемся получить email из payments для каждого пользователя
+        const profilesWithEmail = await Promise.all(
+          (profilesData || []).map(async (profile) => {
+            try {
+              const { data: paymentData } = await supabase
+                .from('payments')
+                .select('user_email')
+                .eq('user_id', profile.id)
+                .limit(1)
+                .maybeSingle();
+              
+              return {
+                ...profile,
+                email: paymentData?.user_email || null,
+              };
+            } catch {
+              return profile;
+            }
+          })
+        );
+        
+        // Рассчитываем статус для каждого пользователя
+        const usersWithStatus = profilesWithEmail.map(profile => {
+          const plan = profile.studio_plan || 'free';
+          const expiresAt = profile.studio_plan_expires_at;
+          
+          let status = 'free';
+          if (plan === 'premium' || plan === 'premium_plus') {
+            if (expiresAt) {
+              const expires = new Date(expiresAt);
+              const now = new Date();
+              status = expires > now ? 'active' : 'expired';
+            } else {
+              status = 'expired';
+            }
+          }
+          
+          return {
+            ...profile,
+            status,
+          };
+        });
+        
+        setStudioUsers(usersWithStatus);
+        
+        // Подсчитываем статистику Studio
+        const activePremium = usersWithStatus.filter(u => 
+          u.studio_plan === 'premium' && u.status === 'active'
+        ).length;
+        const activePremiumPlus = usersWithStatus.filter(u => 
+          u.studio_plan === 'premium_plus' && u.status === 'active'
+        ).length;
+        
+        setStudioStats(prev => ({
+          ...prev,
+          activePremium,
+          activePremiumPlus,
+        }));
+      }
+
+      // Загружаем экспорты Studio
+      const { data: exportsData, error: exportsError } = await supabase
+        .from('exports')
+        .select('*')
+        .eq('product', 'studio')
+        .order('created_at', { ascending: false });
+
+      if (exportsError) {
+        console.error('Ошибка загрузки Studio экспортов:', exportsError);
+        setStudioExports([]);
+      } else {
+        setStudioExports(exportsData || []);
+        
+        // Подсчитываем статистику экспортов
+        const today = new Date().toISOString().split('T')[0];
+        const exportsToday = (exportsData || []).filter(e => {
+          const exportDate = new Date(e.created_at).toISOString().split('T')[0];
+          return exportDate === today && e.status === 'success';
+        }).length;
+        const exportsTotal = (exportsData || []).filter(e => e.status === 'success').length;
+        
+        setStudioStats(prev => ({
+          ...prev,
+          exportsToday,
+          exportsTotal,
+        }));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки Studio данных:', error);
+    }
+  };
+
+  // Управление Studio тарифами
+  const handleStudioApprove = async (userId, planType) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminId = session?.user?.id || null;
+      
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      
+      const updateData = {
+        studio_plan: planType,
+        studio_plan_expires_at: expiresAt.toISOString(),
+        studio_approved_at: new Date().toISOString(),
+        studio_approved_by: adminId,
+      };
+      
+      await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', userId);
+      
+      await loadStudioData();
+    } catch (error) {
+      console.error('Ошибка обновления Studio тарифа:', error);
+      alert('Ошибка: ' + error.message);
+    }
+  };
+
+  const handleStudioRemove = async (userId) => {
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          studio_plan: 'free',
+          studio_plan_expires_at: null,
+        })
+        .eq('id', userId);
+      
+      await loadStudioData();
+    } catch (error) {
+      console.error('Ошибка снятия Studio тарифа:', error);
+      alert('Ошибка: ' + error.message);
     }
   };
 
@@ -276,6 +534,32 @@ export default function AdminPage() {
 
     return filtered;
   }, [payments, paymentStatusFilter, searchQuery]);
+
+  const filteredPaymentRequests = useMemo(() => {
+    let filtered = paymentRequests;
+
+    // Фильтр по статусу
+    if (paymentRequestStatusFilter !== "all") {
+      filtered = filtered.filter(pr => pr.status === paymentRequestStatusFilter);
+    }
+
+    // Фильтр по продукту
+    if (paymentRequestProductFilter !== "all") {
+      filtered = filtered.filter(pr => pr.product === paymentRequestProductFilter);
+    }
+
+    // Поиск
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(pr => 
+        (pr.user_id || "").toLowerCase().includes(query) ||
+        (pr.plan || "").toLowerCase().includes(query) ||
+        (pr.product || "").toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [paymentRequests, paymentRequestStatusFilter, paymentRequestProductFilter, searchQuery]);
 
   const filteredUsers = useMemo(() => {
     let filtered = users;
@@ -396,6 +680,105 @@ export default function AdminPage() {
     }
   };
 
+  // Одобрение заявки на оплату (идемпотентное)
+  const handleApprovePaymentRequest = async (requestId, userId, product, plan) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminId = session?.user?.id || null;
+      
+      // Идемпотентное обновление: UPDATE только если status='pending'
+      const { data: updatedRequest, error: updateError } = await supabase
+        .from('payment_requests')
+        .update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          approved_by: adminId,
+        })
+        .eq('id', requestId)
+        .eq('status', 'pending')
+        .select();
+
+      // Проверяем, что обновлена ровно 1 запись (affected_rows === 1)
+      if (updateError) {
+        throw updateError;
+      }
+
+      if (!updatedRequest || updatedRequest.length !== 1) {
+        alert('Заявка уже обработана или не найдена. Повторное продление не выполнено.');
+        await loadData();
+        return;
+      }
+
+      // Только если обновление успешно - продлеваем план
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      // Обновляем профиль пользователя в зависимости от продукта
+      if (product === 'studio') {
+        await supabase
+          .from('profiles')
+          .update({
+            studio_plan: plan,
+            studio_plan_expires_at: expiresAt.toISOString(),
+          })
+          .eq('id', userId);
+      } else if (product === 'toqibox') {
+        await supabase
+          .from('profiles')
+          .update({
+            toqibox_plan: plan,
+            toqibox_plan_expires_at: expiresAt.toISOString(),
+          })
+          .eq('id', userId);
+      }
+
+      await loadData();
+      alert('Заявка одобрена. Подписка активирована на 30 дней.');
+    } catch (error) {
+      console.error('Ошибка одобрения заявки:', error);
+      alert('Ошибка: ' + error.message);
+    }
+  };
+
+  // Отклонение заявки на оплату (идемпотентное)
+  const handleRejectPaymentRequest = async (requestId) => {
+    if (!confirm('Отклонить эту заявку?')) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminId = session?.user?.id || null;
+
+      // Идемпотентное обновление: UPDATE только если status='pending'
+      const { data: updatedRequest, error: updateError } = await supabase
+        .from('payment_requests')
+        .update({
+          status: 'rejected',
+          rejected_at: new Date().toISOString(),
+          rejected_by: adminId,
+        })
+        .eq('id', requestId)
+        .eq('status', 'pending')
+        .select();
+
+      // Проверяем, что обновлена ровно 1 запись (affected_rows === 1)
+      if (updateError) {
+        throw updateError;
+      }
+
+      if (!updatedRequest || updatedRequest.length !== 1) {
+        alert('Заявка уже обработана или не найдена.');
+        await loadData();
+        return;
+      }
+
+      await loadData();
+      alert('Заявка отклонена.');
+    } catch (error) {
+      console.error('Ошибка отклонения заявки:', error);
+      alert('Ошибка: ' + error.message);
+    }
+  };
+
   // Показываем загрузку или ошибку авторизации
   if (checkingAuth) {
     return (
@@ -459,6 +842,22 @@ export default function AdminPage() {
           <div className="stat-value">{stats.premiumPlusUsers}</div>
           <div className="stat-label">PREMIUM+</div>
         </div>
+        <div className="stat-card">
+          <div className="stat-value">{studioStats.activePremium}</div>
+          <div className="stat-label">Активный PREMIUM (Studio)</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{studioStats.activePremiumPlus}</div>
+          <div className="stat-label">Активный PREMIUM+ (Studio)</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{studioStats.exportsToday}</div>
+          <div className="stat-label">Экспортов сегодня (Studio)</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{studioStats.exportsTotal}</div>
+          <div className="stat-label">Экспортов всего (Studio)</div>
+        </div>
       </div>
 
       {/* Поиск и фильтры */}
@@ -481,6 +880,29 @@ export default function AdminPage() {
             <option value="approved">Подтвержденные</option>
             <option value="rejected">Отклоненные</option>
           </select>
+        )}
+        {activeTab === "payment_requests" && (
+          <>
+            <select
+              value={paymentRequestStatusFilter}
+              onChange={(e) => setPaymentRequestStatusFilter(e.target.value)}
+              className="admin-filter-select"
+            >
+              <option value="all">Все статусы</option>
+              <option value="pending">Ожидающие</option>
+              <option value="approved">Одобренные</option>
+              <option value="rejected">Отклоненные</option>
+            </select>
+            <select
+              value={paymentRequestProductFilter}
+              onChange={(e) => setPaymentRequestProductFilter(e.target.value)}
+              className="admin-filter-select"
+            >
+              <option value="all">Все продукты</option>
+              <option value="studio">Studio</option>
+              <option value="toqibox">TOQIBOX</option>
+            </select>
+          </>
         )}
         {activeTab === "artists" && (
           <select
@@ -513,7 +935,19 @@ export default function AdminPage() {
           className={activeTab === "payments" ? "active" : ""}
           onClick={() => setActiveTab("payments")}
         >
-          Платежи ({filteredPayments.length})
+          Подписки ({filteredPayments.length})
+        </button>
+        <button
+          className={activeTab === "studio" ? "active" : ""}
+          onClick={() => setActiveTab("studio")}
+        >
+          TQ STUDIO ({studioUsers.length})
+        </button>
+        <button
+          className={activeTab === "payment_requests" ? "active" : ""}
+          onClick={() => setActiveTab("payment_requests")}
+        >
+          Заявки на оплату ({filteredPaymentRequests.length})
         </button>
       </div>
 
@@ -614,78 +1048,553 @@ export default function AdminPage() {
         )}
 
         {activeTab === "payments" && (
-          <div className="admin-list">
-            {filteredPayments.length === 0 ? (
-              <div className="admin-empty">Платежи не найдены</div>
-            ) : (
-              filteredPayments.map((payment) => {
-                const statusColors = {
-                  pending: "#f59e0b",
-                  approved: "#10b981",
-                  rejected: "#ef4444"
-                };
-                const statusLabels = {
-                  pending: "Ожидает",
-                  approved: "Подтвержден",
-                  rejected: "Отклонен"
-                };
+          <div>
+            {/* Под-вкладки для подписок */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #d2d2d7' }}>
+              <button
+                className={subscriptionsSubTab === "toqibox" ? "active" : ""}
+                onClick={() => setSubscriptionsSubTab("toqibox")}
+                style={{
+                  padding: '8px 16px',
+                  background: subscriptionsSubTab === "toqibox" ? '#f5f5f7' : 'transparent',
+                  border: 'none',
+                  borderBottom: subscriptionsSubTab === "toqibox" ? '2px solid #007aff' : '2px solid transparent',
+                  color: subscriptionsSubTab === "toqibox" ? '#007aff' : '#86868b',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                }}
+              >
+                Подписки TOQIBOX ({toqiboxUsers.length})
+              </button>
+              <button
+                className={subscriptionsSubTab === "studio" ? "active" : ""}
+                onClick={() => setSubscriptionsSubTab("studio")}
+                style={{
+                  padding: '8px 16px',
+                  background: subscriptionsSubTab === "studio" ? '#f5f5f7' : 'transparent',
+                  border: 'none',
+                  borderBottom: subscriptionsSubTab === "studio" ? '2px solid #007aff' : '2px solid transparent',
+                  color: subscriptionsSubTab === "studio" ? '#007aff' : '#86868b',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                }}
+              >
+                Подписки Studio ({studioUsers.length})
+              </button>
+            </div>
+
+            {/* Подписки TOQIBOX */}
+            {subscriptionsSubTab === "toqibox" && (
+              <div className="admin-list">
+                {toqiboxUsers.length === 0 ? (
+                  <div className="admin-empty">Подписки TOQIBOX не найдены</div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Email/ID</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Plan</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Expires At</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {toqiboxUsers.map((user) => {
+                        const statusColors = {
+                          active: "#10b981",
+                          expired: "#f59e0b",
+                          free: "#6b7280"
+                        };
+                        const statusLabels = {
+                          active: "Активен",
+                          expired: "Истёк",
+                          free: "Бесплатный"
+                        };
+                        
+                        return (
+                          <tr key={user.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                              <div>{user.email || '—'}</div>
+                              <div style={{ fontSize: '9px', opacity: 0.5, fontFamily: 'monospace', marginTop: '2px', color: '#86868b' }}>{user.id}</div>
+                            </td>
+                            <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                              {(user.toqibox_plan || 'free').toUpperCase()}
+                            </td>
+                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                              {user.toqibox_plan_expires_at 
+                                ? new Date(user.toqibox_plan_expires_at).toLocaleString("ru-RU")
+                                : '-'}
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <span 
+                                className="badge-status" 
+                                style={{ 
+                                  backgroundColor: statusColors[user.status],
+                                  fontSize: '10px',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  color: '#ffffff'
+                                }}
+                              >
+                                {statusLabels[user.status]}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            {/* Подписки Studio */}
+            {subscriptionsSubTab === "studio" && (
+              <div className="admin-list">
+                {studioUsers.length === 0 ? (
+                  <div className="admin-empty">Подписки Studio не найдены</div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Email/ID</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Plan</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Expires At</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {studioUsers.map((user) => {
+                        const statusColors = {
+                          active: "#10b981",
+                          expired: "#f59e0b",
+                          free: "#6b7280"
+                        };
+                        const statusLabels = {
+                          active: "Активен",
+                          expired: "Истёк",
+                          free: "Бесплатный"
+                        };
+                        
+                        return (
+                          <tr key={user.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                              <div>{user.email || '—'}</div>
+                              <div style={{ fontSize: '9px', opacity: 0.5, fontFamily: 'monospace', marginTop: '2px', color: '#86868b' }}>{user.id}</div>
+                            </td>
+                            <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                              {(user.studio_plan || 'free').toUpperCase()}
+                            </td>
+                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                              {user.studio_plan_expires_at 
+                                ? new Date(user.studio_plan_expires_at).toLocaleString("ru-RU")
+                                : '-'}
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <span 
+                                className="badge-status" 
+                                style={{ 
+                                  backgroundColor: statusColors[user.status],
+                                  fontSize: '10px',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  color: '#ffffff'
+                                }}
+                              >
+                                {statusLabels[user.status]}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                <button
+                                  className="btn-success"
+                                  onClick={() => handleStudioApprove(user.id, 'premium')}
+                                  style={{ fontSize: '11px', padding: '6px 12px' }}
+                                >
+                                  Дать PREMIUM на 30 дней
+                                </button>
+                                <button
+                                  className="btn-success"
+                                  onClick={() => handleStudioApprove(user.id, 'premium_plus')}
+                                  style={{ fontSize: '11px', padding: '6px 12px' }}
+                                >
+                                  Дать PREMIUM+ на 30 дней
+                                </button>
+                                <button
+                                  className="btn-danger"
+                                  onClick={() => handleStudioRemove(user.id)}
+                                  style={{ fontSize: '11px', padding: '6px 12px' }}
+                                >
+                                  Снять (FREE)
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "studio" && (
+          <div>
+            {/* Таблица пользователей Studio */}
+            <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1d1d1f' }}>Подписки Studio</h2>
+            <div className="admin-list" style={{ marginBottom: '32px' }}>
+              {studioUsers.length === 0 ? (
+                <div className="admin-empty">Пользователи не найдены</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Email/ID</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Plan</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Expires At</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studioUsers.map((user) => {
+                      const statusColors = {
+                        active: "#10b981",
+                        expired: "#f59e0b",
+                        free: "#6b7280"
+                      };
+                      const statusLabels = {
+                        active: "Активен",
+                        expired: "Истёк",
+                        free: "Бесплатный"
+                      };
+                      
+                      return (
+                        <tr key={user.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                          <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                            <div>{user.email || '—'}</div>
+                            <div style={{ fontSize: '9px', opacity: 0.5, fontFamily: 'monospace', marginTop: '2px', color: '#86868b' }}>{user.id}</div>
+                          </td>
+                          <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                            {(user.studio_plan || 'free').toUpperCase()}
+                          </td>
+                          <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                            {user.studio_plan_expires_at 
+                              ? new Date(user.studio_plan_expires_at).toLocaleString("ru-RU")
+                              : '-'}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <span 
+                              className="badge-status" 
+                              style={{ 
+                                backgroundColor: statusColors[user.status],
+                                fontSize: '10px',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                color: '#ffffff'
+                              }}
+                            >
+                              {statusLabels[user.status]}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              <button
+                                className="btn-success"
+                                onClick={() => handleStudioApprove(user.id, 'premium')}
+                                style={{ fontSize: '11px', padding: '6px 12px' }}
+                              >
+                                Дать PREMIUM на 30 дней
+                              </button>
+                              <button
+                                className="btn-success"
+                                onClick={() => handleStudioApprove(user.id, 'premium_plus')}
+                                style={{ fontSize: '11px', padding: '6px 12px' }}
+                              >
+                                Дать PREMIUM+ на 30 дней
+                              </button>
+                              <button
+                                className="btn-danger"
+                                onClick={() => handleStudioRemove(user.id)}
+                                style={{ fontSize: '11px', padding: '6px 12px' }}
+                              >
+                                Снять (FREE)
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Таблица экспортов Studio */}
+            <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1d1d1f' }}>Экспорты Studio</h2>
+            
+            {/* Фильтры экспортов */}
+            <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#1d1d1f' }}>
+                <input
+                  type="checkbox"
+                  checked={studioExportTodayFilter}
+                  onChange={(e) => setStudioExportTodayFilter(e.target.checked)}
+                  style={{ marginRight: '4px' }}
+                />
+                Только сегодня
+              </label>
+              <select
+                value={studioExportStatusFilter}
+                onChange={(e) => setStudioExportStatusFilter(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  background: '#ffffff',
+                  border: '1px solid #d2d2d7',
+                  borderRadius: '6px',
+                  color: '#1d1d1f',
+                  fontSize: '12px',
+                }}
+              >
+                <option value="all">Все статусы</option>
+                <option value="success">Успешно</option>
+                <option value="failed">Ошибка</option>
+                <option value="canceled">Отменено</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Фильтр по user_id или email"
+                value={studioExportUserFilter}
+                onChange={(e) => setStudioExportUserFilter(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  background: '#ffffff',
+                  border: '1px solid #d2d2d7',
+                  borderRadius: '6px',
+                  color: '#1d1d1f',
+                  fontSize: '12px',
+                  minWidth: '200px',
+                }}
+              />
+            </div>
+
+            <div className="admin-list">
+              {(() => {
+                let filteredExports = studioExports;
                 
-                return (
-                  <div key={payment.id} className="admin-item payment-item">
-                    <div className="item-main">
-                      <div className="item-title">
-                        {payment.plan} • {payment.amount} TJS
-                        <span 
-                          className="badge-status" 
-                          style={{ backgroundColor: statusColors[payment.status] }}
-                        >
-                          {statusLabels[payment.status]}
-                        </span>
-                      </div>
-                      <div className="item-meta">
-                        {payment.user_email || payment.user_id} • {new Date(payment.created_at).toLocaleString("ru-RU")}
-                        {payment.approved_at && ` • Подтвержден: ${new Date(payment.approved_at).toLocaleString("ru-RU")}`}
-                      </div>
-                      {payment.screenshot_url && (
-                        <div className="payment-screenshot">
-                          <img src={payment.screenshot_url} alt="Чек" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="payment-actions">
-                      {payment.status === "pending" && (
-                        <>
-                          <button
-                            className="btn-success"
-                            onClick={() => {
-                              setSelectedPayment(payment);
-                              setApproveDays(30);
-                              setShowApproveModal(true);
-                            }}
-                          >
-                            Подтвердить
-                          </button>
-                          <button
-                            className="btn-danger"
-                            onClick={async () => {
-                              await supabase.from("payments").update({ status: "rejected" }).eq("id", payment.id);
-                              await loadData();
-                            }}
-                          >
-                            Отклонить
-                          </button>
-                        </>
-                      )}
-                      {payment.status === "approved" && (
-                        <span className="text-success">✓ Подтвержден</span>
-                      )}
-                      {payment.status === "rejected" && (
-                        <span className="text-danger">✕ Отклонен</span>
-                      )}
-                    </div>
-                  </div>
+                // Фильтр по статусу
+                if (studioExportStatusFilter !== 'all') {
+                  filteredExports = filteredExports.filter(e => e.status === studioExportStatusFilter);
+                }
+                
+                // Фильтр по user_id
+                if (studioExportUserFilter) {
+                  filteredExports = filteredExports.filter(e => 
+                    e.user_id?.toLowerCase().includes(studioExportUserFilter.toLowerCase())
+                  );
+                }
+                
+                // Фильтр по сегодня
+                if (studioExportTodayFilter) {
+                  const today = new Date().toISOString().split('T')[0];
+                  filteredExports = filteredExports.filter(e => {
+                    const exportDate = new Date(e.created_at).toISOString().split('T')[0];
+                    return exportDate === today;
+                  });
+                }
+                
+                return filteredExports.length === 0 ? (
+                  <div className="admin-empty">Экспорты не найдены</div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Дата создания</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>User ID</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Длительность</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Разрешение</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredExports.map((exportItem) => {
+                        const statusColors = {
+                          success: "#10b981",
+                          failed: "#ef4444",
+                          canceled: "#f59e0b"
+                        };
+                        const statusLabels = {
+                          success: "Успешно",
+                          failed: "Ошибка",
+                          canceled: "Отменено"
+                        };
+                        
+                        return (
+                          <tr key={exportItem.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                              {new Date(exportItem.created_at).toLocaleString("ru-RU")}
+                            </td>
+                            <td style={{ padding: '12px', fontSize: '11px', fontFamily: 'monospace', color: '#86868b' }}>
+                              {exportItem.user_id}
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <span 
+                                className="badge-status" 
+                                style={{ 
+                                  backgroundColor: statusColors[exportItem.status] || '#6b7280',
+                                  fontSize: '10px',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  color: '#ffffff'
+                                }}
+                              >
+                                {statusLabels[exportItem.status] || exportItem.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                              {exportItem.duration_seconds || 0}с
+                            </td>
+                            <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                              {exportItem.resolution || '-'}p
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 );
-              })
+              })()}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "payment_requests" && (
+          <div className="admin-list">
+            {filteredPaymentRequests.length === 0 ? (
+              <div className="admin-empty">Заявки на оплату не найдены</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Дата</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>User ID</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Продукт</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Сумма</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Чек</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Статус</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPaymentRequests.map((request) => {
+                    // Получаем email пользователя из request или users
+                    const userEmail = request.user_email || users.find(u => u.id === request.user_id)?.email || null;
+                    
+                    const statusColors = {
+                      pending: "#f59e0b",
+                      approved: "#10b981",
+                      rejected: "#ef4444"
+                    };
+                    const statusLabels = {
+                      pending: "Ожидает",
+                      approved: "Одобрена",
+                      rejected: "Отклонена"
+                    };
+                    
+                    const productLabels = {
+                      studio: "Подписка Studio",
+                      toqibox: "Подписка TOQIBOX"
+                    };
+                    
+                    return (
+                      <tr key={request.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                        <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                          {new Date(request.created_at).toLocaleString("ru-RU")}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '11px', fontFamily: 'monospace', color: '#1d1d1f' }}>
+                          <div>{userEmail || '—'}</div>
+                          <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '2px', color: '#86868b' }}>{request.user_id}</div>
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                          {productLabels[request.product] || request.product}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                          {(request.plan || '').toUpperCase()}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', color: '#1d1d1f' }}>
+                          {request.amount} TJS
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          {request.receipt_url ? (
+                            <button
+                              className="btn-edit"
+                              onClick={() => {
+                                setSelectedReceiptUrl(request.receipt_url);
+                                setShowReceiptModal(true);
+                              }}
+                              style={{ fontSize: '11px', padding: '6px 12px' }}
+                            >
+                              Просмотр
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '11px', opacity: 0.5, color: '#86868b' }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <span 
+                            className="badge-status" 
+                            style={{ 
+                              backgroundColor: statusColors[request.status] || '#6b7280',
+                              fontSize: '10px',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              color: '#ffffff'
+                            }}
+                          >
+                            {statusLabels[request.status] || request.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          {request.status === 'pending' && (
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              <button
+                                className="btn-success"
+                                onClick={() => handleApprovePaymentRequest(request.id, request.user_id, request.product, request.plan)}
+                                style={{ fontSize: '11px', padding: '6px 12px' }}
+                              >
+                                Одобрить
+                              </button>
+                              <button
+                                className="btn-danger"
+                                onClick={() => handleRejectPaymentRequest(request.id)}
+                                style={{ fontSize: '11px', padding: '6px 12px' }}
+                              >
+                                Отклонить
+                              </button>
+                            </div>
+                          )}
+                          {request.status === 'approved' && request.approved_at && (
+                            <div style={{ fontSize: '10px', opacity: 0.7, color: '#86868b' }}>
+                              Одобрено: {new Date(request.approved_at).toLocaleString("ru-RU")}
+                            </div>
+                          )}
+                          {request.status === 'rejected' && request.rejected_at && (
+                            <div style={{ fontSize: '10px', opacity: 0.7, color: '#86868b' }}>
+                              Отклонено: {new Date(request.rejected_at).toLocaleString("ru-RU")}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
           </div>
         )}
@@ -770,6 +1679,41 @@ export default function AdminPage() {
                 }}
               >
                 Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно просмотра чека */}
+      {showReceiptModal && selectedReceiptUrl && (
+        <div className="admin-modal-overlay" onClick={() => {
+          setShowReceiptModal(false);
+          setSelectedReceiptUrl(null);
+        }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', overflow: 'auto' }}>
+            <h3>Просмотр чека</h3>
+            <div style={{ marginBottom: '20px' }}>
+              <img 
+                src={selectedReceiptUrl} 
+                alt="Чек об оплате" 
+                style={{ 
+                  width: '100%', 
+                  height: 'auto', 
+                  borderRadius: '8px',
+                  border: '1px solid #d2d2d7'
+                }} 
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setShowReceiptModal(false);
+                  setSelectedReceiptUrl(null);
+                }}
+              >
+                Закрыть
               </button>
             </div>
           </div>

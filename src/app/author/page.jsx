@@ -88,6 +88,7 @@ export default function AuthorPage() {
   const [tracks, setTracks] = useState([]);
   const [editMode, setEditMode] = useState(true); // На странице /author всегда режим редактирования
   const [userEmail, setUserEmail] = useState("");
+  const [profile, setProfile] = useState(null);
 
   const [saving, setSaving] = useState(false);
 
@@ -197,6 +198,17 @@ export default function AuthorPage() {
 
         const user = session.user;
         setUserEmail(user.email || "");
+        
+        // Загружаем профиль пользователя (TOQIBOX использует toqibox_plan)
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('toqibox_plan, toqibox_plan_expires_at')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (!profileError && profileData) {
+          setProfile(profileData);
+        }
         
         // Ищем артиста для этого пользователя
         let a = await getArtistForUser(user);
@@ -349,36 +361,37 @@ export default function AuthorPage() {
     );
   }
 
-  // Определяем тариф
+  // Определяем тариф из profiles.toqibox_plan (TOQIBOX тариф)
   const getTariffInfo = () => {
-    if (!artist) return { type: "БЕСПЛАТНЫЙ", icon: "∞", dates: null };
-    
-    const premiumType = artist.premium_type;
-    const premiumUntil = artist.premium_until;
-    
-    if (!premiumType || !premiumUntil) {
-      return { type: "БЕСПЛАТНЫЙ", icon: "∞", dates: null };
+    if (!profile) {
+      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: false };
     }
     
-    const untilDate = new Date(premiumUntil);
+    const plan = profile?.toqibox_plan || 'free';
+    const planExpiresAt = profile?.toqibox_plan_expires_at;
+    
+    if (!planExpiresAt || plan === 'free') {
+      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: false };
+    }
+    
+    const expiresAt = new Date(planExpiresAt);
     const now = new Date();
     
-    if (untilDate <= now) {
-      return { type: "БЕСПЛАТНЫЙ", icon: "∞", dates: null };
+    if (expiresAt <= now) {
+      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: true };
     }
     
-    // Находим дату начала - используем created_at артиста
-    // (в будущем можно найти первый платеж из таблицы payments)
-    const createdDate = artist.created_at ? new Date(artist.created_at) : new Date();
+    let type = "БЕСПЛАТНЫЙ";
+    if (plan === 'premium') {
+      type = "PREMIUM";
+    } else if (plan === 'premium_plus') {
+      type = "PREMIUM+";
+    }
     
-    const type = premiumType === "premium_plus" ? "PREMIUM+" : "PREMIUM";
     return {
       type,
-      icon: null,
-      dates: {
-        from: createdDate.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }),
-        to: untilDate.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }),
-      },
+      expiresAt: expiresAt,
+      isExpired: false,
     };
   };
 
@@ -428,23 +441,23 @@ export default function AuthorPage() {
           }}>
             {tariffInfo.type}
           </span>
-          {tariffInfo.icon && (
+          {tariffInfo.isExpired && tariffInfo.type === "БЕСПЛАТНЫЙ" && (
             <span style={{
-              fontSize: "14px",
-              marginLeft: "4px",
-              opacity: 0.7,
-              lineHeight: 1,
+              fontSize: "9px",
+              opacity: 0.6,
+              marginLeft: "6px",
+              fontStyle: "italic",
             }}>
-              {tariffInfo.icon}
+              истёк
             </span>
           )}
-          {tariffInfo.dates && (
+          {tariffInfo.expiresAt && !tariffInfo.isExpired && (
             <span style={{
               fontSize: "11px",
               opacity: 0.7,
               marginLeft: "8px",
             }}>
-              {tariffInfo.dates.from} - {tariffInfo.dates.to}
+              до: {tariffInfo.expiresAt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}
             </span>
           )}
         </div>
