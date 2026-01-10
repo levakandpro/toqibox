@@ -52,7 +52,7 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all"); // all, pending, approved, rejected
   const [premiumFilter, setPremiumFilter] = useState("all"); // all, premium, premium_plus, none
-  const [paymentRequestStatusFilter, setPaymentRequestStatusFilter] = useState("all"); // all, pending, approved, rejected
+  const [paymentRequestStatusFilter, setPaymentRequestStatusFilter] = useState("pending"); // all, pending, approved, rejected - по умолчанию pending (для вкладки "Заявки на оплату")
   const [paymentRequestProductFilter, setPaymentRequestProductFilter] = useState("all"); // all, studio, toqibox
   
   // Модальные окна
@@ -581,9 +581,22 @@ export default function AdminPage() {
   const filteredPaymentRequests = useMemo(() => {
     let filtered = paymentRequests;
 
+    // Автоматический фильтр по статусу в зависимости от активной вкладки
+    let statusFilter = paymentRequestStatusFilter;
+    if (activeTab === "payment_requests") {
+      // Вкладка "Заявки на оплату" - только ожидающие
+      statusFilter = "pending";
+    } else if (activeTab === "payment_requests_approved") {
+      // Вкладка "Одобренные заявки"
+      statusFilter = "approved";
+    } else if (activeTab === "payment_requests_rejected") {
+      // Вкладка "Отклоненные заявки"
+      statusFilter = "rejected";
+    }
+
     // Фильтр по статусу
-    if (paymentRequestStatusFilter !== "all") {
-      filtered = filtered.filter(pr => pr.status === paymentRequestStatusFilter);
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(pr => pr.status === statusFilter);
     }
 
     // Фильтр по продукту
@@ -602,7 +615,7 @@ export default function AdminPage() {
     }
 
     return filtered;
-  }, [paymentRequests, paymentRequestStatusFilter, paymentRequestProductFilter, searchQuery]);
+  }, [paymentRequests, paymentRequestStatusFilter, paymentRequestProductFilter, searchQuery, activeTab]);
 
   const filteredUsers = useMemo(() => {
     let filtered = users;
@@ -776,7 +789,7 @@ export default function AdminPage() {
       }
 
       await loadData();
-      alert('Заявка одобрена. Подписка активирована на 30 дней.');
+      alert('Заявка одобрена. Подписка активирована на 30 дней. Заявка перемещена в раздел "Одобренные".');
     } catch (error) {
       console.error('Ошибка одобрения заявки:', error);
       alert('Ошибка: ' + error.message);
@@ -815,7 +828,7 @@ export default function AdminPage() {
       }
 
       await loadData();
-      alert('Заявка отклонена.');
+      alert('Заявка отклонена. Заявка перемещена в раздел "Отклоненные".');
     } catch (error) {
       console.error('Ошибка отклонения заявки:', error);
       alert('Ошибка: ' + error.message);
@@ -924,28 +937,16 @@ export default function AdminPage() {
             <option value="rejected">Отклоненные</option>
           </select>
         )}
-        {activeTab === "payment_requests" && (
-          <>
-            <select
-              value={paymentRequestStatusFilter}
-              onChange={(e) => setPaymentRequestStatusFilter(e.target.value)}
-              className="admin-filter-select"
-            >
-              <option value="all">Все статусы</option>
-              <option value="pending">Ожидающие</option>
-              <option value="approved">Одобренные</option>
-              <option value="rejected">Отклоненные</option>
-            </select>
-            <select
-              value={paymentRequestProductFilter}
-              onChange={(e) => setPaymentRequestProductFilter(e.target.value)}
-              className="admin-filter-select"
-            >
-              <option value="all">Все продукты</option>
-              <option value="studio">Studio</option>
-              <option value="toqibox">TOQIBOX</option>
-            </select>
-          </>
+        {(activeTab === "payment_requests" || activeTab === "payment_requests_approved" || activeTab === "payment_requests_rejected") && (
+          <select
+            value={paymentRequestProductFilter}
+            onChange={(e) => setPaymentRequestProductFilter(e.target.value)}
+            className="admin-filter-select"
+          >
+            <option value="all">Все продукты</option>
+            <option value="studio">Studio</option>
+            <option value="toqibox">TOQIBOX</option>
+          </select>
         )}
         {activeTab === "artists" && (
           <select
@@ -988,9 +989,30 @@ export default function AdminPage() {
         </button>
         <button
           className={activeTab === "payment_requests" ? "active" : ""}
-          onClick={() => setActiveTab("payment_requests")}
+          onClick={() => {
+            setActiveTab("payment_requests");
+            setPaymentRequestStatusFilter("pending");
+          }}
         >
-          Заявки на оплату ({filteredPaymentRequests.length})
+          Заявки на оплату ({paymentRequests.filter(pr => pr.status === 'pending').length})
+        </button>
+        <button
+          className={activeTab === "payment_requests_approved" ? "active" : ""}
+          onClick={() => {
+            setActiveTab("payment_requests_approved");
+            setPaymentRequestStatusFilter("approved");
+          }}
+        >
+          Одобренные ({paymentRequests.filter(pr => pr.status === 'approved').length})
+        </button>
+        <button
+          className={activeTab === "payment_requests_rejected" ? "active" : ""}
+          onClick={() => {
+            setActiveTab("payment_requests_rejected");
+            setPaymentRequestStatusFilter("rejected");
+          }}
+        >
+          Отклоненные ({paymentRequests.filter(pr => pr.status === 'rejected').length})
         </button>
       </div>
 
@@ -1520,33 +1542,14 @@ export default function AdminPage() {
 
         {activeTab === "payment_requests" && (
           <div className="admin-list">
-            {paymentRequestStatusFilter === 'all' && filteredPaymentRequests.length > 0 && (
-              <div style={{ 
-                marginBottom: '16px', 
-                padding: '12px', 
-                backgroundColor: '#f0f9ff', 
-                borderRadius: '8px', 
-                fontSize: '12px', 
-                color: '#1d1d1f',
-                border: '1px solid #bae6fd'
-              }}>
-                <strong>💡 Подсказка:</strong> Используйте фильтр "Ожидающие" чтобы видеть только необработанные заявки. 
-                Обработанные заявки остаются в списке для истории.
-              </div>
-            )}
             {filteredPaymentRequests.length === 0 ? (
               <div className="admin-empty">
                 <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#1d1d1f' }}>
-                  Заявки на оплату не найдены
+                  Нет заявок, ожидающих обработки
                 </div>
                 <div style={{ fontSize: '12px', color: '#86868b', lineHeight: '1.5', maxWidth: '500px', margin: '0 auto' }}>
-                  {paymentRequestStatusFilter === 'all' 
-                    ? 'Заявки на оплату не найдены. Используйте фильтры для поиска.'
-                    : paymentRequestStatusFilter === 'pending'
-                    ? 'Нет заявок, ожидающих обработки.'
-                    : paymentRequestStatusFilter === 'approved'
-                    ? 'Нет одобренных заявок.'
-                    : 'Нет отклоненных заявок.'}
+                  Здесь отображаются только новые заявки, которые требуют проверки и одобрения.
+                  После обработки заявки переносятся в соответствующие разделы "Одобренные" или "Отклоненные".
                 </div>
               </div>
             ) : (
@@ -1674,6 +1677,178 @@ export default function AdminPage() {
                               ✗ Отклонено: {new Date(request.rejected_at).toLocaleString("ru-RU")}
                             </div>
                           )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Вкладка одобренных заявок */}
+        {activeTab === "payment_requests_approved" && (
+          <div className="admin-list">
+            <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1d1d1f' }}>Одобренные заявки</h2>
+            {filteredPaymentRequests.length === 0 ? (
+              <div className="admin-empty">
+                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#1d1d1f' }}>
+                  Нет одобренных заявок
+                </div>
+                <div style={{ fontSize: '12px', color: '#86868b', lineHeight: '1.5', maxWidth: '500px', margin: '0 auto' }}>
+                  Здесь отображаются все одобренные заявки на оплату.
+                </div>
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Дата заявки</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Пользователь</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Продукт</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Сумма</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Чек</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Одобрено</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPaymentRequests.map((request) => {
+                    const userEmail = request.user_email || users.find(u => u.id === request.user_id)?.email || null;
+                    const productLabels = {
+                      studio: "Подписка Studio",
+                      toqibox: "Подписка TOQIBOX"
+                    };
+                    
+                    return (
+                      <tr 
+                        key={request.id} 
+                        style={{ 
+                          borderBottom: '1px solid #f5f5f7',
+                          backgroundColor: '#f0fdf4'
+                        }}
+                      >
+                        <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                          {new Date(request.created_at).toLocaleString("ru-RU")}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '11px', fontFamily: 'monospace', color: '#1d1d1f' }}>
+                          <div>{userEmail || '—'}</div>
+                          <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '2px', color: '#86868b' }}>{request.user_id}</div>
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                          {productLabels[request.product] || request.product}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                          {(request.plan || '').toUpperCase()}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', color: '#1d1d1f' }}>
+                          {request.amount} TJS
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          {request.receipt_url ? (
+                            <button
+                              className="btn-edit"
+                              onClick={() => {
+                                setSelectedReceiptUrl(request.receipt_url);
+                                setShowReceiptModal(true);
+                              }}
+                              style={{ fontSize: '11px', padding: '6px 12px' }}
+                            >
+                              Просмотр
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#86868b' }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '11px', color: '#10b981', fontWeight: 500 }}>
+                          {request.approved_at ? new Date(request.approved_at).toLocaleString("ru-RU") : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Вкладка отклоненных заявок */}
+        {activeTab === "payment_requests_rejected" && (
+          <div className="admin-list">
+            <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1d1d1f' }}>Отклоненные заявки</h2>
+            {filteredPaymentRequests.length === 0 ? (
+              <div className="admin-empty">
+                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#1d1d1f' }}>
+                  Нет отклоненных заявок
+                </div>
+                <div style={{ fontSize: '12px', color: '#86868b', lineHeight: '1.5', maxWidth: '500px', margin: '0 auto' }}>
+                  Здесь отображаются все отклоненные заявки на оплату.
+                </div>
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #d2d2d7' }}>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Дата заявки</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Пользователь</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Продукт</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Тариф</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Сумма</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Чек</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#86868b' }}>Отклонено</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPaymentRequests.map((request) => {
+                    const userEmail = request.user_email || users.find(u => u.id === request.user_id)?.email || null;
+                    const productLabels = {
+                      studio: "Подписка Studio",
+                      toqibox: "Подписка TOQIBOX"
+                    };
+                    
+                    return (
+                      <tr 
+                        key={request.id} 
+                        style={{ 
+                          borderBottom: '1px solid #f5f5f7',
+                          backgroundColor: '#fef2f2'
+                        }}
+                      >
+                        <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
+                          {new Date(request.created_at).toLocaleString("ru-RU")}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '11px', fontFamily: 'monospace', color: '#1d1d1f' }}>
+                          <div>{userEmail || '—'}</div>
+                          <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '2px', color: '#86868b' }}>{request.user_id}</div>
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                          {productLabels[request.product] || request.product}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                          {(request.plan || '').toUpperCase()}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px', color: '#1d1d1f' }}>
+                          {request.amount} TJS
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          {request.receipt_url ? (
+                            <button
+                              className="btn-edit"
+                              onClick={() => {
+                                setSelectedReceiptUrl(request.receipt_url);
+                                setShowReceiptModal(true);
+                              }}
+                              style={{ fontSize: '11px', padding: '6px 12px' }}
+                            >
+                              Просмотр
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#86868b' }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '11px', color: '#ef4444', fontWeight: 500 }}>
+                          {request.rejected_at ? new Date(request.rejected_at).toLocaleString("ru-RU") : '—'}
                         </td>
                       </tr>
                     );
