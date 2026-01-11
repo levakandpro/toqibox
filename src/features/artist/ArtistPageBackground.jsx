@@ -491,11 +491,7 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
 
   const handleSelectBackground = (bgId) => {
     const bg = BACKGROUND_OPTIONS.find(b => b.id === bgId);
-    // Блокируем выбор премиум фонов для бесплатных пользователей
-    if (bg?.premium && !isPremium) {
-      alert('Этот фон доступен только для премиум пользователей. Обратитесь к администратору для получения доступа.');
-      return;
-    }
+    // Все видео фоны теперь доступны бесплатно
     setPreviewBackground(bgId);
   };
 
@@ -593,7 +589,7 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
           const isSelected = previewBackground === bg.id;
           const isActive = selectedBackground === bg.id;
           const isPremiumBg = bg.premium === true;
-          const isLocked = isPremiumBg && !isPremium;
+          const isLocked = false; // Все видео фоны теперь доступны бесплатно
           
           // Проверяем, что фон имеет все необходимые данные
           if (bg.type === 'shadertoy' && !bg.shaderId) {
