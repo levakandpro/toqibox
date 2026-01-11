@@ -175,26 +175,34 @@ export async function onRequestPost(context) {
       `🆔 ID: ${paymentRequest.id.substring(0, 8)}...`;
 
     // Создаем inline клавиатуру с кнопками Одобрить/Отклонить
+    // Используем короткий формат callback_data (a:action,r:request_id) чтобы уложиться в лимит 64 байта
+    // UUID занимает 36 символов, поэтому product убираем (его можно определить из БД)
     const inlineKeyboard = {
       inline_keyboard: [[
         {
           text: '✅ Одобрить',
-          callback_data: JSON.stringify({
-            action: 'approve',
-            request_id: paymentRequest.id,
-            product: paymentRequest.product
-          })
+          callback_data: JSON.stringify({ a: 'approve', r: paymentRequest.id })
         },
         {
           text: '❌ Отклонить',
-          callback_data: JSON.stringify({
-            action: 'reject',
-            request_id: paymentRequest.id,
-            product: paymentRequest.product
-          })
+          callback_data: JSON.stringify({ a: 'reject', r: paymentRequest.id })
         }
       ]]
     };
+    
+    // Проверяем длину callback_data (лимит Telegram: 64 байта)
+    const approveLen = Buffer.byteLength(inlineKeyboard.inline_keyboard[0][0].callback_data, 'utf8');
+    const rejectLen = Buffer.byteLength(inlineKeyboard.inline_keyboard[0][1].callback_data, 'utf8');
+    console.log('[notify-payment-request] Callback data lengths:', { approve: approveLen, reject: rejectLen });
+    
+    if (approveLen > 64 || rejectLen > 64) {
+      console.error('[notify-payment-request] ❌ Callback data still too long!', { approveLen, rejectLen });
+      // Если всё ещё слишком длинный - используем только первые 16 символов UUID
+      const shortId = paymentRequest.id.substring(0, 16);
+      inlineKeyboard.inline_keyboard[0][0].callback_data = JSON.stringify({ a: 'approve', r: shortId });
+      inlineKeyboard.inline_keyboard[0][1].callback_data = JSON.stringify({ a: 'reject', r: shortId });
+      console.warn('[notify-payment-request] ⚠️ Using short ID:', shortId);
+    }
 
     // Если есть receipt_url, сначала отправляем сообщение с текстом
     // Затем отправляем чек как photo или document
@@ -335,9 +343,15 @@ export async function onRequestPost(context) {
         }
       }
     } catch (telegramError) {
-      console.error("Error sending Telegram message:", telegramError);
+      console.error('[notify-payment-request] ❌ Error sending Telegram message:', telegramError);
+      console.error('[notify-payment-request] Error message:', telegramError.message);
+      console.error('[notify-payment-request] Error stack:', telegramError.stack);
       return new Response(
-        JSON.stringify({ error: "Failed to send Telegram notification" }),
+        JSON.stringify({ 
+          error: "Failed to send Telegram notification", 
+          details: telegramError.message || String(telegramError),
+          stack: telegramError.stack ? telegramError.stack.substring(0, 500) : undefined
+        }),
         { status: 500, headers: corsHeaders }
       );
     }
