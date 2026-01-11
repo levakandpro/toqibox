@@ -24,6 +24,17 @@ export default function LoginPage() {
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(null); // 'terms', 'privacy', 'support'
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isWeb, setIsWeb] = useState(false);
+  
+  // Определяем веб-версию
+  useEffect(() => {
+    const checkWeb = () => {
+      setIsWeb(window.innerWidth >= 768);
+    };
+    checkWeb();
+    window.addEventListener('resize', checkWeb);
+    return () => window.removeEventListener('resize', checkWeb);
+  }, []);
 
   // Проверяем, авторизован ли пользователь
   useEffect(() => {
@@ -257,9 +268,11 @@ export default function LoginPage() {
       overflow: "hidden",
       gridTemplateRows: "auto 1fr auto",
       zIndex: 1,
-      aspectRatio: "9 / 16",
-      maxWidth: "100vw",
-      maxHeight: "100vh",
+      ...(isWeb ? {} : {
+        aspectRatio: "9 / 16",
+        maxWidth: "100vw",
+        maxHeight: "100vh",
+      }),
     },
 
     topHeader: {
@@ -700,15 +713,6 @@ export default function LoginPage() {
       <div style={styles.noise} />
 
       <style>{`
-        /* Веб-версия: на весь экран */
-        @media (min-width: 768px) {
-          .login-page-web {
-            aspect-ratio: unset !important;
-            maxWidth: 100vw !important;
-            maxHeight: 100vh !important;
-          }
-        }
-        
         @keyframes toqiboxFadeIn {
           from { opacity: 0; transform: translateY(10px) scale(0.985); }
           to { opacity: 1; transform: translateY(0) scale(1); }
