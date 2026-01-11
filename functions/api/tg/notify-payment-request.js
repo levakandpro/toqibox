@@ -191,8 +191,12 @@ export async function onRequestPost(context) {
     };
     
     // Проверяем длину callback_data (лимит Telegram: 64 байта)
-    const approveLen = Buffer.byteLength(inlineKeyboard.inline_keyboard[0][0].callback_data, 'utf8');
-    const rejectLen = Buffer.byteLength(inlineKeyboard.inline_keyboard[0][1].callback_data, 'utf8');
+    // Используем TextEncoder для проверки длины в байтах (Cloudflare Workers не имеет Buffer)
+    const encoder = new TextEncoder();
+    const approveBytes = encoder.encode(inlineKeyboard.inline_keyboard[0][0].callback_data);
+    const rejectBytes = encoder.encode(inlineKeyboard.inline_keyboard[0][1].callback_data);
+    const approveLen = approveBytes.length;
+    const rejectLen = rejectBytes.length;
     console.log('[notify-payment-request] Callback data lengths:', { approve: approveLen, reject: rejectLen });
     
     if (approveLen > 64 || rejectLen > 64) {
