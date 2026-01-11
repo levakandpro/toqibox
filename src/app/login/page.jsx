@@ -42,71 +42,81 @@ export default function LoginPage() {
 
     const checkAuth = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (data?.session && alive) {
-          const user = data.session.user;
-          
-          // Проверяем, является ли пользователь админом
-          let isAdmin = false;
-          try {
-            const { data: adminData } = await supabase
-              .from("admins")
-              .select("id")
-              .eq("user_id", user.id)
-              .eq("is_active", true)
-              .single();
-            
-            isAdmin = !!adminData;
-            
-            // Также проверяем по email для надежности
-            if (!isAdmin && user.email === "levakandproduction@gmail.com") {
-              isAdmin = true;
-            }
-          } catch (e) {
-            // Если таблица admins не существует или ошибка, проверяем только по email
-            if (user.email === "levakandproduction@gmail.com") {
-              isAdmin = true;
-            }
+        const { data, error } = await supabase.auth.getSession();
+        
+        // Если нет сессии или ошибка - просто закрываем проверку
+        if (!data?.session || error) {
+          if (alive) {
+            setCheckingAuth(false);
           }
-
-          // Если админ - редиректим на админку
-          if (isAdmin) {
-            navigate("/admin", { replace: true });
-            return;
-          }
-
-          // Если уже авторизован, редиректим на /author
-          const raw = localStorage.getItem("toqibox:returnTo") || "";
-          localStorage.removeItem("toqibox:returnTo");
-          
-          let path = raw;
-          if (raw.startsWith("http://") || raw.startsWith("https://")) {
-            try {
-              const url = new URL(raw);
-              path = url.pathname;
-              // Если это production URL, игнорируем его для локальной разработки
-              if (url.hostname === "toqibox.win" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-                path = ""; // Сбрасываем путь, если это production URL на локальной машине
-              }
-            } catch (e) {
-              path = "";
-            }
-          }
-
-          // Проверяем, что путь не содержит домен (после извлечения pathname это не должно быть возможно, но на всякий случай)
-          if (path.includes("toqibox.win")) {
-            path = "";
-          }
-
-          // Блокируем только редактирование и создание, но разрешаем просмотр страниц автора и трека
-          const bad =
-            path.includes("edit=1") ||
-            path.startsWith("/create");
-
-          const next = bad ? "/author" : (path || "/author");
-          navigate(next, { replace: true });
           return;
         }
+        
+        if (!alive) return;
+        
+        const user = data.session.user;
+        
+        // Проверяем, является ли пользователь админом
+        let isAdmin = false;
+        try {
+          const { data: adminData } = await supabase
+            .from("admins")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("is_active", true)
+            .single();
+          
+          isAdmin = !!adminData;
+          
+          // Также проверяем по email для надежности
+          if (!isAdmin && user.email === "levakandproduction@gmail.com") {
+            isAdmin = true;
+          }
+        } catch (e) {
+          // Если таблица admins не существует или ошибка, проверяем только по email
+          if (user.email === "levakandproduction@gmail.com") {
+            isAdmin = true;
+          }
+        }
+
+        if (!alive) return;
+
+        // Если админ - редиректим на админку
+        if (isAdmin) {
+          navigate("/admin", { replace: true });
+          return;
+        }
+
+        // Если уже авторизован, редиректим на /author
+        const raw = localStorage.getItem("toqibox:returnTo") || "";
+        localStorage.removeItem("toqibox:returnTo");
+        
+        let path = raw;
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+          try {
+            const url = new URL(raw);
+            path = url.pathname;
+            // Если это production URL, игнорируем его для локальной разработки
+            if (url.hostname === "toqibox.win" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+              path = ""; // Сбрасываем путь, если это production URL на локальной машине
+            }
+          } catch (e) {
+            path = "";
+          }
+        }
+
+        // Проверяем, что путь не содержит домен (после извлечения pathname это не должно быть возможно, но на всякий случай)
+        if (path.includes("toqibox.win")) {
+          path = "";
+        }
+
+        // Блокируем только редактирование и создание, но разрешаем просмотр страниц автора и трека
+        const bad =
+          path.includes("edit=1") ||
+          path.startsWith("/create");
+
+        const next = bad ? "/author" : (path || "/author");
+        navigate(next, { replace: true });
       } catch (e) {
         console.error("Error checking auth:", e);
       } finally {
