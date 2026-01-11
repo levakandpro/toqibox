@@ -101,9 +101,11 @@ const BACKGROUND_OPTIONS = ARTIST_HEADER_BACKGROUNDS;
 
 
 export default function ArtistPageBackground({ artist, isOwner = false, editMode = false, onUpdate }) {
-  const [selectedBackground, setSelectedBackground] = useState(null);
+  // Устанавливаем дефолтное значение сразу (2-й вариант - индекс 1)
+  const defaultBgId = BACKGROUND_OPTIONS[1]?.id || BACKGROUND_OPTIONS[0]?.id;
+  const [selectedBackground, setSelectedBackground] = useState(defaultBgId);
   const [saving, setSaving] = useState(false);
-  const [previewBackground, setPreviewBackground] = useState(null);
+  const [previewBackground, setPreviewBackground] = useState(defaultBgId);
   const vantaRootRef = useRef(null);
   const vantaContainerRef = useRef(null);
   const videoElementsRef = useRef(new Set()); // Храним ссылки на все видео элементы
