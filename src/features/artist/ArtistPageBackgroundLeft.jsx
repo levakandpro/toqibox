@@ -13,9 +13,11 @@ const BACKGROUND_OPTIONS = Array.from({ length: 37 }, (_, i) => ({
 }));
 
 export default function ArtistPageBackgroundLeft({ artist, isOwner = false, editMode = false, onUpdate }) {
-  const [selectedBackground, setSelectedBackground] = useState(null);
+  // Устанавливаем дефолтное значение сразу (3-й вариант - индекс 2) для фото фонов
+  const defaultBgId = BACKGROUND_OPTIONS[2]?.id; // bg-3 - третий вариант
+  const [selectedBackground, setSelectedBackground] = useState(defaultBgId);
   const [saving, setSaving] = useState(false);
-  const [previewBackground, setPreviewBackground] = useState(null);
+  const [previewBackground, setPreviewBackground] = useState(defaultBgId);
 
   // Проверяем премиум статус артиста
   const isPremium = useMemo(() => {
@@ -37,6 +39,7 @@ export default function ArtistPageBackgroundLeft({ artist, isOwner = false, edit
         if (found) {
           setSelectedBackground(found.id);
           setPreviewBackground(found.id);
+          return;
         }
       } else if (artist?.page_background_left_id) {
         // Если в localStorage нет, проверяем БД
@@ -44,8 +47,10 @@ export default function ArtistPageBackgroundLeft({ artist, isOwner = false, edit
         if (found) {
           setSelectedBackground(found.id);
           setPreviewBackground(found.id);
+          return;
         }
       }
+      // Если ничего не найдено, используем дефолт (уже установлен в useState - 3-й вариант, индекс 2)
     }
   }, [artist?.id, artist?.page_background_left_id]);
 

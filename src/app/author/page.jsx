@@ -50,16 +50,16 @@ async function createArtistForUser(user) {
   for (let attempt = 0; attempt < 8; attempt++) {
     const slug = attempt === 0 ? `${base}-${randSuffix(5)}` : `${base}-${randSuffix(7)}`;
 
-    // Для новых пользователей устанавливаем значение по умолчанию:
-    // 1 BG видео (индекс 0) - не устанавливаем, используется по умолчанию в компоненте
-    // 2 фон обычный (индекс 1) - "custom-shader-1" (премиум, но используем как значение по умолчанию)
-    // Примечание: "custom-shader-1" является премиум, но пользователь просит использовать его по умолчанию
+    // Для новых пользователей устанавливаем значения по умолчанию:
+    // 1 BG видео (индекс 0) - "cobweb" (первый вариант) для видео фонов в шапке
+    // 3 фон фото (индекс 2) - "bg-3" (третий вариант) для фото фонов на странице
     const payload = {
       user_id: user.id,
       slug,
       display_name: "TOQIBOX ARTIST",
       header_start_sec: 0,
-      page_background_id: "custom-shader-1", // Второй вариант (индекс 1) из ARTIST_HEADER_BACKGROUNDS
+      page_background_id: "cobweb", // Первый вариант (индекс 0) для видео фонов
+      page_background_left_id: "bg-3", // Третий вариант (индекс 2) для фото фонов
     };
 
     const { data: created, error: insErr } = await supabase

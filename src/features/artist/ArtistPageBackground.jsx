@@ -101,8 +101,8 @@ const BACKGROUND_OPTIONS = ARTIST_HEADER_BACKGROUNDS;
 
 
 export default function ArtistPageBackground({ artist, isOwner = false, editMode = false, onUpdate }) {
-  // Устанавливаем дефолтное значение сразу (2-й вариант - индекс 1)
-  const defaultBgId = BACKGROUND_OPTIONS[1]?.id || BACKGROUND_OPTIONS[0]?.id;
+  // Устанавливаем дефолтное значение сразу (1-й вариант - индекс 0) для видео фонов
+  const defaultBgId = BACKGROUND_OPTIONS[0]?.id; // cobweb - первый вариант
   const [selectedBackground, setSelectedBackground] = useState(defaultBgId);
   const [saving, setSaving] = useState(false);
   const [previewBackground, setPreviewBackground] = useState(defaultBgId);
@@ -145,12 +145,8 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         }
       }
       
-      // Если ничего не найдено, устанавливаем второй фон по умолчанию (custom-shader-1) для новых пользователей
-      const defaultBackground = BACKGROUND_OPTIONS[1] || BACKGROUND_OPTIONS[0]; // Второй вариант (индекс 1), если есть, иначе первый
-      if (defaultBackground) {
-        setSelectedBackground(defaultBackground.id);
-        setPreviewBackground(defaultBackground.id);
-      }
+      // Если ничего не найдено, используем дефолт (уже установлен в useState - 1-й вариант, индекс 0)
+      // Не нужно устанавливать снова, так как уже есть дефолтное значение
     }
   }, [artist?.id, artist?.page_background_id]);
 
@@ -162,8 +158,8 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       return;
     }
     
-    // Если фон не выбран, используем второй по умолчанию (индекс 1) для новых пользователей
-    const backgroundToApply = previewBackground || selectedBackground || (BACKGROUND_OPTIONS[1]?.id || BACKGROUND_OPTIONS[0]?.id);
+    // Если фон не выбран, используем первый по умолчанию (индекс 0) для видео фонов
+    const backgroundToApply = previewBackground || selectedBackground || BACKGROUND_OPTIONS[0]?.id;
     
     // Создаем или находим внутренний элемент для фона
     let bgElement = headerCover.querySelector('.ah-cover-background');
