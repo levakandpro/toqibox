@@ -102,7 +102,7 @@ const BACKGROUND_OPTIONS = ARTIST_HEADER_BACKGROUNDS;
 
 export default function ArtistPageBackground({ artist, isOwner = false, editMode = false, onUpdate }) {
   // Устанавливаем дефолтное значение сразу (1-й вариант - индекс 0) для видео фонов
-  const defaultBgId = BACKGROUND_OPTIONS[0]?.id; // cobweb - первый вариант
+  const defaultBgId = BACKGROUND_OPTIONS[0]?.id; // Первый доступный фон
   const [selectedBackground, setSelectedBackground] = useState(defaultBgId);
   const [saving, setSaving] = useState(false);
   const [previewBackground, setPreviewBackground] = useState(defaultBgId);
@@ -126,29 +126,48 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
   // Загружаем сохраненный фон
   useEffect(() => {
     if (artist?.id) {
+      // Находим первый бесплатный фон
+      const firstFreeBg = BACKGROUND_OPTIONS.find(bg => !bg.premium) || BACKGROUND_OPTIONS[0];
+      const defaultBgId = firstFreeBg?.id;
+      
+      let bgToSet = defaultBgId; // По умолчанию используем первый бесплатный
+      
       // Сначала проверяем localStorage
       const saved = localStorage.getItem(`toqibox:pageBackground:${artist.id}`);
       if (saved) {
         const found = BACKGROUND_OPTIONS.find(bg => bg.id === saved);
         if (found) {
-          setSelectedBackground(found.id);
-          setPreviewBackground(found.id);
-          return;
+          // Проверяем, доступен ли сохраненный фон пользователю
+          if (!found.premium || isPremium) {
+            // Если фон бесплатный ИЛИ у пользователя есть премиум статус, используем сохраненный
+            bgToSet = found.id;
+          }
         }
       } else if (artist?.page_background_id) {
         // Если в localStorage нет, проверяем БД
         const found = BACKGROUND_OPTIONS.find(bg => bg.id === artist.page_background_id);
         if (found) {
-          setSelectedBackground(found.id);
-          setPreviewBackground(found.id);
-          return;
+          // Проверяем, доступен ли сохраненный фон пользователю
+          if (!found.premium || isPremium) {
+            // Если фон бесплатный ИЛИ у пользователя есть премиум статус, используем из БД
+            bgToSet = found.id;
+          }
         }
       }
       
-      // Если ничего не найдено, используем дефолт (уже установлен в useState - 1-й вариант, индекс 0)
-      // Не нужно устанавливать снова, так как уже есть дефолтное значение
+      // Всегда устанавливаем фон (либо сохраненный, либо дефолтный)
+      setSelectedBackground(bgToSet);
+      setPreviewBackground(bgToSet);
+    } else {
+      // Если artist еще не загружен, устанавливаем дефолтный фон
+      const firstFreeBg = BACKGROUND_OPTIONS.find(bg => !bg.premium) || BACKGROUND_OPTIONS[0];
+      const defaultBgId = firstFreeBg?.id;
+      if (defaultBgId) {
+        setSelectedBackground(defaultBgId);
+        setPreviewBackground(defaultBgId);
+      }
     }
-  }, [artist?.id, artist?.page_background_id]);
+  }, [artist?.id, artist?.page_background_id, isPremium]);
 
   // Применяем фон только к шапке артиста
   useEffect(() => {
@@ -192,19 +211,11 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         defaultBg: BACKGROUND_OPTIONS[0]?.id
       });
       
-      // Если фон не выбран, используем первый по умолчанию (индекс 0) для видео фонов
+      // Определяем фон для применения (previewBackground и selectedBackground уже должны быть проверены на доступность)
       const backgroundToApply = previewBackground || selectedBackground || BACKGROUND_OPTIONS[0]?.id;
     
     // Создаем или находим внутренний элемент для фона
     let bgElement = headerCover.querySelector('.ah-cover-background');
-    
-    // СТРОГАЯ РАННЯЯ ПРОВЕРКА: Если фон уже применен, НЕ ДЕЛАЕМ НИЧЕГО
-    if (appliedBackgroundRef.current === backgroundToApply && isInitializedRef.current) {
-      if (vantaContainerRef.current && vantaContainerRef.current.parentNode && document.contains(vantaContainerRef.current)) {
-        console.log('Background already applied, skipping all operations');
-        return; // Выходим полностью
-      }
-    }
     
     console.log('ArtistPageBackground: Applying background', backgroundToApply);
     if (!bgElement) {
@@ -258,43 +269,51 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
     // Используем backgroundToApply, который уже определен выше
     const bg = BACKGROUND_OPTIONS.find(b => b.id === backgroundToApply);
     if (bg) {
-      // СТРОГАЯ ПРОВЕРКА: Если фон уже применен, НЕ делаем НИЧЕГО
-      if (appliedBackgroundRef.current === backgroundToApply && isInitializedRef.current) {
-        if (vantaContainerRef.current && vantaContainerRef.current.parentNode && document.contains(vantaContainerRef.current)) {
-          console.log('Background already applied and initialized, skipping recreation');
-          return; // Выходим, не пересоздавая ничего
-        }
-      }
+      // Проверяем, существует ли контейнер в DOM
+      const containerExists = vantaContainerRef.current && 
+                              vantaContainerRef.current.parentNode && 
+                              document.contains(vantaContainerRef.current);
       
-      // Если фон изменился, удаляем старые контейнеры и создаем новые
-      if (currentBgId !== backgroundToApply && currentBgId !== null) {
-        console.log('Background changed, removing old containers and creating new ones');
-        // Очищаем CSS классы
-        CSS_BACKGROUND_OPTIONS.forEach(option => {
-          bgElement.classList.remove(option.component);
-        });
-        const glowOverlay = bgElement.querySelector('.glow-overlay');
-        if (glowOverlay) {
-          glowOverlay.remove();
-        }
-        const matrixPatterns = bgElement.querySelectorAll('.matrix-pattern');
-        matrixPatterns.forEach(p => p.remove());
-        const iframes = bgElement.querySelectorAll('iframe');
-        iframes.forEach(iframe => iframe.remove());
-        
-        // УДАЛЯЕМ старые контейнеры ShaderToy/Vanta при смене фона
-        if (vantaContainerRef.current && vantaContainerRef.current.parentNode) {
-          // Удаляем React root перед удалением контейнера
-          if (vantaRootRef.current) {
-            try {
-              vantaRootRef.current.unmount();
-            } catch (e) {
-              console.warn('Error unmounting React root:', e);
-            }
-            vantaRootRef.current = null;
+      // Если фон изменился ИЛИ еще не установлен (currentBgId === null) ИЛИ контейнер не существует, создаем/обновляем контейнеры
+      const shouldCreateNew = currentBgId !== backgroundToApply || !containerExists;
+      if (shouldCreateNew) {
+        // Если был предыдущий фон, очищаем его ОТЛОЖЕННО (чтобы избежать ошибки синхронного unmount)
+        if (currentBgId !== null) {
+          console.log('Background changed, removing old containers and creating new ones');
+          // Очищаем CSS классы
+          CSS_BACKGROUND_OPTIONS.forEach(option => {
+            bgElement.classList.remove(option.component);
+          });
+          const glowOverlay = bgElement.querySelector('.glow-overlay');
+          if (glowOverlay) {
+            glowOverlay.remove();
           }
-          vantaContainerRef.current.remove();
+          const matrixPatterns = bgElement.querySelectorAll('.matrix-pattern');
+          matrixPatterns.forEach(p => p.remove());
+          const iframes = bgElement.querySelectorAll('iframe');
+          iframes.forEach(iframe => iframe.remove());
+          
+          // УДАЛЯЕМ старые контейнеры ShaderToy/Vanta при смене фона ОТЛОЖЕННО
+          const oldContainer = vantaContainerRef.current;
+          const oldRoot = vantaRootRef.current;
           vantaContainerRef.current = null;
+          vantaRootRef.current = null;
+          
+          // Откладываем удаление до следующего тика, чтобы избежать ошибки синхронного unmount
+          setTimeout(() => {
+            if (oldRoot) {
+              try {
+                oldRoot.unmount();
+              } catch (e) {
+                console.warn('Error unmounting React root:', e);
+              }
+            }
+            if (oldContainer && oldContainer.parentNode) {
+              oldContainer.remove();
+            }
+          }, 0);
+        } else {
+          console.log('First time applying background, creating containers');
         }
         
         // Сбрасываем флаги инициализации
@@ -308,17 +327,18 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       appliedBackgroundRef.current = backgroundToApply; // Сохраняем примененный фон
       isInitializedRef.current = true;
       
-      // Убираем backgroundImage у основного элемента
+      // Убираем backgroundImage у основного элемента СТРОГО
       headerCover.style.backgroundImage = 'none';
+      headerCover.style.setProperty('background-image', 'none', 'important');
+      // Также убираем через classList если есть
+      headerCover.classList.remove('ah-cover-with-bg');
       
       // ShaderToy WebGL фоны (не iframe, а WebGL рендеринг)
       if (bg.type === 'shadertoy' && bg.shaderId) {
-          // Создаем контейнер ТОЛЬКО если его еще нет И он не в DOM
-          const containerExists = vantaContainerRef.current && 
-                                  vantaContainerRef.current.parentNode && 
-                                  document.contains(vantaContainerRef.current);
-          
-          if (!containerExists) {
+          console.log('ArtistPageBackground: Applying ShaderToy background', { bgId: bg.id, shaderId: bg.shaderId, backgroundToApply, shouldCreateNew });
+          // Если нужно создать новый, всегда создаем контейнер
+          if (shouldCreateNew || !containerExists) {
+            console.log('ArtistPageBackground: Creating new ShaderToy container');
             const shaderContainer = document.createElement('div');
             shaderContainer.style.position = 'absolute';
             shaderContainer.style.top = '0';
@@ -326,10 +346,13 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
             shaderContainer.style.width = '100%';
             shaderContainer.style.height = '100%';
             shaderContainer.style.zIndex = '0';
+            shaderContainer.style.pointerEvents = 'none';
             bgElement.appendChild(shaderContainer);
+            console.log('ArtistPageBackground: Shader container appended to bgElement', { bgElement: !!bgElement, shaderContainer: !!shaderContainer });
             
             // Создаем React root и рендерим ShaderToy компонент ТОЛЬКО ОДИН РАЗ
             if (!vantaRootRef.current) {
+              console.log('ArtistPageBackground: Creating React root for ShaderToy', { bgId: bg.id });
               const shaderRoot = createRoot(shaderContainer);
               shaderRoot.render(
                 <ShaderToyBackground backgroundId={bg.id} />
@@ -337,7 +360,7 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
               
               // Сохраняем root для cleanup
               vantaRootRef.current = shaderRoot;
-              console.log('ShaderToy container created and initialized');
+              console.log('ShaderToy container created and initialized', { bgId: bg.id, shaderId: bg.shaderId });
             } else {
               console.log('ShaderToy root already exists, NOT re-rendering to prevent destruction');
             }
@@ -351,12 +374,8 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         }
         // Vanta WebGL фоны
         else if (bg.type === 'vanta' && bg.effectType) {
-          // Создаем контейнер ТОЛЬКО если его еще нет И он не в DOM
-          const containerExists = vantaContainerRef.current && 
-                                  vantaContainerRef.current.parentNode && 
-                                  document.contains(vantaContainerRef.current);
-          
-          if (!containerExists) {
+          // Если нужно создать новый, всегда создаем контейнер
+          if (shouldCreateNew || !containerExists) {
             console.log('Creating Vanta background:', bg.effectType);
             // Создаем контейнер для Vanta компонента
             vantaContainerRef.current = document.createElement('div');
@@ -523,10 +542,16 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       // СТРОГО: Постоянно убираем backgroundImage, чтобы ArtistHeader не перезаписывал его
       const removeBackgroundImageInterval = setInterval(() => {
         const cover = document.querySelector('.ah-cover');
-        if (cover && cover.style.backgroundImage && cover.style.backgroundImage !== 'none') {
-          cover.style.backgroundImage = 'none';
+        if (cover) {
+          // Убираем backgroundImage несколькими способами
+          if (cover.style.backgroundImage && cover.style.backgroundImage !== 'none') {
+            cover.style.backgroundImage = 'none';
+            cover.style.setProperty('background-image', 'none', 'important');
+          }
+          // Также убираем через классы
+          cover.classList.remove('ah-cover-with-bg');
         }
-      }, 100); // Проверяем каждые 100ms
+      }, 50); // Проверяем каждые 50ms (чаще для надежности)
 
       // Возвращаем cleanup функцию для этой итерации
       return () => {
@@ -545,11 +570,15 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       const cleanup = applyBackground(headerCover);
       return cleanup;
     }
-  }, [previewBackground, selectedBackground]);
+  }, [previewBackground, selectedBackground, isPremium]);
 
   const handleSelectBackground = (bgId) => {
     const bg = BACKGROUND_OPTIONS.find(b => b.id === bgId);
-    // Все видео фоны теперь доступны бесплатно
+    // Блокируем выбор премиум фонов для бесплатных пользователей
+    if (bg?.premium && !isPremium) {
+      alert('Этот фон доступен только для премиум пользователей. Обратитесь к администратору для получения доступа.');
+      return;
+    }
     setPreviewBackground(bgId);
   };
 
@@ -647,7 +676,7 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
           const isSelected = previewBackground === bg.id;
           const isActive = selectedBackground === bg.id;
           const isPremiumBg = bg.premium === true;
-          const isLocked = false; // Все видео фоны теперь доступны бесплатно
+          const isLocked = isPremiumBg && !isPremium; // Блокируем премиум фоны для бесплатных пользователей
           
           // Проверяем, что фон имеет все необходимые данные
           if (bg.type === 'shadertoy' && !bg.shaderId) {

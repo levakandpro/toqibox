@@ -4,12 +4,12 @@ import "../../styles/backgrounds.css";
 import crownIcon from "../../assets/crown.png";
 
 // Список фонов из backgrounds.css
-// Первые 5 - бесплатные, остальные - премиум
+// Первые 3 - бесплатные, остальные - премиум
 const BACKGROUND_OPTIONS = Array.from({ length: 37 }, (_, i) => ({
   id: `bg-${i + 1}`,
   name: `Фон ${i + 1}`,
   className: `bg-${i + 1}`,
-  premium: i >= 5, // Первые 5 (0-4) бесплатные, остальные премиум
+  premium: i >= 3, // Первые 3 (0-2) бесплатные, остальные премиум
 }));
 
 export default function ArtistPageBackgroundLeft({ artist, isOwner = false, editMode = false, onUpdate }) {

@@ -51,14 +51,14 @@ async function createArtistForUser(user) {
     const slug = attempt === 0 ? `${base}-${randSuffix(5)}` : `${base}-${randSuffix(7)}`;
 
     // Для новых пользователей устанавливаем значения по умолчанию:
-    // 1 BG видео (индекс 0) - "cobweb" (первый вариант) для видео фонов в шапке
+    // 1 BG видео (индекс 0) - первый доступный фон для видео фонов в шапке
     // 3 фон фото (индекс 2) - "bg-3" (третий вариант) для фото фонов на странице
     const payload = {
       user_id: user.id,
       slug,
       display_name: "TOQIBOX ARTIST",
       header_start_sec: 0,
-      page_background_id: "cobweb", // Первый вариант (индекс 0) для видео фонов
+      page_background_id: "custom-shader-1", // Первый фон (индекс 0) - custom-shader-1
       page_background_left_id: "bg-3", // Третий вариант (индекс 2) для фото фонов
     };
 
@@ -102,6 +102,40 @@ export default function AuthorPage() {
     if (!artist?.slug) return "";
     return `${window.location.origin}/a/${artist.slug}`;
   }, [artist?.slug]);
+
+  // Определяем тариф из profiles.toqibox_plan (TOQIBOX тариф)
+  const tariffInfo = useMemo(() => {
+    if (!profile) {
+      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: false };
+    }
+    
+    const plan = profile?.toqibox_plan || 'free';
+    const planExpiresAt = profile?.toqibox_plan_expires_at;
+    
+    if (!planExpiresAt || plan === 'free') {
+      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: false };
+    }
+    
+    const expiresAt = new Date(planExpiresAt);
+    const now = new Date();
+    
+    if (expiresAt <= now) {
+      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: true };
+    }
+    
+    let type = "БЕСПЛАТНЫЙ";
+    if (plan === 'premium') {
+      type = "PREMIUM";
+    } else if (plan === 'premium_plus') {
+      type = "PREMIUM+";
+    }
+    
+    return {
+      type,
+      expiresAt: expiresAt,
+      isExpired: false,
+    };
+  }, [profile]);
 
   // Функция для загрузки треков артиста
   const loadTracks = async (artistId) => {
@@ -366,42 +400,6 @@ export default function AuthorPage() {
       </div>
     );
   }
-
-  // Определяем тариф из profiles.toqibox_plan (TOQIBOX тариф)
-  const getTariffInfo = () => {
-    if (!profile) {
-      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: false };
-    }
-    
-    const plan = profile?.toqibox_plan || 'free';
-    const planExpiresAt = profile?.toqibox_plan_expires_at;
-    
-    if (!planExpiresAt || plan === 'free') {
-      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: false };
-    }
-    
-    const expiresAt = new Date(planExpiresAt);
-    const now = new Date();
-    
-    if (expiresAt <= now) {
-      return { type: "БЕСПЛАТНЫЙ", expiresAt: null, isExpired: true };
-    }
-    
-    let type = "БЕСПЛАТНЫЙ";
-    if (plan === 'premium') {
-      type = "PREMIUM";
-    } else if (plan === 'premium_plus') {
-      type = "PREMIUM+";
-    }
-    
-    return {
-      type,
-      expiresAt: expiresAt,
-      isExpired: false,
-    };
-  };
-
-  const tariffInfo = getTariffInfo();
 
   // EDIT PAGE (CANON) - если артист есть
   return (

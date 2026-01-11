@@ -6,31 +6,25 @@
 // Фоны для шапки страницы автора
 export const ARTIST_HEADER_BACKGROUNDS = [
   {
-    id: "cobweb",
-    name: "Cobweb",
-    type: "shadertoy",
-    shaderId: "cobweb",
-  },
-  {
     id: "custom-shader-1",
     name: "Custom Shader 1",
     type: "shadertoy",
     shaderId: "custom-shader-1",
-    premium: true,
+    premium: false, // Первый - бесплатный
   },
   {
     id: "hexagon-x5",
     name: "Hexagon X5",
     type: "shadertoy",
     shaderId: "hexagon-x5",
-    premium: true,
+    premium: false, // Второй - бесплатный
   },
   {
     id: "traced-tunnel",
     name: "Traced Tunnel",
     type: "shadertoy",
     shaderId: "traced-tunnel",
-    premium: true,
+    premium: false, // Третий - бесплатный
   },
   {
     id: "spin-effect",
@@ -205,7 +199,7 @@ export const ARTIST_HEADER_BACKGROUNDS = [
     name: "Fractal Distortion",
     type: "shadertoy",
     shaderId: "fractal-distortion",
-    premium: false,
+    premium: true, // 4-й и далее - премиум
   },
 ];
 

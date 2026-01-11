@@ -85,36 +85,50 @@ export default function ShaderToyBackground({ backgroundId, beatIntensity = 0 })
       // Если .ah-cover не найден, используем родительский элемент
       if (!targetElement) {
         targetElement = canvas.parentElement;
+        // Пробуем найти контейнер выше
+        if (!targetElement || !targetElement.getBoundingClientRect().width) {
+          let parent = canvas.parentElement;
+          while (parent && parent !== document.body) {
+            const rect = parent.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              targetElement = parent;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+        }
       }
       
       if (targetElement) {
         const rect = targetElement.getBoundingClientRect();
-        // Используем devicePixelRatio для четкости на Retina дисплеях
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = (rect.width || window.innerWidth) * dpr;
-        canvas.height = (rect.height || window.innerHeight) * dpr;
-        // Важно: устанавливаем CSS размер обратно, чтобы canvas не растягивался
-        canvas.style.width = `${rect.width || window.innerWidth}px`;
-        canvas.style.height = `${rect.height || window.innerHeight}px`;
+        if (rect.width > 0 && rect.height > 0) {
+          // Используем devicePixelRatio для четкости на Retina дисплеях
+          const dpr = window.devicePixelRatio || 1;
+          // Устанавливаем внутренний размер canvas в пикселях (для рендеринга)
+          canvas.width = rect.width * dpr;
+          canvas.height = rect.height * dpr;
+          // НЕ трогаем CSS стили - они уже установлены в JSX как width: 100%, height: 100%
+        }
       } else {
         const dpr = window.devicePixelRatio || 1;
         canvas.width = window.innerWidth * dpr;
         canvas.height = window.innerHeight * dpr;
-        canvas.style.width = `${window.innerWidth}px`;
-        canvas.style.height = `${window.innerHeight}px`;
       }
-      gl.viewport(0, 0, canvas.width, canvas.height);
+      if (gl) {
+        gl.viewport(0, 0, canvas.width, canvas.height);
+      }
     };
 
     // Небольшая задержка для того, чтобы DOM успел отрисоваться
-    setTimeout(resizeCanvas, 0);
+    setTimeout(resizeCanvas, 10);
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
     // Получаем код шейдера по shaderId
     const shaderCode = getShaderCode(shaderId);
+    console.log('ShaderToyBackground: Looking for shader', { backgroundId, shaderId, found: !!shaderCode });
     if (!shaderCode) {
-      console.error(`ShaderToyBackground: Шейдер для ${shaderId} не найден`);
+      console.error(`ShaderToyBackground: Шейдер для ${shaderId} не найден`, { backgroundId, shaderId, background });
       setError(`Шейдер для ${shaderId} не найден`);
       window.removeEventListener("resize", resizeCanvas);
       return () => {};

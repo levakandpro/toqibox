@@ -51,6 +51,8 @@
   filter: brightness(0.9);
   z-index: 0;
   overflow: hidden;
+  /* Убираем backgroundImage для shader фонов */
+  background-image: none !important;
 }
 
 /* Внутренний элемент для фонов в шапке */
@@ -61,6 +63,7 @@
   height: 100%;
   z-index: 0;
   overflow: hidden;
+  pointer-events: none; /* Не блокируем клики */
 }
 
 /* Canvas для ShaderToy фонов должен покрывать всю область */
@@ -72,6 +75,9 @@
   height: 100% !important;
   display: block !important;
   object-fit: cover;
+  z-index: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 /* Видео фоны для шапки - зациклены навсегда */
