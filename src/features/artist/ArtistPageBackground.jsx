@@ -232,11 +232,10 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         }
       }
       
-      // НИКОГДА не вызываем cleanupBackgroundStructures - она удаляет компоненты!
-      // Очищаем ТОЛЬКО CSS классы, но НЕ трогаем компоненты
+      // Если фон изменился, удаляем старые контейнеры и создаем новые
       if (currentBgId !== backgroundToApply && currentBgId !== null) {
-        console.log('Background changed, cleaning CSS only, NOT touching components');
-        // Очищаем только CSS классы
+        console.log('Background changed, removing old containers and creating new ones');
+        // Очищаем CSS классы
         CSS_BACKGROUND_OPTIONS.forEach(option => {
           bgElement.classList.remove(option.component);
         });
@@ -248,8 +247,25 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         matrixPatterns.forEach(p => p.remove());
         const iframes = bgElement.querySelectorAll('iframe');
         iframes.forEach(iframe => iframe.remove());
-        // НЕ вызываем cleanupBackgroundStructures - она удаляет компоненты!
-        // НЕ удаляем видео и НЕ удаляем Vanta/ShaderToy контейнеры!
+        
+        // УДАЛЯЕМ старые контейнеры ShaderToy/Vanta при смене фона
+        if (vantaContainerRef.current && vantaContainerRef.current.parentNode) {
+          // Удаляем React root перед удалением контейнера
+          if (vantaRootRef.current) {
+            try {
+              vantaRootRef.current.unmount();
+            } catch (e) {
+              console.warn('Error unmounting React root:', e);
+            }
+            vantaRootRef.current = null;
+          }
+          vantaContainerRef.current.remove();
+          vantaContainerRef.current = null;
+        }
+        
+        // Сбрасываем флаги инициализации
+        isInitializedRef.current = false;
+        appliedBackgroundRef.current = null;
       }
       
       // Сохраняем текущий фон
