@@ -708,9 +708,10 @@ export default function AdminPage() {
       setShowApproveModal(false);
       setSelectedPayment(null);
       await loadData();
+      showToast('Платеж подтвержден', 'success');
     } catch (error) {
       console.error("Ошибка подтверждения платежа:", error);
-      alert("Ошибка: " + error.message);
+      showToast("Ошибка: " + (error.message || 'Не удалось подтвердить платеж'), 'error');
     }
   };
 
@@ -938,6 +939,7 @@ export default function AdminPage() {
   if (!isAuthorized) {
     return (
       <div className="admin-container">
+        <ToastContainer />
         <div className="admin-error">
           <h2>Доступ запрещен</h2>
           <p>{authError || "Вы не являетесь администратором"}</p>
@@ -950,6 +952,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="admin-container">
+        <ToastContainer />
         <div className="admin-loading">Загрузка...</div>
       </div>
     );
@@ -957,6 +960,7 @@ export default function AdminPage() {
 
   return (
     <div className="admin-container">
+      <ToastContainer />
       <header className="admin-header">
         <h1>Админ-панель</h1>
         <button 
