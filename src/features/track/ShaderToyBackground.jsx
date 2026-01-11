@@ -76,20 +76,38 @@ export default function ShaderToyBackground({ backgroundId, beatIntensity = 0 })
 
     glRef.current = gl;
 
-    // Устанавливаем размер canvas - используем размер родительского элемента
+    // Устанавливаем размер canvas - используем размер .ah-cover или родительского элемента
     const resizeCanvas = () => {
-      const parent = canvas.parentElement;
-      if (parent) {
-        const rect = parent.getBoundingClientRect();
-        canvas.width = rect.width || window.innerWidth;
-        canvas.height = rect.height || window.innerHeight;
+      // Сначала пытаемся найти .ah-cover (шапка артиста)
+      const headerCover = document.querySelector('.ah-cover');
+      let targetElement = headerCover;
+      
+      // Если .ah-cover не найден, используем родительский элемент
+      if (!targetElement) {
+        targetElement = canvas.parentElement;
+      }
+      
+      if (targetElement) {
+        const rect = targetElement.getBoundingClientRect();
+        // Используем devicePixelRatio для четкости на Retina дисплеях
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = (rect.width || window.innerWidth) * dpr;
+        canvas.height = (rect.height || window.innerHeight) * dpr;
+        // Важно: устанавливаем CSS размер обратно, чтобы canvas не растягивался
+        canvas.style.width = `${rect.width || window.innerWidth}px`;
+        canvas.style.height = `${rect.height || window.innerHeight}px`;
       } else {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${window.innerHeight}px`;
       }
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
 
+    // Небольшая задержка для того, чтобы DOM успел отрисоваться
+    setTimeout(resizeCanvas, 0);
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
