@@ -40,7 +40,7 @@ export async function onRequestPost(context) {
       return new Response("Unauthorized", { status: 403 });
     }
 
-    // Парсим callback_data
+    // Парсим callback_data (поддерживаем как старый формат, так и новый короткий)
     let callbackData;
     try {
       callbackData = JSON.parse(callbackQuery.data);
@@ -49,12 +49,17 @@ export async function onRequestPost(context) {
       return new Response("Invalid callback_data", { status: 400 });
     }
 
-    const { action, request_id, product } = callbackData;
+    // Поддерживаем оба формата: старый (action, request_id, product) и новый (a, r)
+    const action = callbackData.action || callbackData.a;
+    const request_id = callbackData.request_id || callbackData.r;
+    const product = callbackData.product || callbackData.p; // product опциональный (можно получить из БД)
 
-    if (!action || !request_id || !product) {
+    if (!action || !request_id) {
       console.error("Missing required fields in callback_data:", callbackData);
       return new Response("Invalid callback_data", { status: 400 });
     }
+    
+    console.log('[webhook] Parsed callback_data:', { action, request_id, product });
 
     // Подтверждаем получение callback_query (убираем загрузку на кнопке)
     const botToken = env.TELEGRAM_BOT_TOKEN;
