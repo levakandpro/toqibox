@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { getBackgroundById } from "../../utils/shadertoyBackgrounds.js";
 import { getPremiumBackgroundById } from "../../utils/premiumBackgrounds.js";
+import { getArtistHeaderBackgroundById } from "../../utils/artistHeaderBackgrounds.js";
 import { getShaderCode, compileShaderProgram } from "../../utils/webglShaders.js";
 
 export default function ShaderToyBackground({ backgroundId, beatIntensity = 0 }) {
@@ -12,9 +13,18 @@ export default function ShaderToyBackground({ backgroundId, beatIntensity = 0 })
   const beatIntensityRef = useRef(0);
   const [error, setError] = useState(null);
 
-  // Проверяем сначала обычные фоны, потом премиум
-  let background = getBackgroundById(backgroundId);
+  // Проверяем фоны в следующем порядке: артист, обычные, премиум
+  let background = getArtistHeaderBackgroundById(backgroundId);
   let shaderId = backgroundId;
+  
+  if (!background) {
+    background = getBackgroundById(backgroundId);
+    if (background) {
+      shaderId = background.id;
+    }
+  } else {
+    shaderId = background.shaderId || background.id;
+  }
   
   if (!background) {
     const premiumBg = getPremiumBackgroundById(backgroundId);
@@ -27,8 +37,6 @@ export default function ShaderToyBackground({ backgroundId, beatIntensity = 0 })
       };
       shaderId = premiumBg.shaderId;
     }
-  } else {
-    shaderId = background.id;
   }
 
   // Обновляем beatIntensity ref при изменении
