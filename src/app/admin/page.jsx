@@ -639,6 +639,13 @@ export default function AdminPage() {
       );
     }
 
+    // Сортируем: pending вверху, остальные по дате (новые сверху)
+    filtered.sort((a, b) => {
+      if (a.status === 'pending' && b.status !== 'pending') return -1;
+      if (a.status !== 'pending' && b.status === 'pending') return 1;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
     return filtered;
   }, [paymentRequests, paymentRequestStatusFilter, paymentRequestProductFilter, searchQuery, activeTab]);
 
