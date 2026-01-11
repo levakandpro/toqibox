@@ -1608,13 +1608,17 @@ export default function AdminPage() {
                       toqibox: "Подписка TOQIBOX"
                     };
                     
+                    const isPending = request.status === 'pending';
+                    
                     return (
                       <tr 
                         key={request.id} 
                         style={{ 
-                          borderBottom: '1px solid #f5f5f7',
-                          backgroundColor: request.status === 'approved' ? '#f0fdf4' : request.status === 'rejected' ? '#fef2f2' : 'transparent',
-                          opacity: request.status !== 'pending' ? 0.85 : 1
+                          borderBottom: isPending ? '2px solid #f59e0b' : '1px solid #f5f5f7',
+                          backgroundColor: isPending ? '#fff7ed' : request.status === 'approved' ? '#f0fdf4' : request.status === 'rejected' ? '#fef2f2' : 'transparent',
+                          borderLeft: isPending ? '4px solid #f59e0b' : 'none',
+                          boxShadow: isPending ? '0 2px 8px rgba(245, 158, 11, 0.15)' : 'none',
+                          position: 'relative'
                         }}
                       >
                         <td style={{ padding: '12px', fontSize: '11px', color: '#1d1d1f' }}>
