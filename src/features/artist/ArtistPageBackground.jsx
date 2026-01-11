@@ -152,14 +152,48 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
 
   // Применяем фон только к шапке артиста
   useEffect(() => {
-    const headerCover = document.querySelector('.ah-cover');
+    // Ждем, пока .ah-cover появится в DOM (может быть создан позже)
+    const findHeaderCover = () => {
+      return document.querySelector('.ah-cover');
+    };
+    
+    let headerCover = findHeaderCover();
     if (!headerCover) {
-      console.warn('ArtistPageBackground: .ah-cover not found');
-      return;
+      // Пробуем найти через интервал (на случай, если компонент еще монтируется)
+      let attempts = 0;
+      const maxAttempts = 50; // 5 секунд максимум
+      const checkInterval = setInterval(() => {
+        attempts++;
+        headerCover = findHeaderCover();
+        if (headerCover) {
+          clearInterval(checkInterval);
+          // Применяем фон после того, как нашли элемент
+          applyBackground(headerCover);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          console.warn('ArtistPageBackground: .ah-cover not found after', maxAttempts, 'attempts');
+        }
+      }, 100);
+      return () => clearInterval(checkInterval);
     }
     
-    // Если фон не выбран, используем первый по умолчанию (индекс 0) для видео фонов
-    const backgroundToApply = previewBackground || selectedBackground || BACKGROUND_OPTIONS[0]?.id;
+    // Если элемент уже есть, применяем фон сразу
+    applyBackground(headerCover);
+    
+    function applyBackground(headerCover) {
+      if (!headerCover) {
+        console.warn('ArtistPageBackground: applyBackground called with null headerCover');
+        return () => {};
+      }
+      
+      console.log('ArtistPageBackground: applyBackground called', {
+        previewBackground,
+        selectedBackground,
+        defaultBg: BACKGROUND_OPTIONS[0]?.id
+      });
+      
+      // Если фон не выбран, используем первый по умолчанию (индекс 0) для видео фонов
+      const backgroundToApply = previewBackground || selectedBackground || BACKGROUND_OPTIONS[0]?.id;
     
     // Создаем или находим внутренний элемент для фона
     let bgElement = headerCover.querySelector('.ah-cover-background');
@@ -482,27 +516,35 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       });
     };
     
-    // Проверяем видео сразу и периодически (чаще, чтобы не пропустить остановку)
-    ensureVideosLoop();
-    const videoCheckInterval = setInterval(ensureVideosLoop, 500); // Проверяем каждые 500ms
-    
-    // СТРОГО: Постоянно убираем backgroundImage, чтобы ArtistHeader не перезаписывал его
-    const removeBackgroundImageInterval = setInterval(() => {
-      const cover = document.querySelector('.ah-cover');
-      if (cover && cover.style.backgroundImage && cover.style.backgroundImage !== 'none') {
-        cover.style.backgroundImage = 'none';
-      }
-    }, 100); // Проверяем каждые 100ms
+      // Проверяем видео сразу и периодически (чаще, чтобы не пропустить остановку)
+      ensureVideosLoop();
+      const videoCheckInterval = setInterval(ensureVideosLoop, 500); // Проверяем каждые 500ms
+      
+      // СТРОГО: Постоянно убираем backgroundImage, чтобы ArtistHeader не перезаписывал его
+      const removeBackgroundImageInterval = setInterval(() => {
+        const cover = document.querySelector('.ah-cover');
+        if (cover && cover.style.backgroundImage && cover.style.backgroundImage !== 'none') {
+          cover.style.backgroundImage = 'none';
+        }
+      }, 100); // Проверяем каждые 100ms
 
-    return () => {
-      clearInterval(videoCheckInterval);
-      clearInterval(removeBackgroundImageInterval);
-      // НЕ очищаем структуры при размонтировании - видео должны оставаться!
-      // cleanupBackgroundStructures();
-      // if (headerCover) {
-      //   headerCover.style.backgroundImage = '';
-      // }
-    };
+      // Возвращаем cleanup функцию для этой итерации
+      return () => {
+        clearInterval(videoCheckInterval);
+        clearInterval(removeBackgroundImageInterval);
+        // НЕ очищаем структуры при размонтировании - видео должны оставаться!
+        // cleanupBackgroundStructures();
+        // if (headerCover) {
+        //   headerCover.style.backgroundImage = '';
+        // }
+      };
+    } // конец функции applyBackground
+    
+    // Если элемент уже есть, применяем фон сразу
+    if (headerCover) {
+      const cleanup = applyBackground(headerCover);
+      return cleanup;
+    }
   }, [previewBackground, selectedBackground]);
 
   const handleSelectBackground = (bgId) => {
