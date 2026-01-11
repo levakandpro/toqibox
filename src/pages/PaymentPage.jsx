@@ -212,12 +212,21 @@ export default function PaymentPage() {
             });
 
             const responseText = await notifyResponse.text().catch(() => 'Unknown error');
+            
+            // Пытаемся распарсить JSON для более детального вывода
+            let errorDetails = responseText;
+            try {
+              const parsed = JSON.parse(responseText);
+              errorDetails = JSON.stringify(parsed, null, 2);
+              console.error('[Payment] ❌ Детали ошибки (JSON):', parsed);
+            } catch (e) {
+              console.error('[Payment] ❌ Детали ошибки (текст):', responseText);
+            }
+            
             if (!notifyResponse.ok) {
-              console.error('[Payment] ❌ Ошибка отправки уведомления в Telegram:', {
-                status: notifyResponse.status,
-                statusText: notifyResponse.statusText,
-                body: responseText.substring(0, 500)
-              });
+              console.error('[Payment] ❌ Ошибка отправки уведомления в Telegram:');
+              console.error('  Status:', notifyResponse.status, notifyResponse.statusText);
+              console.error('  Response:', errorDetails);
               console.warn('[Payment] ⚠️ Заявка сохранена, но уведомление в Telegram не отправлено.');
               console.warn('[Payment] Проверьте переменные окружения в Cloudflare Pages:');
               console.warn('  - TELEGRAM_BOT_TOKEN');
