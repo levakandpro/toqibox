@@ -661,7 +661,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="login-page-web">
       <div style={styles.topHeader}>
         <button
           type="button"
