@@ -46,11 +46,15 @@ export async function onRequestPost(context) {
     }
 
     // Получаем payment_request_id из тела запроса
-    const body = await request.json().catch((e) => {
-      console.error('[notify-payment-request] ❌ Error parsing request body:', e);
-      return {};
-    });
-    const { payment_request_id } = body;
+    let body;
+    try {
+      body = await request.json();
+      console.log('[notify-payment-request] Request body received:', { payment_request_id: body.payment_request_id });
+    } catch (parseError) {
+      console.error('[notify-payment-request] ❌ Error parsing request body:', parseError);
+      body = {};
+    }
+    const { payment_request_id } = body || {};
 
     console.log('[notify-payment-request] Payment request ID:', payment_request_id);
 
@@ -348,9 +352,16 @@ export async function onRequestPost(context) {
     );
 
   } catch (error) {
-    console.error("Error in notify-payment-request:", error);
+    console.error('[notify-payment-request] ❌ CRITICAL ERROR:', error);
+    console.error('[notify-payment-request] Error stack:', error.stack);
+    console.error('[notify-payment-request] Error message:', error.message);
+    console.error('[notify-payment-request] Error name:', error.name);
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({ 
+        error: "Internal server error", 
+        message: error.message || "Unknown error",
+        details: error.stack ? error.stack.substring(0, 500) : "No stack trace"
+      }),
       { status: 500, headers: corsHeaders }
     );
   }
