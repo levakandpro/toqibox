@@ -803,7 +803,11 @@ export default function AdminPage() {
   };
 
   // Одобрение заявки на оплату (идемпотентное)
+  const [approvingRequestId, setApprovingRequestId] = useState(null);
   const handleApprovePaymentRequest = async (requestId, userId, product, plan) => {
+    if (approvingRequestId) return; // Предотвращаем повторное нажатие
+    
+    setApprovingRequestId(requestId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const adminId = session?.user?.id || null;
@@ -826,7 +830,7 @@ export default function AdminPage() {
       }
 
       if (!updatedRequest || updatedRequest.length !== 1) {
-        alert('Заявка уже обработана или не найдена. Повторное продление не выполнено.');
+        showToast('Заявка уже обработана или не найдена. Повторное продление не выполнено.', 'warning');
         await loadData();
         return;
       }
@@ -861,10 +865,12 @@ export default function AdminPage() {
 
       await loadData();
       const planDuration = plan === 'premium_plus' ? '1 год' : '30 дней';
-      alert(`Заявка одобрена. Подписка ${plan.toUpperCase()} активирована на ${planDuration}. Заявка перемещена в раздел "Одобренные".`);
+      showToast(`Заявка одобрена. Подписка ${plan.toUpperCase()} активирована на ${planDuration}.`, 'success');
     } catch (error) {
       console.error('Ошибка одобрения заявки:', error);
-      alert('Ошибка: ' + error.message);
+      showToast('Ошибка: ' + (error.message || 'Не удалось одобрить заявку'), 'error');
+    } finally {
+      setApprovingRequestId(null);
     }
   };
 
@@ -1733,16 +1739,28 @@ export default function AdminPage() {
                               <button
                                 className="btn-success"
                                 onClick={() => handleApprovePaymentRequest(request.id, request.user_id, request.product, request.plan)}
-                                style={{ fontSize: '11px', padding: '6px 12px' }}
+                                disabled={approvingRequestId === request.id || rejectingRequestId === request.id}
+                                style={{ 
+                                  fontSize: '11px', 
+                                  padding: '6px 12px',
+                                  opacity: (approvingRequestId === request.id || rejectingRequestId === request.id) ? 0.5 : 1,
+                                  cursor: (approvingRequestId === request.id || rejectingRequestId === request.id) ? 'not-allowed' : 'pointer'
+                                }}
                               >
-                                Одобрить
+                                {approvingRequestId === request.id ? 'Одобряется...' : 'Одобрить'}
                               </button>
                               <button
                                 className="btn-danger"
                                 onClick={() => handleRejectPaymentRequest(request.id)}
-                                style={{ fontSize: '11px', padding: '6px 12px' }}
+                                disabled={approvingRequestId === request.id || rejectingRequestId === request.id}
+                                style={{ 
+                                  fontSize: '11px', 
+                                  padding: '6px 12px',
+                                  opacity: (approvingRequestId === request.id || rejectingRequestId === request.id) ? 0.5 : 1,
+                                  cursor: (approvingRequestId === request.id || rejectingRequestId === request.id) ? 'not-allowed' : 'pointer'
+                                }}
                               >
-                                Отклонить
+                                {rejectingRequestId === request.id ? 'Отклоняется...' : 'Отклонить'}
                               </button>
                             </div>
                           )}
