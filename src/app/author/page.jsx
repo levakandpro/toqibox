@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import ArtistHeader from "../../features/artist/ArtistHeader.jsx";
 import ArtistTracks from "../../features/artist/ArtistTracks.jsx";
 import AddTrackSection from "../../features/artist/AddTrackSection.jsx";
+import ArtistPageBackground from "../../features/artist/ArtistPageBackground.jsx";
 import ShareSheet from "../../features/share/ShareSheet.jsx";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import { supabase } from "../../features/auth/supabaseClient.js";
@@ -49,11 +50,16 @@ async function createArtistForUser(user) {
   for (let attempt = 0; attempt < 8; attempt++) {
     const slug = attempt === 0 ? `${base}-${randSuffix(5)}` : `${base}-${randSuffix(7)}`;
 
+    // Для новых пользователей устанавливаем значение по умолчанию:
+    // 1 BG видео (индекс 0) - не устанавливаем, используется по умолчанию в компоненте
+    // 2 фон обычный (индекс 1) - "custom-shader-1" (премиум, но используем как значение по умолчанию)
+    // Примечание: "custom-shader-1" является премиум, но пользователь просит использовать его по умолчанию
     const payload = {
       user_id: user.id,
       slug,
       display_name: "TOQIBOX ARTIST",
       header_start_sec: 0,
+      page_background_id: "custom-shader-1", // Второй вариант (индекс 1) из ARTIST_HEADER_BACKGROUNDS
     };
 
     const { data: created, error: insErr } = await supabase
@@ -462,6 +468,13 @@ export default function AuthorPage() {
           )}
         </div>
       </div>
+
+      <ArtistPageBackground 
+        artist={artist} 
+        isOwner={true} 
+        editMode={editMode}
+        onUpdate={refreshArtist}
+      />
 
       <ArtistHeader 
         artistSlug={artist.slug} 

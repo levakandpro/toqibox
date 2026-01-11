@@ -143,8 +143,8 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         }
       }
       
-      // Если ничего не найдено, устанавливаем первый фон по умолчанию (Cobweb)
-      const defaultBackground = BACKGROUND_OPTIONS[0];
+      // Если ничего не найдено, устанавливаем второй фон по умолчанию (custom-shader-1) для новых пользователей
+      const defaultBackground = BACKGROUND_OPTIONS[1] || BACKGROUND_OPTIONS[0]; // Второй вариант (индекс 1), если есть, иначе первый
       if (defaultBackground) {
         setSelectedBackground(defaultBackground.id);
         setPreviewBackground(defaultBackground.id);
@@ -160,8 +160,8 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       return;
     }
     
-    // Если фон не выбран, используем первый по умолчанию
-    const backgroundToApply = previewBackground || selectedBackground || (BACKGROUND_OPTIONS[0]?.id);
+    // Если фон не выбран, используем второй по умолчанию (индекс 1) для новых пользователей
+    const backgroundToApply = previewBackground || selectedBackground || (BACKGROUND_OPTIONS[1]?.id || BACKGROUND_OPTIONS[0]?.id);
     
     // Создаем или находим внутренний элемент для фона
     let bgElement = headerCover.querySelector('.ah-cover-background');
