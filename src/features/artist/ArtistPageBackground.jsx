@@ -469,9 +469,18 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
     // Проверяем видео сразу и периодически (чаще, чтобы не пропустить остановку)
     ensureVideosLoop();
     const videoCheckInterval = setInterval(ensureVideosLoop, 500); // Проверяем каждые 500ms
+    
+    // СТРОГО: Постоянно убираем backgroundImage, чтобы ArtistHeader не перезаписывал его
+    const removeBackgroundImageInterval = setInterval(() => {
+      const cover = document.querySelector('.ah-cover');
+      if (cover && cover.style.backgroundImage && cover.style.backgroundImage !== 'none') {
+        cover.style.backgroundImage = 'none';
+      }
+    }, 100); // Проверяем каждые 100ms
 
     return () => {
       clearInterval(videoCheckInterval);
+      clearInterval(removeBackgroundImageInterval);
       // НЕ очищаем структуры при размонтировании - видео должны оставаться!
       // cleanupBackgroundStructures();
       // if (headerCover) {
