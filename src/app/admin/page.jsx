@@ -512,15 +512,23 @@ export default function AdminPage() {
       
       await loadStudioData();
       const planLabel = planType === 'premium_plus' ? 'PREMIUM+ на 1 год' : 'PREMIUM на 30 дней';
-      alert(`Подписка ${planLabel} успешно активирована.`);
+      showToast(`Подписка ${planLabel} успешно активирована.`, 'success');
     } catch (error) {
       console.error('Ошибка обновления Studio тарифа:', error);
-      alert('Ошибка: ' + error.message);
+      showToast('Ошибка: ' + (error.message || 'Не удалось активировать подписку'), 'error');
     }
   };
 
+  const [showStudioRemoveConfirm, setShowStudioRemoveConfirm] = useState(null);
+  const [removingStudioUserId, setRemovingStudioUserId] = useState(null);
+  
   const handleStudioRemove = async (userId) => {
-    if (!confirm('Убрать премиум подписку и вернуть пользователя на бесплатный план?')) return;
+    setShowStudioRemoveConfirm(userId);
+  };
+
+  const confirmStudioRemove = async (userId) => {
+    setShowStudioRemoveConfirm(null);
+    setRemovingStudioUserId(userId);
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -544,10 +552,12 @@ export default function AdminPage() {
       await loadStudioData();
       await loadData(); // Также обновляем общие данные
       
-      alert('Премиум подписка успешно убрана. Пользователь переведен на бесплатный план.');
+      showToast('Премиум подписка успешно убрана. Пользователь переведен на бесплатный план.', 'success');
     } catch (error) {
       console.error('Ошибка снятия Studio тарифа:', error);
-      alert('Ошибка: ' + error.message);
+      showToast('Ошибка: ' + (error.message || 'Не удалось убрать подписку'), 'error');
+    } finally {
+      setRemovingStudioUserId(null);
     }
   };
 
