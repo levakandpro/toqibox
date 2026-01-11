@@ -700,6 +700,15 @@ export default function LoginPage() {
       <div style={styles.noise} />
 
       <style>{`
+        /* Веб-версия: на весь экран */
+        @media (min-width: 768px) {
+          .login-page-web {
+            aspect-ratio: unset !important;
+            maxWidth: 100vw !important;
+            maxHeight: 100vh !important;
+          }
+        }
+        
         @keyframes toqiboxFadeIn {
           from { opacity: 0; transform: translateY(10px) scale(0.985); }
           to { opacity: 1; transform: translateY(0) scale(1); }
