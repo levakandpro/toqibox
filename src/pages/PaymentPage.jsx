@@ -200,7 +200,7 @@ export default function PaymentPage() {
           console.log('[Payment] 📤 Отправляем уведомление в Telegram для заявки:', paymentRequestId);
           
           // Небольшая задержка, чтобы заявка точно сохранилась в БД
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
           try {
             // Вызываем серверный endpoint для уведомления в Telegram

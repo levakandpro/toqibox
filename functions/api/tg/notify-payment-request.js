@@ -64,54 +64,63 @@ export async function onRequestPost(context) {
 
     // Используем переменные, которые уже извлечены выше
 
-    // Получаем данные заявки из БД через REST API
+    // Получаем данные заявки из БД через REST API с повторными попытками
     console.log('[notify-payment-request] Fetching payment request from Supabase:', payment_request_id);
     const requestUrl = `${supabaseUrl}/rest/v1/payment_requests?id=eq.${payment_request_id}&select=id,user_id,product,plan,amount,receipt_url,status,created_at`;
     console.log('[notify-payment-request] Request URL:', requestUrl);
     
-    const requestResponse = await fetch(requestUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
+    // Пытаемся получить заявку несколько раз с задержкой (на случай, если она еще не сохранилась)
+    let paymentRequest = null;
+    const maxRetries = 3;
+    const retryDelay = 500; // 500ms между попытками
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      console.log(`[notify-payment-request] Attempt ${attempt}/${maxRetries} to fetch payment request`);
+      
+      const requestResponse = await fetch(requestUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        }
+      });
+
+      const responseText = await requestResponse.text();
+      console.log(`[notify-payment-request] Supabase response status (attempt ${attempt}):`, requestResponse.status);
+      console.log(`[notify-payment-request] Supabase response body (attempt ${attempt}):`, responseText.substring(0, 500));
+
+      if (requestResponse.ok) {
+        let paymentRequests;
+        try {
+          paymentRequests = JSON.parse(responseText);
+          paymentRequest = paymentRequests?.[0];
+          if (paymentRequest) {
+            console.log(`[notify-payment-request] ✅ Payment request found on attempt ${attempt}:`, paymentRequest);
+            break; // Успешно нашли заявку, выходим из цикла
+          }
+        } catch (parseError) {
+          console.error(`[notify-payment-request] ❌ Error parsing response (attempt ${attempt}):`, parseError);
+        }
       }
-    });
-
-    const responseText = await requestResponse.text();
-    console.log('[notify-payment-request] Supabase response status:', requestResponse.status);
-    console.log('[notify-payment-request] Supabase response body:', responseText.substring(0, 500));
-
-    if (!requestResponse.ok) {
-      console.error('[notify-payment-request] ❌ Error fetching payment request:', requestResponse.status, responseText);
-      return new Response(
-        JSON.stringify({ error: "Payment request not found", details: responseText }),
-        { status: 404, headers: corsHeaders }
-      );
+      
+      // Если это не последняя попытка, ждем перед следующей
+      if (attempt < maxRetries) {
+        console.log(`[notify-payment-request] Waiting ${retryDelay}ms before next attempt...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
     }
 
-    let paymentRequests;
-    try {
-      paymentRequests = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error('[notify-payment-request] ❌ Error parsing payment request response:', parseError);
+    if (!paymentRequest) {
+      console.error('[notify-payment-request] ❌ Payment request not found after all attempts');
       return new Response(
-        JSON.stringify({ error: "Invalid response from database", details: responseText }),
-        { status: 500, headers: corsHeaders }
+        JSON.stringify({ error: "Payment request not found", attempts: maxRetries }),
+        { status: 404, headers: corsHeaders }
       );
     }
     
-    const paymentRequest = paymentRequests?.[0];
     console.log('[notify-payment-request] Payment request data:', paymentRequest);
-
-    if (!paymentRequest) {
-      console.error('[notify-payment-request] ❌ Payment request not found in response. Array length:', paymentRequests?.length);
-      return new Response(
-        JSON.stringify({ error: "Payment request not found", arrayLength: paymentRequests?.length }),
-        { status: 404, headers: corsHeaders }
-      );
-    }
 
     // Проверяем, что заявка в статусе pending
     if (paymentRequest.status !== 'pending') {
