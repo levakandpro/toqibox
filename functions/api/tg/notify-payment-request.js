@@ -316,11 +316,7 @@ export async function onRequestPost(context) {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message_id: messageId,
-        sent: messageSent 
-      }),
+      JSON.stringify({ success: true, sent: true, telegram: telegramData }),
       { status: 200, headers: corsHeaders }
     );
 
