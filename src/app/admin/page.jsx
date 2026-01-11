@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../features/auth/supabaseClient.js";
 import "./admin.css";
+import ToastContainer, { showToast } from "../../components/Toast.jsx";
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -717,35 +718,57 @@ export default function AdminPage() {
         .eq("id", artistId);
 
       await loadData();
+      showToast('Премиум продлен', 'success');
     } catch (error) {
       console.error("Ошибка продления премиума:", error);
-      alert("Ошибка: " + error.message);
+      showToast("Ошибка: " + (error.message || 'Не удалось продлить премиум'), 'error');
     }
   };
 
+  const [showDeleteUserConfirm, setShowDeleteUserConfirm] = useState(null);
+  const [deletingUserId, setDeletingUserId] = useState(null);
+  
   const handleDeleteUser = async (userId) => {
-    if (!confirm("Удалить пользователя? Это удалит все его данные.")) return;
+    setShowDeleteUserConfirm(userId);
+  };
+
+  const confirmDeleteUser = async (userId) => {
+    setShowDeleteUserConfirm(null);
+    setDeletingUserId(userId);
     
     try {
       await supabase.from("artists").delete().eq("user_id", userId);
       await supabase.from("payments").delete().eq("user_id", userId);
       await loadData();
-      alert("Данные пользователя удалены. Для полного удаления из auth используйте Supabase Dashboard.");
+      showToast("Данные пользователя удалены. Для полного удаления из auth используйте Supabase Dashboard.", 'success');
     } catch (error) {
       console.error("Ошибка удаления:", error);
-      alert("Ошибка: " + error.message);
+      showToast("Ошибка: " + (error.message || 'Не удалось удалить пользователя'), 'error');
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
+  const [showDeleteArtistConfirm, setShowDeleteArtistConfirm] = useState(null);
+  const [deletingArtistId, setDeletingArtistId] = useState(null);
+  
   const handleDeleteArtist = async (artistId) => {
-    if (!confirm("Удалить артиста?")) return;
+    setShowDeleteArtistConfirm(artistId);
+  };
+
+  const confirmDeleteArtist = async (artistId) => {
+    setShowDeleteArtistConfirm(null);
+    setDeletingArtistId(artistId);
     
     try {
       await supabase.from("artists").delete().eq("id", artistId);
       await loadData();
+      showToast('Артист удален', 'success');
     } catch (error) {
       console.error("Ошибка удаления:", error);
-      alert("Ошибка: " + error.message);
+      showToast("Ошибка: " + (error.message || 'Не удалось удалить артиста'), 'error');
+    } finally {
+      setDeletingArtistId(null);
     }
   };
 
@@ -762,9 +785,10 @@ export default function AdminPage() {
       setShowEditArtistModal(false);
       setSelectedArtist(null);
       await loadData();
+      showToast('Артист обновлен', 'success');
     } catch (error) {
       console.error("Ошибка редактирования артиста:", error);
-      alert("Ошибка: " + error.message);
+      showToast("Ошибка: " + (error.message || 'Не удалось обновить артиста'), 'error');
     }
   };
 
@@ -835,9 +859,20 @@ export default function AdminPage() {
   };
 
   // Отклонение заявки на оплату (идемпотентное)
+  const [rejectingRequestId, setRejectingRequestId] = useState(null);
+  const [showRejectConfirm, setShowRejectConfirm] = useState(null);
+  
   const handleRejectPaymentRequest = async (requestId) => {
-    if (!confirm('Отклонить эту заявку?')) return;
+    if (rejectingRequestId) return; // Предотвращаем повторное нажатие
+    
+    // Показываем подтверждение
+    setShowRejectConfirm(requestId);
+  };
 
+  const confirmReject = async (requestId) => {
+    setShowRejectConfirm(null);
+    setRejectingRequestId(requestId);
+    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const adminId = session?.user?.id || null;
@@ -860,16 +895,18 @@ export default function AdminPage() {
       }
 
       if (!updatedRequest || updatedRequest.length !== 1) {
-        alert('Заявка уже обработана или не найдена.');
+        showToast('Заявка уже обработана или не найдена.', 'warning');
         await loadData();
         return;
       }
 
       await loadData();
-      alert('Заявка отклонена. Заявка перемещена в раздел "Отклоненные".');
+      showToast('Заявка отклонена. Заявка перемещена в раздел "Отклоненные".', 'success');
     } catch (error) {
       console.error('Ошибка отклонения заявки:', error);
-      alert('Ошибка: ' + error.message);
+      showToast('Ошибка: ' + (error.message || 'Не удалось отклонить заявку'), 'error');
+    } finally {
+      setRejectingRequestId(null);
     }
   };
 
