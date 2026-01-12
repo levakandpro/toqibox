@@ -38,12 +38,7 @@
   backdrop-filter: blur(35px) saturate(180%);
   -webkit-backdrop-filter: blur(35px) saturate(180%);
   
-  box-shadow: 
-    0 16px 56px rgba(0, 0, 0, 0.75),
-    0 8px 28px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    inset 0 2px 0 rgba(255, 255, 255, 0.25),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.45);
+  box-shadow: none;
   
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -52,12 +47,7 @@
 .tc-card:hover {
   transform: translateY(-4px);
   border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 
-    0 16px 50px rgba(0, 0, 0, 0.7),
-    0 8px 25px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  box-shadow: none;
 }
 
 /* Фон карточки убран */
@@ -84,7 +74,12 @@
 }
 
 /* Текстура grain */
-.tc-card::after {
+@keyframes grainFloat{
+  0%,100%{opacity:.03;}
+  50%{opacity:.05;}
+}
+
+.tc-card::after{
   content:"";
   position:absolute; 
   inset:0;
@@ -101,12 +96,7 @@
   .tc-card:hover{
     transform: none; /* Убираем увеличение карточки в веб-версии */
     border-color: rgba(255, 255, 255, 0.4);
-    box-shadow: 
-      0 28px 80px rgba(0, 0, 0, 0.85),
-      0 14px 40px rgba(139, 92, 246, 0.5),
-      0 0 0 1px rgba(255, 255, 255, 0.18),
-      inset 0 2px 0 rgba(255, 255, 255, 0.35),
-      inset 0 -2px 0 rgba(0, 0, 0, 0.6);
+    box-shadow: none;
     background: linear-gradient(
       135deg,
       rgba(0, 0, 0, 0.75) 0%,
@@ -133,25 +123,6 @@
   transition: transform 150ms ease;
 }
 
-/* subtle grain on card */
-@keyframes grainFloat{
-  0%,100%{opacity:.03;}
-  50%{opacity:.05;}
-}
-/* Текстура grain поверх фона */
-.tc-card::after{
-  content:"";
-  position:absolute; 
-  inset:0;
-  border-radius: inherit;
-  background-image: radial-gradient(rgba(255,255,255,.3) 1px, transparent 1px);
-  background-size: 4px 4px;
-  animation: grainFloat 8s ease-in-out infinite;
-  pointer-events:none;
-  opacity: .04;
-  z-index: 1;
-}
-
 .tc-cover{
   width: 95px;
   height: 95px;
@@ -171,11 +142,7 @@
   transform: translateZ(0);
   will-change: transform;
   
-  box-shadow: 
-    0 10px 32px rgba(0, 0, 0, 0.65),
-    0 0 0 4px rgba(255, 255, 255, 0.18),
-    0 0 35px rgba(139, 92, 246, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  box-shadow: none;
   
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
               box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1),
@@ -189,12 +156,8 @@
 
 .tc-card:hover .tc-cover {
   transform: scale(1.15) rotate(4deg);
-  box-shadow: 
-    0 18px 48px rgba(0, 0, 0, 0.75),
-    0 0 0 6px rgba(139, 92, 246, 0.6),
-    0 0 50px rgba(139, 92, 246, 0.5),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.45);
-  filter: brightness(1.2) saturate(1.3);
+  box-shadow: none;
+  filter: brightness(1.15) saturate(1.2);
 }
 
 /* Убираем фиолетовый обруч при наведении на карточки в 3D карусели */

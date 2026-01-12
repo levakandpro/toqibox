@@ -101,11 +101,26 @@ const BACKGROUND_OPTIONS = ARTIST_HEADER_BACKGROUNDS;
 
 
 export default function ArtistPageBackground({ artist, isOwner = false, editMode = false, onUpdate }) {
+  // КРИТИЧНО: Логирование ДО всех хуков, чтобы увидеть, вызывается ли функция вообще
+  console.log('🎨🎨🎨 ArtistPageBackground: FUNCTION CALLED', { 
+    artistId: artist?.id, 
+    isOwner, 
+    editMode,
+    hasArtist: !!artist,
+    artistPageBackgroundId: artist?.page_background_id
+  });
+  
   // Устанавливаем дефолтное значение сразу (1-й вариант - индекс 0) для видео фонов
   const defaultBgId = BACKGROUND_OPTIONS[0]?.id; // Первый доступный фон
   const [selectedBackground, setSelectedBackground] = useState(defaultBgId);
   const [saving, setSaving] = useState(false);
   const [previewBackground, setPreviewBackground] = useState(defaultBgId);
+  
+  console.log('🎨 ArtistPageBackground: After useState', { 
+    defaultBgId,
+    selectedBackground,
+    previewBackground
+  });
   const vantaRootRef = useRef(null);
   const vantaContainerRef = useRef(null);
   const videoElementsRef = useRef(new Set()); // Храним ссылки на все видео элементы
@@ -170,33 +185,67 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
   }, [artist?.id, artist?.page_background_id, isPremium]);
 
   // Применяем фон только к шапке артиста
+  // ВАЖНО: Этот useEffect должен работать всегда, даже если компонент возвращает null
   useEffect(() => {
+    console.log('🎨🎨🎨 ArtistPageBackground: useEffect [APPLY BACKGROUND] triggered', { 
+      artistId: artist?.id, 
+      previewBackground, 
+      selectedBackground, 
+      isOwner, 
+      editMode,
+      hasArtist: !!artist,
+      defaultBg: BACKGROUND_OPTIONS[0]?.id
+    });
+    
+    // Если артист еще не загружен, не применяем фон
+    if (!artist?.id) {
+      console.log('ArtistPageBackground: artist not loaded yet, skipping background application');
+      return;
+    }
+    
     // Ждем, пока .ah-cover появится в DOM (может быть создан позже)
     const findHeaderCover = () => {
       return document.querySelector('.ah-cover');
     };
     
     let headerCover = findHeaderCover();
+    console.log('🎨 ArtistPageBackground: Initial .ah-cover search', { found: !!headerCover });
+    
     if (!headerCover) {
       // Пробуем найти через интервал (на случай, если компонент еще монтируется)
       let attempts = 0;
-      const maxAttempts = 50; // 5 секунд максимум
+      const maxAttempts = 200; // 20 секунд максимум для публичной страницы
+      console.log('🎨 ArtistPageBackground: Starting retry loop for .ah-cover', { maxAttempts });
+      
       const checkInterval = setInterval(() => {
         attempts++;
         headerCover = findHeaderCover();
+        console.log(`🎨 ArtistPageBackground: Retry ${attempts}/${maxAttempts}`, { found: !!headerCover });
+        
         if (headerCover) {
           clearInterval(checkInterval);
+          console.log('🎨 ArtistPageBackground: .ah-cover found! Applying background');
           // Применяем фон после того, как нашли элемент
           applyBackground(headerCover);
         } else if (attempts >= maxAttempts) {
           clearInterval(checkInterval);
-          console.warn('ArtistPageBackground: .ah-cover not found after', maxAttempts, 'attempts');
+          console.error('❌ ArtistPageBackground: .ah-cover not found after', maxAttempts, 'attempts');
+          // Попробуем найти все возможные варианты классов
+          const possibleSelectors = ['.ah-cover', '.artist-header-cover', '[class*="cover"]', '[class*="header"]'];
+          possibleSelectors.forEach(sel => {
+            const el = document.querySelector(sel);
+            if (el) console.log(`Found element with selector: ${sel}`, el);
+          });
         }
       }, 100);
-      return () => clearInterval(checkInterval);
+      return () => {
+        console.log('🎨 ArtistPageBackground: Cleaning up retry interval');
+        clearInterval(checkInterval);
+      };
     }
     
     // Если элемент уже есть, применяем фон сразу
+    console.log('🎨 ArtistPageBackground: .ah-cover already found, applying background immediately');
     applyBackground(headerCover);
     
     function applyBackground(headerCover) {
@@ -205,14 +254,18 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
         return () => {};
       }
       
+      // Определяем фон для применения (previewBackground и selectedBackground уже должны быть проверены на доступность)
+      const backgroundToApply = previewBackground || selectedBackground || BACKGROUND_OPTIONS[0]?.id;
+      
       console.log('ArtistPageBackground: applyBackground called', {
         previewBackground,
         selectedBackground,
-        defaultBg: BACKGROUND_OPTIONS[0]?.id
+        backgroundToApply,
+        artistId: artist?.id,
+        defaultBg: BACKGROUND_OPTIONS[0]?.id,
+        isOwner,
+        editMode
       });
-      
-      // Определяем фон для применения (previewBackground и selectedBackground уже должны быть проверены на доступность)
-      const backgroundToApply = previewBackground || selectedBackground || BACKGROUND_OPTIONS[0]?.id;
     
     // Создаем или находим внутренний элемент для фона
     let bgElement = headerCover.querySelector('.ah-cover-background');
@@ -570,7 +623,11 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
       const cleanup = applyBackground(headerCover);
       return cleanup;
     }
-  }, [previewBackground, selectedBackground, isPremium]);
+    
+    // Если элемент еще не найден, возвращаем пустую cleanup функцию
+    // (setInterval cleanup уже обработан выше)
+    return () => {};
+  }, [previewBackground, selectedBackground, isPremium, artist?.id, artist?.page_background_id]);
 
   const handleSelectBackground = (bgId) => {
     const bg = BACKGROUND_OPTIONS.find(b => b.id === bgId);
@@ -652,10 +709,16 @@ export default function ArtistPageBackground({ artist, isOwner = false, editMode
 
   const isChanged = previewBackground !== selectedBackground;
 
+  // ВАЖНО: useEffect выше применяет фон всегда, даже если компонент возвращает null
   // Панель выбора показываем только в режиме редактирования для владельца
-  // Но сам эффект применяется всегда через useEffect выше
+  // Но сам эффект применения фона работает ВСЕГДА для всех пользователей через useEffect
+  
+  // КРИТИЧНО: Возвращаем скрытый div вместо null, чтобы гарантировать монтирование компонента
+  // и работу useEffect на публичной странице. React может не вызвать useEffect если компонент возвращает null.
   if (!isOwner || !editMode) {
-    return null; // Возвращаем null только для панели, useEffect все равно работает
+    // Возвращаем невидимый элемент вместо null, чтобы React точно смонтировал компонент
+    // и useEffect сработал для применения фона на публичной странице
+    return <div style={{ display: 'none' }} data-background-applier="true" aria-hidden="true" />;
   }
 
   return (

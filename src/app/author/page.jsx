@@ -53,14 +53,15 @@ async function createArtistForUser(user) {
     // Для новых пользователей устанавливаем значения по умолчанию:
     // 1 BG видео (индекс 0) - первый доступный фон для видео фонов в шапке
     // 3 фон фото (индекс 2) - "bg-3" (третий вариант) для фото фонов на странице
-    const payload = {
-      user_id: user.id,
-      slug,
-      display_name: "TOQIBOX ARTIST",
-      header_start_sec: 0,
-      page_background_id: "custom-shader-1", // Первый фон (индекс 0) - custom-shader-1
-      page_background_left_id: "bg-3", // Третий вариант (индекс 2) для фото фонов
-    };
+            const payload = {
+              user_id: user.id,
+              slug,
+              display_name: "TOQIBOX ARTIST",
+              header_start_sec: 0,
+              page_background_id: "custom-shader-1", // Первый фон (индекс 0) - custom-shader-1
+              page_background_left_id: "bg-3", // Третий вариант (индекс 2) для фото фонов
+              play_button_id: "cksunandh", // Orbital (индекс 1) - дефолт для новых артистов
+            };
 
     const { data: created, error: insErr } = await supabase
       .from("artists")
@@ -403,7 +404,7 @@ export default function AuthorPage() {
 
   // EDIT PAGE (CANON) - если артист есть
   return (
-    <div className="a-page is-edit">
+    <div className={`a-page ${editMode ? 'is-edit' : ''}`}>
       {/* Блок с email и тарифом */}
       <div style={{
         position: "sticky",
@@ -437,7 +438,28 @@ export default function AuthorPage() {
           fontSize: "12px",
           color: "rgba(255, 255, 255, 0.9)",
         }}>
-          <span style={{ opacity: 0.7 }}>Тариф:</span>
+          <a 
+            href="https://toqibox.win/pricing"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ 
+              opacity: 0.7,
+              color: "rgba(255, 255, 255, 0.7)",
+              textDecoration: "none",
+              cursor: "pointer",
+              transition: "opacity 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.opacity = "1";
+              e.target.style.textDecoration = "underline";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.opacity = "0.7";
+              e.target.style.textDecoration = "none";
+            }}
+          >
+            Тариф:
+          </a>
           <span style={{
             fontWeight: 700,
             letterSpacing: "0.05em",
@@ -484,7 +506,7 @@ export default function AuthorPage() {
         onShare={() => setShareOpen(true)}
       />
 
-      {showAddTrack && (
+      {editMode && showAddTrack && (
         <AddTrackSection 
           artist={artist} 
           isOwner={true}
@@ -501,11 +523,11 @@ export default function AuthorPage() {
           artistSlug={artist.slug}
           artist={artist}
           isOwner={true}
-          editMode={true} // В кабинете всегда режим редактирования
+          editMode={editMode} // Используем состояние editMode для переключения режимов
           onShare={() => setShareOpen(true)}
           onUpdate={refreshArtist}
           tracks={tracks}
-          onAddTrack={() => setShowAddTrack(true)}
+          onAddTrack={editMode ? () => setShowAddTrack(true) : undefined}
         />
       </div>
 

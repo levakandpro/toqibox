@@ -18,7 +18,7 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
 }
@@ -723,14 +723,14 @@
 
 /* Обертка для блока треков */
 .at-grid-wrapper {
-  padding: 20px 12px 60px 12px;
+  padding: 20px 12px 100px 12px;
   margin: 0 -12px;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
+  justify-content: flex-start;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: visible;
   overflow-x: hidden;
 }
 
@@ -809,18 +809,18 @@
 /* Новые карточки с 3D эффектом переворота */
 .at-cards-grid {
   display: flex;
-  flex-direction: column;
-  flex-wrap: wrap;
+  flex-direction: row;
+  flex-wrap: nowrap;
   gap: 20px;
-  padding: 0 20px;
+  padding: 20px;
   overflow-x: auto;
   overflow-y: hidden;
   width: 100%;
-  max-height: calc(320px * 2 + 20px);
+  height: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 153, 102, 0.5) transparent;
-  align-content: flex-start;
+  align-items: flex-start;
 }
 
 .at-cards-grid::-webkit-scrollbar {
@@ -853,12 +853,7 @@
   height: 100%;
   transform-style: preserve-3d;
   transition: transform 300ms;
-  box-shadow: 
-    0 20px 60px rgba(0, 0, 0, 0.8),
-    0 10px 30px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 2px 4px rgba(255, 255, 255, 0.1),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
   border-radius: 12px;
   background: linear-gradient(
     135deg,

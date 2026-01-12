@@ -197,15 +197,19 @@ export default function ArtistTracks({
   ];
 
   const handleSocialClick = (social) => {
-    if (!isOwner) {
-      // Если не владелец - просто открываем ссылку
-      window.open(social.href, "_blank");
+    const url = getSocialUrl(social.key);
+    
+    // Если есть ссылка и (не владелец ИЛИ владелец в режиме просмотра) - открываем ссылку
+    if (url && (!isOwner || (isOwner && !editMode))) {
+      window.open(url, "_blank", "noopener,noreferrer");
       return;
     }
-
-    // Если владелец - открываем редактирование
-    setEditingSocial(social.key);
-    setSocialUrl(getSocialUrl(social.key));
+    
+    // Если владелец в режиме редактирования - открываем редактирование
+    if (isOwner && editMode) {
+      setEditingSocial(social.key);
+      setSocialUrl(url || "");
+    }
   };
 
   const handleSocialSave = async (social) => {
@@ -364,6 +368,7 @@ export default function ArtistTracks({
                         backgroundPosition: "center",
                         backgroundRepeat: "no-repeat"
                       }}
+                      loading="lazy"
                     >
                     </div>
                     <div className="front">
@@ -577,7 +582,7 @@ export default function ArtistTracks({
                     padding: 0,
                     position: "relative",
                   }}
-                  title={isOwner ? `Нажмите, чтобы ${hasUrl ? "изменить" : "добавить"} ссылку` : s.label}
+                  title={isOwner && editMode ? `Нажмите, чтобы ${hasUrl ? "изменить" : "добавить"} ссылку` : (hasUrl ? `Открыть ${s.label}` : s.label)}
                 >
                   <img src={s.icon} alt="" aria-hidden="true" />
                 </button>

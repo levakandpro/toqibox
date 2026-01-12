@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../features/auth/supabaseClient.js";
+import { SHADERTOY_BACKGROUNDS } from "../../utils/shadertoyBackgrounds.js";
+import { DEFAULT_PLAY_ICON } from "../../utils/playIcons.js";
 
 export default function AddTrackSection({ artist, isOwner = false, onTrackAdded, onClose }) {
   const [showForm, setShowForm] = useState(false);
@@ -42,13 +44,18 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
         .replace(/^-|-$/g, "");
       const slug = `${slugBase}-${Date.now()}`;
 
-      // Собираем данные для вставки только с существующими полями
+      // Получаем первый фон по умолчанию
+      const defaultBackgroundId = SHADERTOY_BACKGROUNDS[0]?.id || null;
+      
+      // Собираем данные для вставки с дефолтными значениями
       const insertData = {
         artist_id: artist.id,
         title: newTrack.title.trim(),
         source: "youtube",
         link: newTrack.link.trim(),
         slug: slug,
+        shadertoy_background_id: defaultBackgroundId, // Первый фон по умолчанию
+        play_icon: DEFAULT_PLAY_ICON, // Первая иконка по умолчанию
       };
 
       console.log("📤 Inserting track data:", insertData);
@@ -237,19 +244,21 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
 
   return (
     <div style={{
-      padding: "16px 20px",
+      padding: "12px 16px",
       background: "rgba(255, 255, 255, 0.02)",
       borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
     }}>
       {showForm && (
         <div style={{
           display: "grid",
-          gap: 16,
-          padding: "24px",
+          gap: 12,
+          padding: "16px",
           background: "rgba(0, 0, 0, 0.6)",
           backdropFilter: "blur(20px)",
-          borderRadius: 16,
+          borderRadius: 12,
           border: "1px solid rgba(255, 255, 255, 0.1)",
+          maxWidth: "400px",
+          margin: "0 auto",
         }}>
           <input
             type="text"
@@ -258,12 +267,12 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
             onChange={(e) => setNewTrack({ ...newTrack, title: e.target.value })}
             disabled={saving}
             style={{
-              padding: "14px 16px",
-              borderRadius: 12,
+              padding: "10px 12px",
+              borderRadius: 8,
               border: "1px solid rgba(255, 255, 255, 0.2)",
               background: "rgba(255, 255, 255, 0.05)",
               outline: "none",
-              fontSize: 16,
+              fontSize: 14,
               color: "#fff",
               width: "100%",
               transition: "all 0.2s",
@@ -282,12 +291,12 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
             onChange={(e) => setNewTrack({ ...newTrack, link: e.target.value })}
             disabled={saving}
             style={{
-              padding: "14px 16px",
-              borderRadius: 12,
+              padding: "10px 12px",
+              borderRadius: 8,
               border: "1px solid rgba(255, 255, 255, 0.2)",
               background: "rgba(255, 255, 255, 0.05)",
               outline: "none",
-              fontSize: 16,
+              fontSize: 14,
               color: "#fff",
               width: "100%",
               transition: "all 0.2s",
@@ -305,13 +314,13 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
             onClick={handleAddTrack}
             disabled={saving || !newTrack.title || !newTrack.link}
             style={{
-              padding: "16px 24px",
-              borderRadius: 12,
+              padding: "10px 16px",
+              borderRadius: 8,
               border: "none",
               background: saving ? "rgba(255, 255, 255, 0.1)" : "#fff",
               color: saving ? "rgba(255, 255, 255, 0.7)" : "#000",
-              fontWeight: 700,
-              fontSize: 16,
+              fontWeight: 600,
+              fontSize: 14,
               cursor: (saving || !newTrack.title || !newTrack.link) ? "default" : "pointer",
               opacity: (saving || !newTrack.title || !newTrack.link) ? 0.5 : 1,
               transition: "all 0.2s",
@@ -332,9 +341,9 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
           {saving && (
             <div style={{
               textAlign: "center",
-              fontSize: 14,
+              fontSize: 12,
               color: "rgba(255, 255, 255, 0.6)",
-              marginTop: "-8px",
+              marginTop: "-4px",
             }}>
               Создаём Тюбетейку…
             </div>
@@ -343,9 +352,9 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
           {!saving && (
             <div style={{
               textAlign: "center",
-              fontSize: 13,
+              fontSize: 11,
               color: "rgba(255, 255, 255, 0.5)",
-              marginTop: "-8px",
+              marginTop: "-4px",
             }}>
               После публикации для трека будет создана Тюбетейка
             </div>
@@ -360,12 +369,12 @@ export default function AddTrackSection({ artist, isOwner = false, onTrackAdded,
                 if (onClose) onClose();
               }}
               style={{
-                padding: "12px 20px",
-                borderRadius: 12,
+                padding: "8px 16px",
+                borderRadius: 8,
                 border: "1px solid rgba(255, 255, 255, 0.2)",
                 background: "transparent",
                 color: "rgba(255, 255, 255, 0.7)",
-                fontSize: 14,
+                fontSize: 13,
                 cursor: "pointer",
                 transition: "all 0.2s",
               }}

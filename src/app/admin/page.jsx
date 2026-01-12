@@ -619,16 +619,26 @@ export default function AdminPage() {
 
     // Автоматический фильтр по статусу в зависимости от активной вкладки
     let statusFilter = paymentRequestStatusFilter;
-    if (activeTab === "payment_requests") {
-      // Вкладка "Заявки на оплату" - только ожидающие
+    if (activeTab === "payment_requests" || activeTab === "studio_payment_requests") {
       statusFilter = "pending";
-    } else if (activeTab === "payment_requests_approved") {
-      // Вкладка "Одобренные заявки"
+    } else if (activeTab === "payment_requests_approved" || activeTab === "studio_payment_requests_approved") {
       statusFilter = "approved";
-    } else if (activeTab === "payment_requests_rejected") {
-      // Вкладка "Отклоненные заявки"
+    } else if (activeTab === "payment_requests_rejected" || activeTab === "studio_payment_requests_rejected") {
       statusFilter = "rejected";
     }
+
+    // Автоматический фильтр по продукту в зависимости от активного блока
+    let productFilter = paymentRequestProductFilter;
+    // Определяем активный блок из activeTab
+    // Если вкладка связана с Studio - фильтруем по studio
+    if (activeTab === "studio" || activeTab.startsWith("studio_")) {
+      productFilter = "studio";
+    } 
+    // Если вкладка связана с TOQIBOX - фильтруем по toqibox
+    else if (activeTab === "toqibox" || activeTab === "payment_requests" || activeTab === "payment_requests_approved" || activeTab === "payment_requests_rejected") {
+      productFilter = "toqibox";
+    }
+    // Иначе используем выбранный фильтр
 
     // Фильтр по статусу
     if (statusFilter !== "all") {
@@ -636,8 +646,8 @@ export default function AdminPage() {
     }
 
     // Фильтр по продукту
-    if (paymentRequestProductFilter !== "all") {
-      filtered = filtered.filter(pr => pr.product === paymentRequestProductFilter);
+    if (productFilter !== "all") {
+      filtered = filtered.filter(pr => pr.product === productFilter);
     }
 
     // Поиск
@@ -810,10 +820,38 @@ export default function AdminPage() {
     
     setApprovingRequestId(requestId);
     try {
+      console.log('[Approve] Начинаю одобрение заявки:', { requestId, userId, product, plan });
+      
       const { data: { session } } = await supabase.auth.getSession();
       const adminId = session?.user?.id || null;
       
-      // Идемпотентное обновление: UPDATE только если status='pending'
+      // Сначала проверяем текущий статус заявки
+      const { data: currentRequest, error: fetchError } = await supabase
+        .from('payment_requests')
+        .select('status, id')
+        .eq('id', requestId)
+        .single();
+      
+      console.log('[Approve] Текущая заявка:', currentRequest);
+      
+      if (fetchError) {
+        console.error('[Approve] Ошибка получения заявки:', fetchError);
+        throw fetchError;
+      }
+      
+      if (!currentRequest) {
+        showToast('Заявка не найдена', 'error');
+        await loadData();
+        return;
+      }
+      
+      if (currentRequest.status !== 'pending') {
+        showToast(`Заявка уже обработана (статус: ${currentRequest.status})`, 'warning');
+        await loadData();
+        return;
+      }
+      
+      // Обновляем статус заявки
       const { data: updatedRequest, error: updateError } = await supabase
         .from('payment_requests')
         .update({
@@ -825,13 +863,16 @@ export default function AdminPage() {
         .eq('status', 'pending')
         .select();
 
-      // Проверяем, что обновлена ровно 1 запись (affected_rows === 1)
+      console.log('[Approve] Результат обновления:', { updatedRequest, updateError });
+
       if (updateError) {
+        console.error('[Approve] Ошибка обновления:', updateError);
         throw updateError;
       }
 
       if (!updatedRequest || updatedRequest.length !== 1) {
-        showToast('Заявка уже обработана или не найдена. Повторное продление не выполнено.', 'warning');
+        console.warn('[Approve] Заявка не обновлена, возможно уже обработана');
+        showToast('Заявка уже обработана или не найдена', 'warning');
         await loadData();
         return;
       }
@@ -846,30 +887,54 @@ export default function AdminPage() {
       }
 
       // Обновляем профиль пользователя в зависимости от продукта
+      console.log('[Approve] Обновляю профиль пользователя:', { userId, product, plan, expiresAt: expiresAt.toISOString() });
+      
       if (product === 'studio') {
-        await supabase
+        const { error: profileError } = await supabase
           .from('profiles')
           .update({
             studio_plan: plan,
             studio_plan_expires_at: expiresAt.toISOString(),
           })
           .eq('id', userId);
+        
+        if (profileError) {
+          console.error('[Approve] Ошибка обновления профиля Studio:', profileError);
+          throw profileError;
+        }
+        console.log('[Approve] Профиль Studio обновлен');
       } else if (product === 'toqibox') {
-        await supabase
+        const { error: profileError } = await supabase
           .from('profiles')
           .update({
             toqibox_plan: plan,
             toqibox_plan_expires_at: expiresAt.toISOString(),
           })
           .eq('id', userId);
+        
+        if (profileError) {
+          console.error('[Approve] Ошибка обновления профиля TOQIBOX:', profileError);
+          throw profileError;
+        }
+        console.log('[Approve] Профиль TOQIBOX обновлен');
       }
 
+      console.log('[Approve] Заявка успешно одобрена');
+      
+      // Перезагружаем все данные для обновления обоих блоков
       await loadData();
+      if (product === 'studio') {
+        await loadStudioData();
+      } else if (product === 'toqibox') {
+        await loadToqiboxSubscriptions();
+      }
+      
       const planDuration = plan === 'premium_plus' ? '1 год' : '30 дней';
       showToast(`Заявка одобрена. Подписка ${plan.toUpperCase()} активирована на ${planDuration}.`, 'success');
     } catch (error) {
-      console.error('Ошибка одобрения заявки:', error);
-      showToast('Ошибка: ' + (error.message || 'Не удалось одобрить заявку'), 'error');
+      console.error('[Approve] Критическая ошибка:', error);
+      const errorMsg = error.message || error.details || error.hint || 'Не удалось одобрить заявку';
+      showToast('Ошибка: ' + errorMsg, 'error');
     } finally {
       setApprovingRequestId(null);
     }
@@ -880,21 +945,21 @@ export default function AdminPage() {
   const [showRejectConfirm, setShowRejectConfirm] = useState(null);
   
   const handleRejectPaymentRequest = async (requestId) => {
-    if (rejectingRequestId) return; // Предотвращаем повторное нажатие
+    if (rejectingRequestId) return;
     
-    // Показываем подтверждение
-    setShowRejectConfirm(requestId);
-  };
-
-  const confirmReject = async (requestId) => {
-    setShowRejectConfirm(null);
+    if (!confirm('Отклонить эту заявку на оплату?')) {
+      return;
+    }
+    
     setRejectingRequestId(requestId);
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const adminId = session?.user?.id || null;
 
-      // Идемпотентное обновление: UPDATE только если status='pending'
+      console.log('[Reject] Начинаю отклонение заявки:', requestId);
+      
+      // Пробуем обновить без проверки status (на случай если уже обработана)
       const { data: updatedRequest, error: updateError } = await supabase
         .from('payment_requests')
         .update({
@@ -903,27 +968,144 @@ export default function AdminPage() {
           rejected_by: adminId,
         })
         .eq('id', requestId)
-        .eq('status', 'pending')
         .select();
 
-      // Проверяем, что обновлена ровно 1 запись (affected_rows === 1)
+      console.log('[Reject] Результат обновления:', { updatedRequest, updateError });
+
       if (updateError) {
+        console.error('[Reject] Ошибка Supabase:', updateError);
         throw updateError;
       }
 
-      if (!updatedRequest || updatedRequest.length !== 1) {
-        showToast('Заявка уже обработана или не найдена.', 'warning');
+      if (!updatedRequest || updatedRequest.length === 0) {
+        console.warn('[Reject] Заявка не найдена:', requestId);
+        showToast('Заявка не найдена.', 'warning');
         await loadData();
         return;
       }
 
+      console.log('[Reject] Заявка успешно отклонена');
       await loadData();
-      showToast('Заявка отклонена. Заявка перемещена в раздел "Отклоненные".', 'success');
+      showToast('Заявка отклонена', 'success');
     } catch (error) {
-      console.error('Ошибка отклонения заявки:', error);
-      showToast('Ошибка: ' + (error.message || 'Не удалось отклонить заявку'), 'error');
+      console.error('[Reject] Критическая ошибка:', error);
+      const errorMsg = error.message || error.details || 'Не удалось отклонить заявку';
+      showToast('Ошибка: ' + errorMsg, 'error');
     } finally {
       setRejectingRequestId(null);
+    }
+  };
+
+  const handleDeletePaymentRequest = async (requestId) => {
+    if (!confirm('Удалить эту заявку на оплату? Это действие нельзя отменить.')) {
+      return;
+    }
+    
+    try {
+      console.log('[Delete] Начинаю удаление заявки:', requestId);
+      
+      const { data, error } = await supabase
+        .from('payment_requests')
+        .delete()
+        .eq('id', requestId)
+        .select();
+
+      console.log('[Delete] Результат удаления:', { data, error });
+
+      if (error) {
+        console.error('[Delete] Ошибка Supabase:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('[Delete] Заявка не найдена:', requestId);
+        showToast('Заявка не найдена', 'warning');
+        await loadData();
+        return;
+      }
+
+      console.log('[Delete] Заявка успешно удалена');
+      await loadData();
+      showToast('Заявка удалена', 'success');
+    } catch (error) {
+      console.error('[Delete] Критическая ошибка:', error);
+      const errorMsg = error.message || error.details || 'Не удалось удалить заявку';
+      showToast('Ошибка: ' + errorMsg, 'error');
+    }
+  };
+
+  const handleClearAllPaymentRequests = async () => {
+    if (!confirm('⚠️ УДАЛИТЬ ВСЕ ЗАЯВКИ НА ОПЛАТУ? Это действие нельзя отменить!')) {
+      return;
+    }
+    
+    try {
+      showToast('Удаляю все заявки...', 'info');
+      console.log('[ClearAll] Начинаю удаление всех заявок');
+      console.log('[ClearAll] Текущее количество заявок:', paymentRequests.length);
+      
+      // Удаляем все заявки по одной (надежнее чем массовое удаление)
+      let deletedCount = 0;
+      let errorCount = 0;
+      
+      for (const request of paymentRequests) {
+        const { error: deleteError } = await supabase
+          .from('payment_requests')
+          .delete()
+          .eq('id', request.id);
+        
+        if (deleteError) {
+          console.error('[ClearAll] Ошибка удаления заявки', request.id, deleteError);
+          errorCount++;
+        } else {
+          deletedCount++;
+        }
+      }
+      
+      console.log('[ClearAll] Удалено:', deletedCount, 'Ошибок:', errorCount);
+      
+      // Пробуем также массовое удаление на случай если RLS разрешает
+      const { data: deletedData, error } = await supabase
+        .from('payment_requests')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+        .select();
+
+      console.log('[ClearAll] Результат удаления:', { deletedData, error, deletedCount: deletedData?.length });
+
+      if (error) {
+        console.error('[ClearAll] Ошибка Supabase:', error);
+        console.error('[ClearAll] Детали ошибки:', JSON.stringify(error, null, 2));
+        throw error;
+      }
+
+      // Проверяем результат
+      if (deletedCount > 0) {
+        console.log('[ClearAll] Удалено заявок по одной:', deletedCount);
+        await loadData();
+        if (errorCount > 0) {
+          showToast(`Удалено ${deletedCount} из ${paymentRequests.length} заявок. Ошибок: ${errorCount}`, 'warning');
+        } else {
+          showToast(`Все заявки удалены! (${deletedCount})`, 'success');
+        }
+        return;
+      }
+      
+      // Если массовое удаление сработало
+      if (deletedData && deletedData.length > 0) {
+        console.log('[ClearAll] Все заявки успешно удалены массово:', deletedData.length);
+      } else if (error) {
+        console.error('[ClearAll] Ошибка массового удаления:', error);
+        showToast('Ошибка удаления. Проверьте консоль и RLS политики.', 'error');
+        return;
+      }
+
+      await loadData();
+      showToast('Все заявки удалены!', 'success');
+    } catch (error) {
+      console.error('[ClearAll] Критическая ошибка:', error);
+      const errorMsg = error.message || error.details || error.hint || 'Не удалось удалить заявки';
+      showToast('Ошибка: ' + errorMsg, 'error');
     }
   };
 
@@ -1626,7 +1808,18 @@ export default function AdminPage() {
         )}
 
         {activeTab === "payment_requests" && (
-          <div className="admin-list">
+          <div>
+            <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Заявки на оплату</h3>
+              <button
+                onClick={handleClearAllPaymentRequests}
+                className="btn-danger"
+                style={{ fontSize: '12px', padding: '6px 12px', background: '#dc2626' }}
+              >
+                🗑️ Очистить все заявки
+              </button>
+            </div>
+            <div className="admin-list">
             {filteredPaymentRequests.length === 0 ? (
               <div className="admin-empty">
                 <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#1d1d1f' }}>
@@ -1755,16 +1948,36 @@ export default function AdminPage() {
                               </button>
                               <button
                                 className="btn-danger"
-                                onClick={() => handleRejectPaymentRequest(request.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePaymentRequest(request.id);
+                                }}
                                 disabled={approvingRequestId === request.id || rejectingRequestId === request.id}
                                 style={{ 
                                   fontSize: '11px', 
                                   padding: '6px 12px',
+                                  marginLeft: '6px',
+                                  background: '#dc2626',
                                   opacity: (approvingRequestId === request.id || rejectingRequestId === request.id) ? 0.5 : 1,
                                   cursor: (approvingRequestId === request.id || rejectingRequestId === request.id) ? 'not-allowed' : 'pointer'
                                 }}
                               >
-                                {rejectingRequestId === request.id ? 'Отклоняется...' : 'Отклонить'}
+                                Удалить
+                              </button>
+                            </div>
+                          )}
+                          {(request.status === 'approved' || request.status === 'rejected') && (
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <button
+                                className="btn-danger"
+                                onClick={() => handleDeletePaymentRequest(request.id)}
+                                style={{ 
+                                  fontSize: '11px', 
+                                  padding: '6px 12px',
+                                  background: '#dc2626'
+                                }}
+                              >
+                                Удалить
                               </button>
                             </div>
                           )}
@@ -1785,6 +1998,7 @@ export default function AdminPage() {
                 </tbody>
               </table>
             )}
+            </div>
           </div>
         )}
 

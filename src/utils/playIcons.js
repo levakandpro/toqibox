@@ -29,19 +29,20 @@ import tubeteika from "../assets/tubeteika.svg";
 export const DEFAULT_PLAY_ICON = "default";
 
 // Все доступные иконки
+// Первые 3 бесплатно, остальные премиум
 export const PLAY_ICONS = [
-  { id: "default", name: "По умолчанию", icon: tubeteika },
-  { id: "play1", name: "Play 1", icon: play1 },
-  { id: "play2", name: "Play 2", icon: play2 },
-  { id: "play3", name: "Play 3", icon: play3 },
-  { id: "play4", name: "Play 4", icon: play4 },
-  { id: "play5", name: "Play 5", icon: play5 },
-  { id: "play6", name: "Play 6", icon: play6 },
-  { id: "play7", name: "Play 7", icon: play7 },
-  { id: "play8", name: "Play 8", icon: play8 },
-  { id: "play9", name: "Play 9", icon: play9 },
-  { id: "play10", name: "Play 10", icon: play10 },
-  { id: "play11", name: "Play 11", icon: play11 },
+  { id: "default", name: "По умолчанию", icon: tubeteika, premium: false }, // Первый - бесплатный
+  { id: "play1", name: "Play 1", icon: play1, premium: false }, // Второй - бесплатный
+  { id: "play2", name: "Play 2", icon: play2, premium: false }, // Третий - бесплатный
+  { id: "play3", name: "Play 3", icon: play3, premium: true }, // Премиум
+  { id: "play4", name: "Play 4", icon: play4, premium: true }, // Премиум
+  { id: "play5", name: "Play 5", icon: play5, premium: true }, // Премиум
+  { id: "play6", name: "Play 6", icon: play6, premium: true }, // Премиум
+  { id: "play7", name: "Play 7", icon: play7, premium: true }, // Премиум
+  { id: "play8", name: "Play 8", icon: play8, premium: true }, // Премиум
+  { id: "play9", name: "Play 9", icon: play9, premium: true }, // Премиум
+  { id: "play10", name: "Play 10", icon: play10, premium: true }, // Премиум
+  { id: "play11", name: "Play 11", icon: play11, premium: true }, // Премиум
   { id: "premiumplay1", name: "Premium Play 1", icon: premiumplay1, premium: true },
   { id: "premiumplay2", name: "Premium Play 2", icon: premiumplay2, premium: true },
   { id: "premiumplay3", name: "Premium Play 3", icon: premiumplay3, premium: true },

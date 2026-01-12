@@ -5,14 +5,18 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 
 import ArtistHeader from "../../../features/artist/ArtistHeader.jsx";
 import ArtistTracks from "../../../features/artist/ArtistTracks.jsx";
-import AddTrackSection from "../../../features/artist/AddTrackSection.jsx";
+import ArtistPageBackground from "../../../features/artist/ArtistPageBackground.jsx";
+import ArtistPageBackgroundLeft from "../../../features/artist/ArtistPageBackgroundLeft.jsx";
 
 import ShareSheet from "../../../features/share/ShareSheet.jsx";
 import CopyNotification from "../../../ui/CopyNotification.jsx";
 import PremiumLoader from "../../../ui/PremiumLoader.jsx";
+import ErrorPage from "../../../ui/ErrorPage.jsx";
 import ShaderToyBackground from "../../../features/track/ShaderToyBackground.jsx";
 import { supabase } from "../../../features/auth/supabaseClient.js";
 import { setArtistOgTags, clearOgTags } from "../../../utils/ogTags.js";
+import { createArtistStructuredData, setStructuredData, clearStructuredData } from "../../../utils/structuredData.js";
+import { logger } from "../../../utils/logger.js";
 import shareIcon from "../../../assets/share.svg";
 
 export default function ArtistPage() {
@@ -24,10 +28,7 @@ export default function ArtistPage() {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [devEditEnabled, setDevEditEnabled] = useState(false);
   const [showCopyNotification, setShowCopyNotification] = useState(false);
-  const [showAddTrack, setShowAddTrack] = useState(false);
 
   const refreshArtist = async () => {
     try {
@@ -70,22 +71,20 @@ export default function ArtistPage() {
           // Преобразуем треки из БД в формат для TrackCard
           const formattedTracks = (tracksData || []).map(track => {
             const youtubeId = extractYoutubeId(track.link);
-            console.log("🎵 Processing track:", { 
+            logger.log("🎵 Processing track:", { 
               id: track.id, 
               title: track.title, 
               link: track.link, 
               youtubeId,
               hasLink: !!track.link,
-              play_icon: track.play_icon,
-              hasPlayIcon: !!track.play_icon
             });
             
             if (!track.link) {
-              console.warn("⚠️ Track without link:", track.id);
+              logger.warn("⚠️ Track without link:", track.id);
             }
             
             if (!youtubeId && track.link) {
-              console.warn("⚠️ Could not extract YouTube ID from link:", track.link);
+              logger.warn("⚠️ Could not extract YouTube ID from link:", track.link);
             }
             
             return {
@@ -109,12 +108,12 @@ export default function ArtistPage() {
               likes_count: track.likes_count || 0, // Количество лайков (Тюбитеек)
             };
           });
-          console.log("🎨 Formatted tracks:", formattedTracks.length, formattedTracks);
+          logger.log("🎨 Formatted tracks:", formattedTracks.length);
           setTracks(formattedTracks);
         }
       }
     } catch (e) {
-      console.error("❌ Error refreshing artist:", e);
+      logger.error("❌ Error refreshing artist:", e);
     }
   };
 
@@ -124,12 +123,15 @@ export default function ArtistPage() {
 
   // Убрали subscriptionRef - больше не слушаем auth state changes
 
-  // Проверяем, локальный ли это адрес (для dev режима)
-  const isLocalDev = useMemo(() => {
-    if (!import.meta.env.DEV) return false;
-    const host = window.location.hostname;
-    return host === "localhost" || host === "127.0.0.1" || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.");
-  }, []);
+
+  // Получаем фон из первого трека (последний созданный) - ВАЖНО: вызывается безусловно до всех return
+  const backgroundId = useMemo(() => {
+    if (tracks.length > 0) {
+      // Берем фон из первого трека (самый последний созданный)
+      return tracks[0]?.shadertoy_background_id || null;
+    }
+    return null;
+  }, [tracks]);
 
   // ВРЕМЕННО: Отключаем проверку авторизации для локальной разработки
   // TODO: Вернуть проверку авторизации позже
@@ -191,36 +193,27 @@ export default function ArtistPage() {
 
   // Функция сохранения данных артиста
 
-  // Функция для переключения dev режима редактирования
-  const toggleDevEdit = () => {
-    const newState = !devEditEnabled;
-    setDevEditEnabled(newState);
-    localStorage.setItem("toqibox:dev:enableEdit", newState ? "true" : "false");
-    setIsOwner(newState); // Сразу обновляем isOwner
-  };
-
   useEffect(() => {
     let alive = true;
     let timeoutId = null;
 
     const run = async () => {
-      console.log("🚀 Starting load for slug:", slug);
-      console.log("🌐 Location:", window.location.href);
-      console.log("📱 User Agent:", navigator.userAgent);
+      logger.log("🚀 Starting load for slug:", slug);
+      logger.log("🌐 Location:", window.location.href);
       setLoading(true);
 
       // Таймаут на случай, если запрос зависнет
       timeoutId = setTimeout(() => {
         if (alive) {
-          console.warn("⚠️ Loading timeout after 5s, showing page anyway");
+          logger.warn("⚠️ Loading timeout after 5s, showing page anyway");
           setLoading(false);
           setArtist(null);
         }
       }, 5000);
 
       try {
-        console.log("📡 Fetching artist from Supabase...");
-        console.log("🔍 Supabase URL:", import.meta.env.VITE_SUPABASE_URL ? "✅ Set" : "❌ Missing");
+        logger.log("📡 Fetching artist from Supabase...");
+        logger.log("🔍 Supabase URL:", import.meta.env.VITE_SUPABASE_URL ? "✅ Set" : "❌ Missing");
         
         // Загружаем артиста из БД
         const { data: artistData, error: artistError } = await supabase
@@ -229,7 +222,7 @@ export default function ArtistPage() {
           .eq("slug", slug)
           .maybeSingle();
         
-        console.log("📦 Supabase response:", { 
+        logger.log("📦 Supabase response:", { 
           hasData: !!artistData, 
           error: artistError?.message || null,
           slug,
@@ -243,18 +236,18 @@ export default function ArtistPage() {
         }
 
         if (!alive) {
-          console.log("❌ Component unmounted, aborting");
+          logger.log("❌ Component unmounted, aborting");
           return;
         }
 
         if (artistError) {
-          console.error("❌ Artist query error:", artistError);
+          logger.error("❌ Artist query error:", artistError);
           setArtist(null);
           setLoading(false);
           return;
         }
 
-        console.log("✅ Artist loaded:", artistData ? "found" : "not found");
+        logger.log("✅ Artist loaded:", artistData ? "found" : "not found");
 
         // Сразу показываем контент
         setArtist(artistData || null);
@@ -268,7 +261,7 @@ export default function ArtistPage() {
             .order("created_at", { ascending: false });
 
           if (tracksError) {
-            console.error("Error loading tracks:", tracksError);
+            logger.error("Error loading tracks:", tracksError);
             setTracks([]);
           } else {
             // Функция для извлечения YouTube ID из ссылки
@@ -286,7 +279,7 @@ export default function ArtistPage() {
             // Преобразуем треки из БД в формат для TrackCard
             const formattedTracks = (tracksData || []).map(track => {
               const youtubeId = extractYoutubeId(track.link);
-              console.log("🎵 Processing track (initial load):", { 
+              logger.log("🎵 Processing track (initial load):", { 
                 id: track.id, 
                 title: track.title, 
                 link: track.link, 
@@ -295,11 +288,11 @@ export default function ArtistPage() {
               });
               
               if (!track.link) {
-                console.warn("⚠️ Track without link:", track.id);
+                logger.warn("⚠️ Track without link:", track.id);
               }
               
               if (!youtubeId && track.link) {
-                console.warn("⚠️ Could not extract YouTube ID from link:", track.link);
+                logger.warn("⚠️ Could not extract YouTube ID from link:", track.link);
               }
               
               return {
@@ -323,7 +316,7 @@ export default function ArtistPage() {
                 likes_count: track.likes_count || 0, // Количество лайков (Тюбитеек)
               };
             });
-            console.log("🎨 Formatted tracks (initial):", formattedTracks.length, formattedTracks);
+            logger.log("🎨 Formatted tracks (initial):", formattedTracks.length);
             setTracks(formattedTracks);
           }
         } else {
@@ -339,7 +332,7 @@ export default function ArtistPage() {
           timeoutId = null;
         }
         if (!alive) return;
-        console.error("❌ Error loading artist:", e);
+        logger.error("❌ Error loading artist:", e);
         setArtist(null);
         setLoading(false);
       }
@@ -355,10 +348,11 @@ export default function ArtistPage() {
     };
   }, [slug]);
 
-  // Обновляем Open Graph теги при загрузке данных артиста
+  // Обновляем Open Graph теги и Structured Data при загрузке данных артиста
   useEffect(() => {
     if (!artist) {
       clearOgTags();
+      clearStructuredData();
       return;
     }
 
@@ -366,6 +360,7 @@ export default function ArtistPage() {
     const coverKey = artist.cover_key || null;
     const tracksCount = tracks.length;
 
+    // Open Graph теги для соцсетей
     setArtistOgTags({
       artistName,
       slug: artist.slug,
@@ -373,9 +368,20 @@ export default function ArtistPage() {
       tracksCount,
     });
 
+    // Structured Data (JSON-LD) для поисковых систем
+    const structuredData = createArtistStructuredData({
+      artistName,
+      slug: artist.slug,
+      coverKey,
+      tracksCount,
+      tracks: tracks.slice(0, 10), // Первые 10 треков для SEO
+    });
+    setStructuredData(structuredData);
+
     // Очищаем теги при размонтировании
     return () => {
       clearOgTags();
+      clearStructuredData();
     };
   }, [artist, tracks.length]);
 
@@ -389,28 +395,21 @@ export default function ArtistPage() {
 
   if (!artist) {
     return (
-      <div className="a-page">
-        <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "20px" }}>
-          <div style={{ opacity: 0.7, textAlign: "center" }}>
-            <div>Артист не найден</div>
-            <div style={{ fontSize: "12px", marginTop: "8px", opacity: 0.5 }}>
-              slug: {slug}
-            </div>
-            <div style={{ fontSize: "12px", marginTop: "8px", opacity: 0.5 }}>
-              Проверьте подключение к интернету
-            </div>
-          </div>
-        </div>
-      </div>
+      <ErrorPage
+        code={404}
+        title="Артист не найден"
+        message="Похоже, страница этого артиста не существует или была удалена."
+        hint="Проверьте правильность ссылки или вернитесь на главную страницу."
+        buttonAction="home"
+      />
     );
   }
 
-  console.log("🎨 Rendering ArtistPage:", { 
+  logger.log("🎨 Rendering ArtistPage:", { 
     slug, 
     hasArtist: !!artist, 
     isOwner, 
     artistId: artist?.id,
-    artistUserId: artist?.user_id,
   });
 
   const handleEditClick = async () => {
@@ -436,21 +435,12 @@ export default function ArtistPage() {
       navigate("/author", { replace: false });
       */
     } catch (e) {
-      console.error("Ошибка при переходе в редактирование:", e);
+      logger.error("Ошибка при переходе в редактирование:", e);
       // ВРЕМЕННО: Не редиректим на логин
       // localStorage.setItem("toqibox:returnTo", `/a/${slug}`);
       // navigate("/login", { replace: false });
     }
   };
-
-  // Получаем фон из первого трека (последний созданный)
-  const backgroundId = useMemo(() => {
-    if (tracks.length > 0) {
-      // Берем фон из первого трека (самый последний созданный)
-      return tracks[0]?.shadertoy_background_id || null;
-    }
-    return null;
-  }, [tracks]);
 
   return (
     <div className="a-page">
@@ -495,72 +485,38 @@ export default function ArtistPage() {
         </div>
       )}
 
-
       <ArtistHeader 
         artist={artist} 
-        isOwner={isOwner} 
+        isOwner={false}
         onUpdate={refreshArtist} 
-        editMode={editMode}
-        onToggleEditMode={() => setEditMode(!editMode)}
+        editMode={false}
         onShare={() => setShareOpen(true)}
       />
 
-      {/* Модальное окно для добавления трека */}
-      {isOwner && editMode && showAddTrack && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 2000,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(0, 0, 0, 0.8)",
-          backdropFilter: "blur(10px)",
-          padding: "20px",
-        }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowAddTrack(false);
-          }
-        }}
-        >
-          <div style={{
-            background: "rgba(0, 0, 0, 0.9)",
-            backdropFilter: "blur(20px)",
-            borderRadius: "16px",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            padding: "24px",
-            maxWidth: "500px",
-            width: "100%",
-            maxHeight: "90vh",
-            overflow: "auto",
-          }}
-          onClick={(e) => e.stopPropagation()}
-          >
-            <AddTrackSection 
-              artist={artist} 
-              isOwner={isOwner}
-              onTrackAdded={() => {
-                refreshArtist();
-                setShowAddTrack(false);
-              }}
-              onClose={() => setShowAddTrack(false)}
-            />
-          </div>
-        </div>
-      )}
+      <ArtistPageBackground 
+        artist={artist} 
+        isOwner={false}
+        editMode={false}
+        onUpdate={refreshArtist}
+        key={`bg-public-${artist?.id}`}
+      />
 
+      <ArtistPageBackgroundLeft 
+        artist={artist} 
+        isOwner={false}
+        editMode={false}
+        onUpdate={refreshArtist}
+        key={`bg-left-public-${artist?.id}`}
+      />
 
       <div className="a-content">
         <ArtistTracks 
           artist={artist} 
-          isOwner={isOwner}
-          editMode={editMode}
-          onToggleEditMode={() => setEditMode(!editMode)}
+          isOwner={false}
+          editMode={false}
           onShare={() => setShareOpen(true)}
           onUpdate={refreshArtist}
           tracks={tracks}
-          onAddTrack={() => setShowAddTrack(true)}
           onCopyLink={async () => {
             const artistUrl = `${window.location.origin}/a/${slug}`;
             try {
@@ -575,17 +531,17 @@ export default function ArtistPage() {
                 document.body.appendChild(input);
                 input.select();
                 input.setSelectionRange(0, 99999);
-                try {
-                  document.execCommand("copy");
-                  setShowCopyNotification(true);
-                } catch (err) {
-                  console.error("Failed to copy:", err);
+                  try {
+                    document.execCommand("copy");
+                    setShowCopyNotification(true);
+                  } catch (err) {
+                    logger.error("Failed to copy:", err);
+                  }
+                  document.body.removeChild(input);
                 }
-                document.body.removeChild(input);
+              } catch (e) {
+                logger.error("Failed to copy:", e);
               }
-            } catch (e) {
-              console.error("Failed to copy:", e);
-            }
           }}
         />
       </div>
@@ -601,47 +557,6 @@ export default function ArtistPage() {
         show={showCopyNotification} 
         onClose={() => setShowCopyNotification(false)} 
       />
-
-      {/* Кнопка для включения dev режима редактирования (только локально) */}
-      {isLocalDev && (
-        <button
-          type="button"
-          onClick={toggleDevEdit}
-          style={{
-            position: "fixed",
-            bottom: 20,
-            right: 20,
-            zIndex: 9999,
-            padding: "12px 20px",
-            borderRadius: 12,
-            border: "2px solid",
-            borderColor: devEditEnabled ? "#10b981" : "rgba(255,255,255,0.3)",
-            background: devEditEnabled ? "rgba(16, 185, 129, 0.2)" : "rgba(0,0,0,0.7)",
-            color: devEditEnabled ? "#10b981" : "rgba(255,255,255,0.7)",
-            fontWeight: 700,
-            fontSize: 14,
-            cursor: "pointer",
-            backdropFilter: "blur(10px)",
-            boxShadow: devEditEnabled ? "0 0 20px rgba(16, 185, 129, 0.5)" : "0 4px 12px rgba(0,0,0,0.3)",
-            transition: "all 0.3s ease",
-            WebkitTapHighlightColor: "transparent",
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.transform = "scale(1.05)";
-            e.target.style.boxShadow = devEditEnabled 
-              ? "0 0 25px rgba(16, 185, 129, 0.7)" 
-              : "0 6px 16px rgba(0,0,0,0.4)";
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.transform = "scale(1)";
-            e.target.style.boxShadow = devEditEnabled 
-              ? "0 0 20px rgba(16, 185, 129, 0.5)" 
-              : "0 4px 12px rgba(0,0,0,0.3)";
-          }}
-        >
-          {devEditEnabled ? "✏️ Редактирование ВКЛ" : "🔒 Редактирование ВЫКЛ"}
-        </button>
-      )}
     </div>
   );
 }

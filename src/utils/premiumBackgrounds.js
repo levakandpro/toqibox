@@ -2,19 +2,13 @@
  * Утилита для работы с премиум фонами
  */
 
-// Премиум фоны
+// Премиум фоны (все доступны только по подписке)
 export const PREMIUM_BACKGROUNDS = [
   {
     id: "vanta-rings",
     name: "TubiPRO Rings",
     type: "vanta",
     effectType: "rings",
-  },
-  {
-    id: "vanta-dots",
-    name: "TubiPRO Dots",
-    type: "vanta",
-    effectType: "dots",
   },
   {
     id: "vanta-birds",

@@ -1,14 +1,25 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { uploadCover } from "../../utils/r2Upload.js";
 import { PLAY_ICONS, DEFAULT_PLAY_ICON } from "../../utils/playIcons.js";
+import { SHADERTOY_BACKGROUNDS } from "../../utils/shadertoyBackgrounds.js";
 import BackgroundSelector from "./BackgroundSelector.jsx";
 import PremiumBackgroundSelector from "./PremiumBackgroundSelector.jsx";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import { supabase } from "../../features/auth/supabaseClient.js";
 import ArtistPlayButtonSelector from "../artist/ArtistPlayButtonSelector.jsx";
 import PreviewRangeSelector from "./PreviewRangeSelector.jsx";
+import crownIcon from "../../assets/crown.png";
 
 export default function TrackEditForm({ track, artist, onSave, onCancel }) {
+  // Проверяем премиум статус артиста
+  const isPremium = useMemo(() => {
+    if (!artist) return false;
+    return !!(
+      artist.premium_type && 
+      artist.premium_until && 
+      new Date(artist.premium_until) > new Date()
+    );
+  }, [artist]);
   // Состояния для сворачивания/разворачивания секций (по умолчанию закрыты)
   const [isPlayIconExpanded, setIsPlayIconExpanded] = useState(false);
   const [isBackgroundExpanded, setIsBackgroundExpanded] = useState(false);
@@ -90,6 +101,7 @@ export default function TrackEditForm({ track, artist, onSave, onCancel }) {
   );
   const [editCoverFile, setEditCoverFile] = useState(null);
   const [editCoverPreview, setEditCoverPreview] = useState(null);
+  // Используем дефолтную иконку если нет
   const [editPlayIcon, setEditPlayIcon] = useState(track.play_icon || DEFAULT_PLAY_ICON);
   const [editPreviewStartSeconds, setEditPreviewStartSeconds] = useState(track.preview_start_seconds || 0);
   const [editPreviewEndSeconds, setEditPreviewEndSeconds] = useState(
@@ -207,7 +219,9 @@ export default function TrackEditForm({ track, artist, onSave, onCancel }) {
       tempDivRef.current = null;
     };
   }, [track?.link]);
-  const [editBackground, setEditBackground] = useState(track.shadertoy_background_id || null);
+  // Получаем дефолтный фон (первый из списка)
+  const defaultBackgroundId = SHADERTOY_BACKGROUNDS[0]?.id || null;
+  const [editBackground, setEditBackground] = useState(track.shadertoy_background_id || defaultBackgroundId);
   const [saving, setSaving] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const fileInputRef = useRef(null);
@@ -783,74 +797,63 @@ export default function TrackEditForm({ track, artist, onSave, onCancel }) {
                 maxHeight: "200px",
                 overflowY: "auto",
               }}>
-                {PLAY_ICONS.map((icon) => (
-                  <button
-                    key={icon.id}
-                    type="button"
-                    onClick={() => setEditPlayIcon(icon.id)}
-                    style={{
-                      aspectRatio: "1",
-                      borderRadius: "8px",
-                      border: editPlayIcon === icon.id
-                        ? "2px solid #10b981"
-                        : "1px solid rgba(255, 255, 255, 0.1)",
-                      background: editPlayIcon === icon.id
-                        ? "rgba(16, 185, 129, 0.2)"
-                        : "rgba(0, 0, 0, 0.4)",
-                      cursor: "pointer",
-                      padding: "8px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      position: "relative",
-                    }}
-                  >
-                    <img
-                      src={icon.icon}
-                      alt={icon.name}
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        objectFit: "contain",
+                {PLAY_ICONS.map((icon) => {
+                  const isLocked = icon.premium && !isPremium;
+                  return (
+                    <button
+                      key={icon.id}
+                      type="button"
+                      onClick={() => {
+                        if (isLocked) {
+                          alert('Эта иконка доступна только для премиум пользователей. Обратитесь к администратору для получения доступа.');
+                          return;
+                        }
+                        setEditPlayIcon(icon.id);
                       }}
-                    />
-                    {icon.premium && (
-                      <div
+                      style={{
+                        aspectRatio: "1",
+                        borderRadius: "8px",
+                        border: editPlayIcon === icon.id
+                          ? "2px solid #10b981"
+                          : "1px solid rgba(255, 255, 255, 0.1)",
+                        background: editPlayIcon === icon.id
+                          ? "rgba(16, 185, 129, 0.2)"
+                          : "rgba(0, 0, 0, 0.4)",
+                        cursor: isLocked ? "not-allowed" : "pointer",
+                        padding: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        position: "relative",
+                        opacity: isLocked ? 0.5 : 1,
+                      }}
+                      disabled={isLocked}
+                    >
+                      <img
+                        src={icon.icon}
+                        alt={icon.name}
                         style={{
-                          position: "absolute",
-                          top: "2px",
-                          right: "2px",
-                          width: "12px",
-                          height: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          zIndex: 10,
+                          width: "32px",
+                          height: "32px",
+                          objectFit: "contain",
                         }}
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
+                      />
+                      {icon.premium && (
+                        <img 
+                          src={crownIcon} 
+                          alt="Premium" 
                           style={{
-                            filter: "drop-shadow(0 0 3px #00FFFF) drop-shadow(0 0 6px #00FFFF)",
+                            position: "absolute",
+                            top: "2px",
+                            right: "2px",
+                            width: "12px",
+                            height: "12px",
                           }}
-                        >
-                          <path
-                            d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                            fill="#00FFFF"
-                            stroke="#00BFFF"
-                            strokeWidth="0.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                ))}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

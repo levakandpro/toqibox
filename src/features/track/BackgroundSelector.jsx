@@ -2,15 +2,22 @@ import React, { useState, useEffect } from "react";
 import { SHADERTOY_BACKGROUNDS } from "../../utils/shadertoyBackgrounds.js";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import ShaderToyPreview from "./ShaderToyPreview.jsx";
+import VantaPreview from "./VantaPreview.jsx";
 
 export default function BackgroundSelector({ track = null, isOwner = false, onApply, selectedBackgroundId, onSelect, title = "Фон страницы трека" }) {
+  // Получаем дефолтный фон (первый из списка)
+  const defaultBackgroundId = SHADERTOY_BACKGROUNDS[0]?.id || null;
+  
   const [applying, setApplying] = useState(false);
-  const [selectedBackground, setSelectedBackground] = useState(selectedBackgroundId || (track?.shadertoy_background_id ?? null));
+  const [selectedBackground, setSelectedBackground] = useState(
+    selectedBackgroundId || (track?.shadertoy_background_id ?? null) || defaultBackgroundId
+  );
   
   // Обновляем выбранный фон при изменении трека или пропса
   useEffect(() => {
-    setSelectedBackground(selectedBackgroundId || (track?.shadertoy_background_id ?? null));
-  }, [track?.shadertoy_background_id, selectedBackgroundId]);
+    const newBackground = selectedBackgroundId || (track?.shadertoy_background_id ?? null) || defaultBackgroundId;
+    setSelectedBackground(newBackground);
+  }, [track?.shadertoy_background_id, selectedBackgroundId, defaultBackgroundId]);
 
   const handleApply = async (backgroundId) => {
     if (applying) return;
@@ -162,7 +169,7 @@ export default function BackgroundSelector({ track = null, isOwner = false, onAp
               }}
               onClick={() => handleApply(bg.id)}
             >
-              {/* Превью ShaderToy */}
+              {/* Превью фона (ShaderToy или Vanta) */}
               <div
                 style={{
                   width: "100%",
@@ -171,16 +178,29 @@ export default function BackgroundSelector({ track = null, isOwner = false, onAp
                   overflow: "hidden",
                 }}
               >
-                <ShaderToyPreview 
-                  backgroundId={bg.id}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                  }}
-                />
+                {bg.type === "vanta" ? (
+                  <VantaPreview
+                    effectType={bg.effectType || "dots"}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                    }}
+                  />
+                ) : (
+                  <ShaderToyPreview 
+                    backgroundId={bg.id}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                    }}
+                  />
+                )}
               </div>
 
               {/* Overlay с названием и статусом/кнопкой */}

@@ -92,23 +92,23 @@ export default function TrackPlayer({ track, artist, onPlay }) {
   useEffect(() => {
     const loadPlayButton = () => {
       if (artist?.id) {
-        // Сначала проверяем localStorage
+        // Сначала проверяем localStorage (приоритет)
         const stored = localStorage.getItem(`toqibox:playButton:${artist.id}`);
-        const buttonId = stored || artist?.play_button_id || 'default';
+        const buttonId = stored || artist?.play_button_id || PLAY_BUTTON_OPTIONS[0]?.id || 'default';
         
         const found = PLAY_BUTTON_OPTIONS.find(b => b.id === buttonId);
         if (found) {
           setSelectedPlayButton(found);
         } else {
-          // Если не найден, используем базовый
-          const defaultButton = PLAY_BUTTON_OPTIONS.find(b => b.id === 'default');
+          // Если не найден, используем второй (Orbital) как дефолт
+          const defaultButton = PLAY_BUTTON_OPTIONS[1] || PLAY_BUTTON_OPTIONS[0]; // Orbital (индекс 1) или default (индекс 0)
           if (defaultButton) {
             setSelectedPlayButton(defaultButton);
           }
         }
       } else {
-        // Если нет артиста, используем базовый вариант
-        const defaultButton = PLAY_BUTTON_OPTIONS.find(b => b.id === 'default');
+        // Если нет артиста, используем второй (Orbital) как дефолт
+        const defaultButton = PLAY_BUTTON_OPTIONS[1] || PLAY_BUTTON_OPTIONS[0]; // Orbital (индекс 1) или default (индекс 0)
         if (defaultButton) {
           setSelectedPlayButton(defaultButton);
         }
@@ -129,35 +129,46 @@ export default function TrackPlayer({ track, artist, onPlay }) {
     };
   }, [artist?.id, artist?.play_button_id]);
 
-  // Применяем HTML кнопки как фон при изменении выбранной кнопки
+  // Применяем HTML кнопки как фон при изменении выбранной кнопки или когда кнопка появляется
   useEffect(() => {
     if (!selectedPlayButton) return;
     
-    // Небольшая задержка, чтобы убедиться, что ref установлен
-    const timer = setTimeout(() => {
-      if (playButtonRef.current) {
-        // Очищаем предыдущее содержимое
-        playButtonRef.current.innerHTML = '';
-        playButtonRef.current.className = `tp-play-button-bg ${selectedPlayButton.component}`;
-        
-        // Если это базовый вариант (пустой HTML), не добавляем ничего
-        if (selectedPlayButton.id === 'default' || !selectedPlayButton.html) {
-          return;
-        }
-        
-        // Создаем временный контейнер для парсинга HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = selectedPlayButton.html;
-        
-        // Копируем все дочерние элементы
-        while (tempDiv.firstChild) {
-          playButtonRef.current.appendChild(tempDiv.firstChild);
-        }
+    // Функция применения фона
+    const applyBackground = () => {
+      if (!playButtonRef.current) return;
+      
+      // Очищаем предыдущее содержимое
+      playButtonRef.current.innerHTML = '';
+      playButtonRef.current.className = `tp-play-button-bg ${selectedPlayButton.component || ''}`;
+      
+      // Если это базовый вариант (пустой HTML), не добавляем ничего
+      if (selectedPlayButton.id === 'default' || !selectedPlayButton.html) {
+        return;
       }
-    }, 0);
+      
+      // Создаем временный контейнер для парсинга HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = selectedPlayButton.html;
+      
+      // Копируем все дочерние элементы
+      while (tempDiv.firstChild) {
+        playButtonRef.current.appendChild(tempDiv.firstChild);
+      }
+    };
+    
+    // Если видео не открыто, применяем фон сразу
+    if (!playing) {
+      // Небольшая задержка, чтобы убедиться, что ref установлен и кнопка отрендерена
+      const timer = setTimeout(() => {
+        applyBackground();
+      }, 50);
 
-    return () => clearTimeout(timer);
-  }, [selectedPlayButton]);
+      return () => clearTimeout(timer);
+    }
+    
+    // Если видео открыто, применяем фон после закрытия
+    // Это обработается когда playing станет false
+  }, [selectedPlayButton, playing]); // Добавляем playing в зависимости
 
   // Получаем иконку для отображения (всегда поверх фона)
   const playIconSrc = useMemo(() => {

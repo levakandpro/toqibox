@@ -1,9 +1,24 @@
+// Первые 3 бесплатно, остальные премиум
 export const PLAY_BUTTON_OPTIONS = [
   {
     id: 'default',
     name: 'Базовый (стандартная иконка)',
     component: 'play-button-default',
-    html: `` // Пустой - показываем только стандартную иконку
+    html: ``, // Пустой - показываем только стандартную иконку
+    premium: false, // Первый - бесплатный
+  },
+  {
+    id: 'cksunandh',
+    name: 'Orbital',
+    component: 'play-button-cksunandh',
+    html: `<div class="orbital">
+  <div class="ringOne"></div>
+  <div class="ringTwo"></div>
+  <div class="ringThree"></div>
+  <div class="core"></div>
+  <div class="spin"></div>
+</div>`,
+    premium: false, // Второй - бесплатный
   },
   {
     id: 'marcelodolza',
@@ -26,18 +41,21 @@ export const PLAY_BUTTON_OPTIONS = [
   <div style="--i: 6; --inset:24%" class="box"></div>
   <div style="--i: 7; --inset:20%" class="box"></div>
   <div style="--i: 8; --inset:16%" class="box"></div>
-</div>`
+</div>`,
+    premium: false, // Третий - бесплатный
   },
   {
     id: 'charandeepsingh01',
     name: 'Red Spinner',
     component: 'play-button-charandeepsingh01',
-    html: `<div class="loader"></div>`
+    html: `<div class="loader"></div>`,
+    premium: true, // Премиум
   },
   {
     id: 'nawsome',
     name: 'Goo Preloader',
     component: 'play-button-nawsome',
+    premium: true, // Премиум
     html: `<svg class="svg_preloader" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 248 248" style="enable-background:new 0 0 248 248;" xml:space="preserve">
 <filter id="goo">
       <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur"></feGaussianBlur>
@@ -61,22 +79,11 @@ export const PLAY_BUTTON_OPTIONS = [
 </svg>`
   },
   {
-    id: 'cksunandh',
-    name: 'Orbital',
-    component: 'play-button-cksunandh',
-    html: `<div class="orbital">
-  <div class="ringOne"></div>
-  <div class="ringTwo"></div>
-  <div class="ringThree"></div>
-  <div class="core"></div>
-  <div class="spin"></div>
-</div>`
-  },
-  {
     id: 'jkhuger',
     name: '3D Spinner',
     component: 'play-button-jkhuger',
-    html: `<div class="loader"></div>`
+    html: `<div class="loader"></div>`,
+    premium: true, // Премиум
   },
   {
     id: 'adamgiebl',
@@ -84,12 +91,14 @@ export const PLAY_BUTTON_OPTIONS = [
     component: 'play-button-adamgiebl',
     html: `<div class="loader">
   <span></span>
-</div>`
+</div>`,
+    premium: true, // Премиум
   },
   {
     id: 'know_3739',
     name: 'Ripple Green',
     component: 'play-button-know_3739',
+    premium: true, // Премиум
     html: `<div class="loader">
   <div class="box">
     <div class="logo">
@@ -110,6 +119,7 @@ export const PLAY_BUTTON_OPTIONS = [
     id: 'elijahgummer-complex',
     name: '3D Complex',
     component: 'play-button-elijahgummer-complex',
+    premium: true, // Премиум
     html: `<div class="mainWrap">
   <div class="wrapper">
     <div class="c1">
@@ -138,6 +148,7 @@ export const PLAY_BUTTON_OPTIONS = [
     id: 'elijahgummer-hole',
     name: 'Hole',
     component: 'play-button-elijahgummer-hole',
+    premium: true, // Премиум
     html: `<div class="hole">
   <i></i>
   <i></i>
@@ -155,6 +166,7 @@ export const PLAY_BUTTON_OPTIONS = [
     id: 'smit-prajapati',
     name: 'Ripple Grey',
     component: 'play-button-smit-prajapati',
+    premium: true, // Премиум
     html: `<div class="loader">
   <div class="box">
     <div class="logo">
@@ -175,6 +187,7 @@ export const PLAY_BUTTON_OPTIONS = [
     id: 'z4drus',
     name: 'Orbit Dots',
     component: 'play-button-z4drus',
+    premium: true, // Премиум
     html: `<div class="loader">
   <div class="loader__inner"></div>
   <div class="loader__orbit">
@@ -189,6 +202,7 @@ export const PLAY_BUTTON_OPTIONS = [
     id: 'andrew-manzyk',
     name: 'Triangle Mask',
     component: 'play-button-andrew-manzyk',
+    premium: true, // Премиум
     html: `<div class="loader">
   <svg width="100" height="100" viewBox="0 0 100 100">
     <defs>
@@ -210,6 +224,7 @@ export const PLAY_BUTTON_OPTIONS = [
     id: 'escannord',
     name: 'Rotating Balls',
     component: 'play-button-escannord',
+    premium: true, // Премиум
     html: `<div class="loader">
   <span style="--delay:1" class="ball"></span>
   <span style="--delay:2" class="ball"></span>
@@ -225,6 +240,7 @@ export const PLAY_BUTTON_OPTIONS = [
     id: 'elijahgummer-wave',
     name: 'Wave Equalizer',
     component: 'play-button-elijahgummer-wave',
+    premium: true, // Премиум
     html: `<div class="wrapper">
   <div class="container">
     <div class="wave">

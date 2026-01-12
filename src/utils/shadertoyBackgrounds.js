@@ -3,7 +3,16 @@
  */
 
 // ShaderToy эффекты (используем ТОЛЬКО эти ссылки)
+// ВАЖНО: Первый фон - дефолт для новых треков
 export const SHADERTOY_BACKGROUNDS = [
+  {
+    id: "vanta-dots",
+    name: "TubiPRO Dots",
+    type: "vanta",
+    effectType: "dots",
+    url: null, // Vanta фон, не ShaderToy
+    shaderId: null,
+  },
   {
     id: "tlVGDt",
     name: "Тюбифон 1",

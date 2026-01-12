@@ -18,6 +18,8 @@ import { getMockArtistBySlug } from "../../../features/artist/artist.mock.js";
 import { supabase } from "../../../features/auth/supabaseClient.js";
 import { setTrackOgTags, clearOgTags } from "../../../utils/ogTags.js";
 import PremiumLoader from "../../../ui/PremiumLoader.jsx";
+import { SHADERTOY_BACKGROUNDS } from "../../../utils/shadertoyBackgrounds.js";
+import { DEFAULT_PLAY_ICON } from "../../../utils/playIcons.js";
 
 import verifGold from "../../../assets/verifgold.svg";
 import shareIcon from "../../../assets/share.svg";
@@ -164,15 +166,19 @@ export default function TrackPage() {
             instagramShortcode = extractInstagramShortcode(link);
           }
           
+          // Получаем дефолтные значения
+          const defaultBackgroundId = SHADERTOY_BACKGROUNDS[0]?.id || null;
+          const defaultPlayIcon = DEFAULT_PLAY_ICON;
+          
           const formattedTrack = {
             id: trackData.id,
             slug: trackData.slug,
             title: trackData.title,
             link: trackData.link, // YouTube ссылка для центрального плеера
             cover_key: trackData.cover_key, // Ключ обложки в R2
-            play_icon: trackData.play_icon || null, // Иконка плеера
+            play_icon: trackData.play_icon || defaultPlayIcon, // Иконка плеера (дефолт если null)
             preview_start_seconds: trackData.preview_start_seconds || 0, // Начало превью
-            shadertoy_background_id: trackData.shadertoy_background_id || null, // ShaderToy фон
+            shadertoy_background_id: trackData.shadertoy_background_id || defaultBackgroundId, // ShaderToy фон (дефолт если null)
             artistSlug: artistData?.slug || "unknown",
             artistName: artistData?.display_name || artistData?.name || "Unknown Artist",
             source: "youtube", // Всегда YouTube для центрального плеера
@@ -371,32 +377,40 @@ export default function TrackPage() {
     ? `https://img.youtube.com/vi/${track.youtubeId}/maxresdefault.jpg`
     : null);
 
+  // Получаем дефолтный фон если его нет
+  const defaultBackgroundId = SHADERTOY_BACKGROUNDS[0]?.id || null;
+  const effectiveBackgroundId = track.shadertoy_background_id || defaultBackgroundId;
+  
+  // Проверяем тип фона: сначала в SHADERTOY_BACKGROUNDS (может быть Vanta), потом в PREMIUM_BACKGROUNDS
+  const backgroundFromList = SHADERTOY_BACKGROUNDS.find(bg => bg.id === effectiveBackgroundId);
+  const isVantaFromList = backgroundFromList && backgroundFromList.type === "vanta";
+  
   // Проверяем, является ли выбранный фон премиум
-  const premiumBackground = getPremiumBackgroundById(track.shadertoy_background_id);
-  const isVantaBackground = premiumBackground && premiumBackground.type === "vanta" && premiumBackground.effectType;
+  const premiumBackground = getPremiumBackgroundById(effectiveBackgroundId);
+  const isVantaBackground = isVantaFromList || (premiumBackground && premiumBackground.type === "vanta" && premiumBackground.effectType);
   const isPremiumShaderToy = premiumBackground && premiumBackground.type === "shadertoy" && premiumBackground.shaderId;
-  const isRegularShaderToy = track.shadertoy_background_id && !premiumBackground;
+  const isRegularShaderToy = effectiveBackgroundId && !isVantaFromList && !premiumBackground;
 
   return (
     <div className="t-page">
-      {/* Vanta.js фон (если выбран премиум Vanta) */}
+      {/* Vanta.js фон (если выбран Vanta фон) */}
       {isVantaBackground && (
         <VantaBackground 
-          effectType={premiumBackground.effectType} 
-          color={premiumBackground.color || 0xe30a0a}
-          color1={premiumBackground.color1 || null}
-          color2={premiumBackground.color2 || null}
+          effectType={isVantaFromList ? backgroundFromList.effectType : (premiumBackground?.effectType || "dots")} 
+          color={premiumBackground?.color || 0xe30a0a}
+          color1={premiumBackground?.color1 || null}
+          color2={premiumBackground?.color2 || null}
         />
       )}
       
       {/* ShaderToy премиум фон (если выбран премиум ShaderToy) */}
       {isPremiumShaderToy && (
-        <ShaderToyBackground backgroundId={track.shadertoy_background_id} />
+        <ShaderToyBackground backgroundId={effectiveBackgroundId} />
       )}
       
       {/* ShaderToy фон (если выбран обычный ShaderToy фон) */}
       {isRegularShaderToy && (
-        <ShaderToyBackground backgroundId={track.shadertoy_background_id} />
+        <ShaderToyBackground backgroundId={effectiveBackgroundId} />
       )}
       
       <div className="t-overlay" aria-hidden="true" />

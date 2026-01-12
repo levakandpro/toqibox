@@ -389,7 +389,7 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
         style={{
           position: "absolute",
           top: "12px",
-          right: "12px",
+          right: isOwner ? "48px" : "12px", // Сдвигаем влево, если есть кнопка глаза
           zIndex: 10001,
           width: "32px",
           height: "32px",
@@ -409,6 +409,69 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
           style={{ width: "16px", height: "16px", display: "block" }}
         />
       </button>
+
+      {/* Кнопка "просмотр как пользователь" (только для авторов) */}
+      {isOwner && (
+        <button
+          type="button"
+          onClick={() => {
+            // Переключаем режим просмотра (можно добавить функционал позже)
+            console.log("Просмотр как пользователь");
+          }}
+          style={{
+            position: "absolute",
+            top: "12px",
+            right: "12px",
+            zIndex: 10001,
+            width: "32px",
+            height: "32px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255, 255, 255, 0.1)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            borderRadius: "8px",
+            cursor: "pointer",
+            padding: 0,
+            transition: "all 0.2s ease",
+          }}
+          aria-label="Просмотр как пользователь"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+          }}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ display: "block" }}
+          >
+            <path
+              d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"
+              stroke="rgba(255, 255, 255, 0.9)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="3"
+              stroke="rgba(255, 255, 255, 0.9)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
 
       <div className="ah-content">
         <div 

@@ -118,6 +118,15 @@ export default defineConfig({
       //     console.warn('⚠️ Прокси недоступен, используем локальную заглушку');
       //   },
       // },
+      // Прокси для Telegram уведомлений
+      "/api/tg/notify-payment-request": {
+        target: "https://toqibox.win",
+        changeOrigin: true,
+        secure: true,
+        onError: (err, req, res) => {
+          console.warn('⚠️ Прокси для /api/tg/notify-payment-request недоступен');
+        },
+      },
     },
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

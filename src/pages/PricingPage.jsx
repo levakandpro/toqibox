@@ -19,6 +19,9 @@ export default function PricingPage() {
   const [btnDisabled, setBtnDisabled] = useState(false);
   const [btnGreen, setBtnGreen] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPaymentTermsModal, setShowPaymentTermsModal] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   const links = {
     login: "/login",
@@ -37,9 +40,54 @@ export default function PricingPage() {
     if (input) input.value = "";
   };
 
+  // Проверка авторизации для скрытия/показа блока "Для оплаты необходимо войти"
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Ошибка проверки сессии:', error);
+          setIsAuthenticated(false);
+          setUserEmail("");
+          return;
+        }
+        const isAuth = !!session && !!session.user;
+        setIsAuthenticated(isAuth);
+        setUserEmail(session?.user?.email || "");
+        console.log('Проверка авторизации:', { isAuth, email: session?.user?.email });
+      } catch (error) {
+        console.error('Ошибка при проверке авторизации:', error);
+        setIsAuthenticated(false);
+        setUserEmail("");
+      }
+    };
+    
+    checkAuth();
+    
+    // Слушаем изменения авторизации
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const isAuth = !!session && !!session.user;
+      setIsAuthenticated(isAuth);
+      setUserEmail(session?.user?.email || "");
+      console.log('Изменение авторизации:', { event, isAuth, email: session?.user?.email });
+    });
+    
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Предотвращаем автоскролл страницы
+    window.scrollTo(0, 0);
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
+      // Восстанавливаем скролл при размонтировании
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     };
   }, [previewUrl]);
 
@@ -65,11 +113,15 @@ export default function PricingPage() {
 
     try {
       // Получаем текущего пользователя
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        alert("Необходимо войти в аккаунт");
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        // Сохраняем текущий путь для возврата после логина
+        const currentPath = window.location.pathname + window.location.search;
+        localStorage.setItem("toqibox:returnTo", currentPath);
         setBtnDisabled(false);
         setBtnText("Отправить отчет");
+        navigate("/login", { replace: true });
         return;
       }
 
@@ -151,6 +203,7 @@ export default function PricingPage() {
 
         console.log('[Payment] Сохраняем заявку в БД:', {
           user_id: session.user.id,
+          user_email: session.user.email,
           product: 'toqibox',
           plan: planLower,
           amount: amountNum,
@@ -203,9 +256,12 @@ export default function PricingPage() {
         // Отправляем уведомление в Telegram после успешного сохранения
         if (insertedData && insertedData.length > 0 && insertedData[0] && insertedData[0].id) {
           const paymentRequestId = insertedData[0].id;
-          console.log('[Payment] 📤 Отправляем уведомление в Telegram для заявки:', paymentRequestId);
+          console.log('[Payment] 📤 === НАЧАЛО ОТПРАВКИ В TELEGRAM ===');
+          console.log('[Payment] Payment Request ID:', paymentRequestId);
+          console.log('[Payment] Product: toqibox');
           
           // Небольшая задержка, чтобы заявка точно сохранилась в БД
+          console.log('[Payment] Ждём 1 секунду перед отправкой...');
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           try {
@@ -252,6 +308,10 @@ export default function PricingPage() {
             console.error('[Payment] ❌ Критическая ошибка при отправке уведомления в Telegram:', notifyError);
             console.warn('[Payment] ⚠️ Заявка сохранена в БД, но уведомление в Telegram не отправлено. Проверьте логи Cloudflare Pages Functions и переменные окружения.');
           }
+          
+          console.log('[Payment] 📤 === КОНЕЦ ОТПРАВКИ В TELEGRAM ===');
+        } else {
+          console.error('[Payment] ❌ insertedData пуст или нет ID!', insertedData);
         }
       } catch (dbError) {
         console.error("[Payment] Критическая ошибка сохранения заявки:", dbError);
@@ -268,6 +328,15 @@ export default function PricingPage() {
       setBtnGreen(false);
       setPreviewUrl("");
       input.value = "";
+      
+      // Автоматически редиректим через 3 секунды или по клику на OK
+      setTimeout(() => {
+        if (returnTo) {
+          navigate(returnTo);
+        } else {
+          navigate("/author");
+        }
+      }, 3000);
     } catch (error) {
       console.error("Ошибка отправки:", error);
       alert("Ошибка отправки: " + error.message);
@@ -381,9 +450,10 @@ export default function PricingPage() {
             }}
             onClick={() => {
               setShowSuccessModal(false);
-              handleBack();
               if (returnTo) {
                 navigate(returnTo);
+              } else {
+                navigate("/author");
               }
             }}
           >
@@ -453,9 +523,10 @@ export default function PricingPage() {
               <button
                 onClick={() => {
                   setShowSuccessModal(false);
-                  handleBack();
                   if (returnTo) {
                     navigate(returnTo);
+                  } else {
+                    navigate("/author");
                   }
                 }}
                 style={{
@@ -531,13 +602,19 @@ export default function PricingPage() {
         )}
 
         {/* Хедер авторизации */}
-        <div className="auth-glass-header">
-          <p>Для оплаты необходимо войти в аккаунт</p>
-          <div className="auth-btns">
-            <Link to={links.login} className="btn-mini-primary">Войти</Link>
-            <Link to={links.signup} className="btn-mini-glass">Создать аккаунт</Link>
+        {!isAuthenticated ? (
+          <div className="auth-glass-header">
+            <p>Для оплаты необходимо войти в аккаунт</p>
+            <div className="auth-btns">
+              <Link to={links.login} className="btn-mini-primary">Войти</Link>
+              <Link to={links.signup} className="btn-mini-glass">Создать аккаунт</Link>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="auth-glass-header" style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+            <p style={{ color: '#22c55e' }}>Вы авторизованы как: <strong>{userEmail}</strong></p>
+          </div>
+        )}
 
         <h1 className="main-title">Выберите тариф</h1>
 
@@ -601,31 +678,54 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* Инфо-блоки */}
-        <div className="glass-card info-card">
-           <h3>Как проходит оплата</h3>
-           <div className="steps-row">
-             <div className="step-item"><span>1</span> Выбор тарифа</div>
-             <div className="step-item"><span>2</span> Перевод суммы</div>
-             <div className="step-item"><span>3</span> Активация</div>
-           </div>
-        </div>
-
-        <div className="glass-card danger-card">
-          <div className="danger-header">
-            <span className="icon-warn">⚠️</span>
-            <h4>Защита от мошенничества</h4>
-          </div>
-          <p>Мы проверяем все платежи вручную. Скрины, созданные ИИ, не принимаются. Обман ведет к вечной блокировке устройства по ID.</p>
-        </div>
-
         <footer className="footer-glass">
-          <div className="social-links">
-             <a href={links.telegram} className="social-btn">{telegramIcon && <img src={telegramIcon} alt=""/>} Telegram</a>
-             <a href={links.email} className="social-btn">{gmailIcon && <img src={gmailIcon} alt=""/>} Email</a>
+          <div className="footer-content">
+            <div className="social-links">
+              <a href={links.telegram} className="social-btn">{telegramIcon && <img src={telegramIcon} alt=""/>}</a>
+              <a href={links.email} className="social-btn">{gmailIcon && <img src={gmailIcon} alt=""/>}</a>
+              <button 
+                className="payment-terms-btn"
+                onClick={() => setShowPaymentTermsModal(true)}
+                title="Важные условия оплаты"
+              >
+                ⓘ
+              </button>
+            </div>
+            <p className="copyright">© 2026 TOQIBOX. Все права защищены.</p>
           </div>
-          <p className="copyright">© 2026 TOQIBOX. Все права защищены.</p>
         </footer>
+
+        {/* Модальное окно условий оплаты */}
+        {showPaymentTermsModal && (
+          <div
+            className="payment-terms-modal-overlay"
+            onClick={() => setShowPaymentTermsModal(false)}
+          >
+            <div
+              className="payment-terms-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="payment-terms-modal-header">
+                <h3>Важные условия оплаты</h3>
+                <button 
+                  className="payment-terms-close"
+                  onClick={() => setShowPaymentTermsModal(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="payment-terms-modal-body">
+                <ul className="payment-terms-list">
+                  <li>Сумма перевода должна быть точной</li>
+                  <li>Если сумма меньше - тариф не активируется</li>
+                  <li>Возврат средств не производится</li>
+                  <li>Если сумма больше стоимости тарифа - разница считается добровольной поддержкой проекта</li>
+                  <li>Дополнительные средства не переносятся и не компенсируются</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

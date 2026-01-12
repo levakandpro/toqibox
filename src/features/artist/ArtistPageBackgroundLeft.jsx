@@ -55,92 +55,132 @@ export default function ArtistPageBackgroundLeft({ artist, isOwner = false, edit
   }, [artist?.id, artist?.page_background_left_id]);
 
   // Применяем фон строго только к контенту страницы (НЕ к шапке!)
+  // ВАЖНО: Этот useEffect должен работать всегда, даже если компонент возвращает null
+  // Он срабатывает при монтировании и изменении зависимостей
   useEffect(() => {
+    console.log('🎨 ArtistPageBackgroundLeft: useEffect [APPLY BACKGROUND] triggered', {
+      artistId: artist?.id,
+      previewBackground,
+      isOwner,
+      editMode
+    });
+    
     // Применяем фон к .a-content, а НЕ к .a-page, чтобы шапка не получала фон
     const contentElement = document.querySelector('.a-content');
     const pageElement = document.querySelector('.a-page');
-    if (!contentElement || !pageElement) return;
-
-    // Также проверяем, что классы не применяются к шапке и её элементам
-    const headerRoot = document.querySelector('.ah-root');
-    const headerCover = document.querySelector('.ah-cover');
     
-    // Функция для очистки всех классов фонов
-    const cleanupBackgroundStructures = () => {
-      // Удаляем все классы фонов с контента И со страницы
-      BACKGROUND_OPTIONS.forEach(option => {
-        contentElement.classList.remove(option.className);
-        pageElement.classList.remove(option.className);
-        // Также удаляем из шапки и её корня, если они там есть
-        if (headerRoot) {
-          headerRoot.classList.remove(option.className);
+    if (!contentElement) {
+      console.log('🎨 ArtistPageBackgroundLeft: .a-content not found, retrying...');
+      // Пробуем найти через интервал (на случай, если компонент еще монтируется)
+      let attempts = 0;
+      const maxAttempts = 200; // 20 секунд максимум
+      const checkInterval = setInterval(() => {
+        attempts++;
+        const found = document.querySelector('.a-content');
+        if (found) {
+          clearInterval(checkInterval);
+          console.log('🎨 ArtistPageBackgroundLeft: .a-content found!');
+          applyBackgroundToContent(found, pageElement);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          console.error('❌ ArtistPageBackgroundLeft: .a-content not found after', maxAttempts, 'attempts');
         }
-        if (headerCover) {
-          headerCover.classList.remove(option.className);
-        }
-      });
-    };
-
-    if (previewBackground) {
-      const bg = BACKGROUND_OPTIONS.find(b => b.id === previewBackground);
-      if (bg) {
-        // Очищаем все предыдущие фоны
-        cleanupBackgroundStructures();
-        
-        // Добавляем класс выбранного фона ТОЛЬКО к контенту (НЕ к странице и НЕ к шапке!)
-        contentElement.classList.add(bg.className);
-        
-        // Убеждаемся, что класс НЕ применяется к шапке и её элементам
-        if (headerRoot && headerRoot.classList.contains(bg.className)) {
-          headerRoot.classList.remove(bg.className);
-        }
-        if (headerCover && headerCover.classList.contains(bg.className)) {
-          headerCover.classList.remove(bg.className);
-        }
-        if (pageElement && pageElement.classList.contains(bg.className)) {
-          pageElement.classList.remove(bg.className);
-        }
-      }
-    } else {
-      // Удаляем фон если не выбран
-      cleanupBackgroundStructures();
+      }, 100);
+      return () => clearInterval(checkInterval);
     }
-
-    // СТРОГО запрещаем применение классов к шапке и странице - проверяем постоянно
-    const checkInterval = setInterval(() => {
-      if (headerRoot || headerCover || pageElement) {
+    
+    if (!pageElement) {
+      console.warn('🎨 ArtistPageBackgroundLeft: .a-page not found');
+      return;
+    }
+    
+    applyBackgroundToContent(contentElement, pageElement);
+    
+    function applyBackgroundToContent(contentElement, pageElement) {
+      // Также проверяем, что классы не применяются к шапке и её элементам
+      const headerRoot = document.querySelector('.ah-root');
+      const headerCover = document.querySelector('.ah-cover');
+      
+      // Функция для очистки всех классов фонов
+      const cleanupBackgroundStructures = () => {
+        // Удаляем все классы фонов с контента И со страницы
         BACKGROUND_OPTIONS.forEach(option => {
-          // Удаляем из корня шапки
-          if (headerRoot && headerRoot.classList.contains(option.className)) {
-            headerRoot.classList.remove(option.className);
-          }
-          // Удаляем из обложки шапки
-          if (headerCover && headerCover.classList.contains(option.className)) {
-            headerCover.classList.remove(option.className);
-          }
-          // Удаляем из страницы (фоны должны быть только в контенте)
-          if (pageElement && pageElement.classList.contains(option.className)) {
+          contentElement.classList.remove(option.className);
+          if (pageElement) {
             pageElement.classList.remove(option.className);
           }
-          // Удаляем из ВСЕХ дочерних элементов шапки
+          // Также удаляем из шапки и её корня, если они там есть
           if (headerRoot) {
-            const childrenWithBg = headerRoot.querySelectorAll(`.${option.className}`);
-            childrenWithBg.forEach(el => el.classList.remove(option.className));
+            headerRoot.classList.remove(option.className);
           }
           if (headerCover) {
-            const childrenWithBg = headerCover.querySelectorAll(`.${option.className}`);
-            childrenWithBg.forEach(el => el.classList.remove(option.className));
+            headerCover.classList.remove(option.className);
           }
         });
-      }
-    }, 50); // Проверяем каждые 50ms для максимальной защиты
+      };
 
-    return () => {
-      clearInterval(checkInterval);
-      // Очистка при размонтировании компонента
-      cleanupBackgroundStructures();
-    };
-  }, [previewBackground]);
+      if (previewBackground) {
+        const bg = BACKGROUND_OPTIONS.find(b => b.id === previewBackground);
+        if (bg) {
+          console.log('🎨 ArtistPageBackgroundLeft: Applying background', bg.id);
+          // Очищаем все предыдущие фоны
+          cleanupBackgroundStructures();
+          
+          // Добавляем класс выбранного фона ТОЛЬКО к контенту (НЕ к странице и НЕ к шапке!)
+          contentElement.classList.add(bg.className);
+          
+          // Убеждаемся, что класс НЕ применяется к шапке и её элементам
+          if (headerRoot && headerRoot.classList.contains(bg.className)) {
+            headerRoot.classList.remove(bg.className);
+          }
+          if (headerCover && headerCover.classList.contains(bg.className)) {
+            headerCover.classList.remove(bg.className);
+          }
+          if (pageElement && pageElement.classList.contains(bg.className)) {
+            pageElement.classList.remove(bg.className);
+          }
+        }
+      } else {
+        // Удаляем фон если не выбран
+        cleanupBackgroundStructures();
+      }
+
+      // СТРОГО запрещаем применение классов к шапке и странице - проверяем постоянно
+      const checkInterval = setInterval(() => {
+        if (headerRoot || headerCover || pageElement) {
+          BACKGROUND_OPTIONS.forEach(option => {
+            // Удаляем из корня шапки
+            if (headerRoot && headerRoot.classList.contains(option.className)) {
+              headerRoot.classList.remove(option.className);
+            }
+            // Удаляем из обложки шапки
+            if (headerCover && headerCover.classList.contains(option.className)) {
+              headerCover.classList.remove(option.className);
+            }
+            // Удаляем из страницы (фоны должны быть только в контенте)
+            if (pageElement && pageElement.classList.contains(option.className)) {
+              pageElement.classList.remove(option.className);
+            }
+            // Удаляем из ВСЕХ дочерних элементов шапки
+            if (headerRoot) {
+              const childrenWithBg = headerRoot.querySelectorAll(`.${option.className}`);
+              childrenWithBg.forEach(el => el.classList.remove(option.className));
+            }
+            if (headerCover) {
+              const childrenWithBg = headerCover.querySelectorAll(`.${option.className}`);
+              childrenWithBg.forEach(el => el.classList.remove(option.className));
+            }
+          });
+        }
+      }, 50); // Проверяем каждые 50ms для максимальной защиты
+
+      return () => {
+        clearInterval(checkInterval);
+        // Очистка при размонтировании компонента
+        cleanupBackgroundStructures();
+      };
+    }
+  }, [previewBackground, artist?.id]);
 
   const handleSelectBackground = (bgId) => {
     const bg = BACKGROUND_OPTIONS.find(b => b.id === bgId);
@@ -217,9 +257,16 @@ export default function ArtistPageBackgroundLeft({ artist, isOwner = false, edit
 
   const isChanged = previewBackground !== selectedBackground;
 
-  // Показываем только в режиме редактирования для владельца
+  // ВАЖНО: useEffect выше применяет фон всегда, даже если компонент возвращает null
+  // Панель выбора показываем только в режиме редактирования для владельца
+  // Но сам эффект применения фона работает ВСЕГДА для всех пользователей через useEffect
+  
+  // КРИТИЧНО: Возвращаем скрытый div вместо null, чтобы гарантировать монтирование компонента
+  // и работу useEffect на публичной странице. React может не вызвать useEffect если компонент возвращает null.
   if (!isOwner || !editMode) {
-    return null;
+    // Возвращаем невидимый элемент вместо null, чтобы React точно смонтировал компонент
+    // и useEffect сработал для применения фона на публичной странице
+    return <div style={{ display: 'none' }} data-background-left-applier="true" aria-hidden="true" />;
   }
 
   return (

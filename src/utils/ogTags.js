@@ -80,6 +80,29 @@ export function setArtistOgTags({ artistName, slug, coverKey = null, tracksCount
   // Стандартные meta теги
   setMetaTag('title', title, 'name');
   setMetaTag('description', description, 'name');
+  
+  // Canonical URL для SEO
+  setCanonicalUrl(url);
+}
+
+/**
+ * Устанавливает canonical URL
+ * @param {string} url - Canonical URL
+ */
+function setCanonicalUrl(url) {
+  if (!url) return;
+  
+  // Удаляем существующий canonical
+  const existing = document.querySelector('link[rel="canonical"]');
+  if (existing) {
+    existing.remove();
+  }
+  
+  // Создаем новый canonical link
+  const link = document.createElement('link');
+  link.rel = 'canonical';
+  link.href = url;
+  document.head.appendChild(link);
 }
 
 /**
@@ -125,6 +148,9 @@ export function setTrackOgTags({ trackTitle, artistName, slug, coverKey = null, 
   // Стандартные meta теги
   setMetaTag('title', title, 'name');
   setMetaTag('description', description, 'name');
+  
+  // Canonical URL для SEO
+  setCanonicalUrl(url);
 }
 
 /**
