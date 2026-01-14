@@ -1,7 +1,7 @@
 // Прямой тест функции notify-new-user
 // Запуск: node test-notify-direct.js
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://bkyyiatcjhkzmmemkbah.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://iqgjoyqjtagiesbfahiu.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_KEY_HERE';
 const TELEGRAM_BOT_TOKEN = '8405827498:AAGbTkz1L1lcjO3-MslEdB_Ui_j3rDab8sI';
 const TELEGRAM_ADMIN_CHAT_ID = '8247308735';

@@ -245,9 +245,10 @@ export default function HomePage() {
           СОЗДАТЬ
         </Link>
 
-        <Link to="/studio" className="tq-studio-btn">
+        {/* Временно скрыто */}
+        {/* <Link to="/studio" className="tq-studio-btn">
           <span>TQ STUDIO</span>
-        </Link>
+        </Link> */}
       </div>
     </main>
   );

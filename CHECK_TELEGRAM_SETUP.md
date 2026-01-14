@@ -10,7 +10,7 @@
 
 ### 1. SUPABASE_URL
 - **Значение:** Скопируйте из существующей переменной `VITE_SUPABASE_URL`
-- В Cloudflare Pages уже есть `VITE_SUPABASE_URL` = `https://bkyyiatcjhkzm...`
+- В Cloudflare Pages уже есть `VITE_SUPABASE_URL` = `https://iqgjoyqjtagiesbfahiu.supabase.co`
 - Добавьте **точно такое же значение** как `SUPABASE_URL` (без префикса VITE_)
 - Тип: `Plaintext`
 

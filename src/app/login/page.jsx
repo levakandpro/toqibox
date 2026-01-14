@@ -278,7 +278,10 @@ export default function LoginPage() {
       overflow: "hidden",
       gridTemplateRows: "auto 1fr auto",
       zIndex: 1,
-      ...(isWeb ? {} : {
+      ...(isWeb ? {
+        padding: "12px 16px",
+        alignContent: "center",
+      } : {
         aspectRatio: "9 / 16",
         maxWidth: "100vw",
         maxHeight: "100vh",
@@ -335,6 +338,12 @@ export default function LoginPage() {
       background:
         "radial-gradient(circle, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.02) 35%, rgba(0,0,0,0) 70%)",
       opacity: 0.55,
+      ...(isWeb ? {
+        top: "12%",
+        width: 200,
+        height: 200,
+        borderRadius: 200,
+      } : {}),
     },
 
     card: {
@@ -345,6 +354,10 @@ export default function LoginPage() {
       position: "relative",
       zIndex: 2,
       marginTop: 0,
+      ...(isWeb ? {
+        gap: 2,
+        maxWidth: "85%",
+      } : {}),
     },
 
     hero: {
@@ -354,12 +367,19 @@ export default function LoginPage() {
       marginBottom: 0,
       marginTop: 15,
       animation: "toqiboxFadeIn 520ms ease-out both",
+      ...(isWeb ? {
+        marginTop: 8,
+        gap: 2,
+      } : {}),
     },
 
     brand: {
       textAlign: "center",
       lineHeight: 1.1,
       marginTop: 6,
+      ...(isWeb ? {
+        marginTop: 2,
+      } : {}),
     },
 
     title: {
@@ -391,6 +411,10 @@ export default function LoginPage() {
       display: "grid",
       gap: 5,
       marginTop: 2,
+      ...(isWeb ? {
+        gap: 3,
+        marginTop: 0,
+      } : {}),
     },
 
     primary: {
@@ -545,6 +569,10 @@ export default function LoginPage() {
       justifyContent: "center",
       alignItems: "center",
       zIndex: 10,
+      ...(isWeb ? {
+        bottom: 8,
+        fontSize: 7,
+      } : {}),
     },
 
     footerLink: {
@@ -748,6 +776,12 @@ export default function LoginPage() {
           aspect-ratio: 1 / 1;
           perspective: 1100px;
         }
+        
+        ${isWeb ? `
+        .toqiboxFlipWrap {
+          width: min(180px, 50vw) !important;
+        }
+        ` : ''}
 
         .toqiboxFlipInner {
           width: 100%;
@@ -1132,6 +1166,13 @@ export default function LoginPage() {
           translate: 10px 0px;
           margin-top: -5px;
         }
+        
+        ${isWeb ? `
+        .loader {
+          scale: 0.5;
+          margin-top: -10px;
+        }
+        ` : ''}
 
         .loader svg {
           position: absolute;
@@ -1326,7 +1367,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div style={{...styles.brand, marginTop: 35}}>
+          <div style={{...styles.brand, marginTop: isWeb ? 12 : 35}}>
             <div style={styles.title}>
               <div className="loader-artist">АРТИСТАМ</div>
               <svg
@@ -1348,7 +1389,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div style={{...styles.buttons, marginTop: 35}}>
+        <div style={{...styles.buttons, marginTop: isWeb ? 12 : 35}}>
           <button
             type="button"
             onClick={onGoogle}
@@ -1404,7 +1445,7 @@ export default function LoginPage() {
             </div>
           ) : null}
 
-          <div style={{...styles.brand, marginTop: 0}}>
+          <div style={{...styles.brand, marginTop: isWeb ? -5 : 0}}>
             <div className="loader">
               <svg
                 className="legl"
