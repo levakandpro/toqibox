@@ -85,3 +85,9 @@
 .author-fatal__btn:active {
   transform: scale(0.99);
 }
+
+/* Центрирование текста "Пока нет треков" */
+.is-edit .at-grid-wrapper:has(> div:only-child) {
+  align-items: center;
+  justify-content: center;
+}

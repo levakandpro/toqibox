@@ -47,7 +47,7 @@
   width: 100%;
   height: 100%;
   background-size: cover;
-  background-position: 60% 60%;
+  background-position: 60% 50%;
   filter: brightness(0.9);
   z-index: 0;
   overflow: hidden;
@@ -331,12 +331,6 @@
   background-blend-mode: normal !important;
 }
 
-/* Опускаем обложку ниже в веб-версии */
-@media (min-width: 901px) {
-  .ah-cover {
-    background-position: 60% 50%;
-  }
-}
 
 .ah-overlay{
   position: absolute;

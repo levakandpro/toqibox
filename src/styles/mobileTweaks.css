@@ -55,8 +55,11 @@
   }
   
   .ah-content{ 
-    height: 140px; /* Такая же высота как на десктопе */
-    padding-bottom: 70px !important; /* Подняли имя еще выше */
+    height: 140px !important; /* Такая же высота как на десктопе */
+    padding-bottom: 50px !important; /* Подняли имя еще выше */
+    text-align: center !important;
+    justify-content: center !important;
+    align-items: center !important;
   }
   
   .ah-name{
@@ -64,6 +67,17 @@
     color: #ffffff !important;
     z-index: 100 !important;
     position: relative !important;
+    margin: 0 auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+  
+  .ah-artist-name-wrapper {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 auto !important;
   }
   
   .ah-overlay{

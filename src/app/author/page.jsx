@@ -10,6 +10,7 @@ import ArtistPageBackground from "../../features/artist/ArtistPageBackground.jsx
 import ShareSheet from "../../features/share/ShareSheet.jsx";
 import PremiumLoader from "../../ui/PremiumLoader.jsx";
 import { supabase } from "../../features/auth/supabaseClient.js";
+import shareIcon from "../../assets/share.svg";
 
 import "./author.css";
 
@@ -36,7 +37,7 @@ function randSuffix(len = 6) {
 async function getArtistForUser(user) {
   const { data: existing, error: selErr } = await supabase
     .from("artists")
-    .select("*, premium_type, premium_until, created_at")
+    .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -94,10 +95,21 @@ export default function AuthorPage() {
   const [showAddTrack, setShowAddTrack] = useState(false);
   const [tracks, setTracks] = useState([]);
   const [editMode, setEditMode] = useState(true); // На странице /author всегда режим редактирования
+  const [showBackgroundPanels, setShowBackgroundPanels] = useState(true); // Показывать боковые панели с фонами
   const [userEmail, setUserEmail] = useState("");
   const [profile, setProfile] = useState(null);
 
   const [saving, setSaving] = useState(false);
+  const [isWeb, setIsWeb] = useState(false);
+
+  useEffect(() => {
+    const checkWeb = () => {
+      setIsWeb(window.innerWidth >= 768);
+    };
+    checkWeb();
+    window.addEventListener('resize', checkWeb);
+    return () => window.removeEventListener('resize', checkWeb);
+  }, []);
 
   const shareUrl = useMemo(() => {
     if (!artist?.slug) return "";
@@ -486,6 +498,150 @@ export default function AuthorPage() {
               до: {tariffInfo.expiresAt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}
             </span>
           )}
+          
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8 }}>
+            {/* Кнопка скрытия/показа панелей фонов */}
+            {editMode && (
+              <button
+                type="button"
+                onClick={() => setShowBackgroundPanels(!showBackgroundPanels)}
+                className="ah-tooltip"
+                data-tooltip={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
+                style={{
+                  width: isWeb ? "28px" : "26px",
+                  height: isWeb ? "28px" : "26px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: showBackgroundPanels ? "rgba(59, 130, 246, 0.2)" : "rgba(255, 255, 255, 0.1)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  padding: 0,
+                  transition: "all 0.2s ease",
+                }}
+                aria-label={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
+                title={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = showBackgroundPanels ? "rgba(59, 130, 246, 0.3)" : "rgba(255, 255, 255, 0.15)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = showBackgroundPanels ? "rgba(59, 130, 246, 0.2)" : "rgba(255, 255, 255, 0.1)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+                }}
+              >
+                <svg
+                  width={isWeb ? "14" : "12"}
+                  height={isWeb ? "14" : "12"}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{ display: "block" }}
+                >
+                  <path
+                    d={showBackgroundPanels ? "M19 12H5M12 5L5 12L12 19" : "M5 12H19M12 5L19 12L12 19"}
+                    stroke="rgba(255, 255, 255, 0.9)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              className="ah-tooltip"
+              data-tooltip="Поделиться"
+              style={{
+                width: isWeb ? "28px" : "26px",
+                height: isWeb ? "28px" : "26px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(255, 255, 255, 0.1)",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                borderRadius: "6px",
+                cursor: "pointer",
+                padding: 0,
+                transition: "all 0.2s ease",
+              }}
+              aria-label="Поделиться"
+              title="Поделиться"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+              }}
+            >
+              <img 
+                src={shareIcon} 
+                alt="" 
+                style={{ width: isWeb ? "14px" : "12px", height: isWeb ? "14px" : "12px", display: "block" }}
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEditMode(!editMode)}
+              className="ah-tooltip"
+              data-tooltip={editMode ? "Посмотреть" : "Редактировать"}
+              style={{
+                width: isWeb ? "28px" : "26px",
+                height: isWeb ? "28px" : "26px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(255, 255, 255, 0.1)",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                borderRadius: "6px",
+                cursor: "pointer",
+                padding: 0,
+                transition: "all 0.2s ease",
+              }}
+              aria-label={editMode ? "Посмотреть" : "Редактировать"}
+              title={editMode ? "Посмотреть" : "Редактировать"}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+              }}
+            >
+              <svg
+                width={isWeb ? "14" : "12"}
+                height={isWeb ? "14" : "12"}
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ display: "block" }}
+              >
+                <path
+                  d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"
+                  stroke="rgba(255, 255, 255, 0.9)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                  stroke="rgba(255, 255, 255, 0.9)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -493,6 +649,7 @@ export default function AuthorPage() {
         artist={artist} 
         isOwner={true} 
         editMode={editMode}
+        showPanel={showBackgroundPanels}
         onUpdate={refreshArtist}
       />
 
@@ -502,8 +659,10 @@ export default function AuthorPage() {
         isOwner={true} 
         onUpdate={refreshArtist}
         editMode={editMode}
-        onToggleEditMode={() => setEditMode(!editMode)}
         onShare={() => setShareOpen(true)}
+        showBackgroundPanels={showBackgroundPanels}
+        onToggleBackgroundPanels={() => setShowBackgroundPanels(!showBackgroundPanels)}
+        hideActionButtons={true}
       />
 
       {editMode && showAddTrack && (
@@ -524,7 +683,9 @@ export default function AuthorPage() {
           artist={artist}
           isOwner={true}
           editMode={editMode} // Используем состояние editMode для переключения режимов
+          showBackgroundPanels={showBackgroundPanels}
           onShare={() => setShareOpen(true)}
+          onToggleBackgroundPanels={() => setShowBackgroundPanels(!showBackgroundPanels)}
           onUpdate={refreshArtist}
           tracks={tracks}
           onAddTrack={editMode ? () => setShowAddTrack(true) : undefined}

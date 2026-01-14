@@ -27,6 +27,8 @@ export default function ArtistTracks({
   onAddTrack,
   editMode = false,
   onToggleEditMode,
+  showBackgroundPanels = true,
+  onToggleBackgroundPanels,
 }) {
   const [editingSocial, setEditingSocial] = useState(null); // 'youtube', 'tiktok', 'instagram' или null
   const [socialUrl, setSocialUrl] = useState("");
@@ -328,6 +330,11 @@ export default function ArtistTracks({
       <div className="at-grid-wrapper">
         {tracks.length === 0 ? (
           <div style={{ 
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            minHeight: "200px",
             textAlign: "center", 
             padding: "40px 20px",
             opacity: 0.6,
@@ -644,6 +651,7 @@ export default function ArtistTracks({
         artist={artist}
         isOwner={isOwner}
         editMode={editMode}
+        showPanel={showBackgroundPanels}
         onUpdate={onUpdate}
       />
 
@@ -654,6 +662,7 @@ export default function ArtistTracks({
           artist={artist}
           isOwner={isOwner}
           editMode={editMode}
+          showPanel={showBackgroundPanels}
           onUpdate={onUpdate}
         />
       )}

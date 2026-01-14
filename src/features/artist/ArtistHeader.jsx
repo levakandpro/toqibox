@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "../../features/auth/supabaseClient.js";
 
 import coverDefault from "../../assets/cover.png";
@@ -17,7 +17,19 @@ const NAME_COLORS = [
   "#3B82F6",      // синий
 ];
 
-export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMode = false, onToggleEditMode, onShare }) {
+export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMode = false, onToggleEditMode, onShare, showBackgroundPanels, onToggleBackgroundPanels, hideActionButtons = false }) {
+  const [isWeb, setIsWeb] = useState(false);
+  
+  // Определяем веб-версию
+  useEffect(() => {
+    const checkWeb = () => {
+      setIsWeb(window.innerWidth >= 768);
+    };
+    checkWeb();
+    window.addEventListener('resize', checkWeb);
+    return () => window.removeEventListener('resize', checkWeb);
+  }, []);
+
   // Загружаем значение из localStorage если есть (обход RLS)
   const getDisplayName = () => {
     if (artist?.id) {
@@ -382,36 +394,101 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
         </button>
       )}
 
+      {/* Кнопка скрытия/показа панелей фонов (только в режиме редактирования) */}
+      {!hideActionButtons && isOwner && editMode && onToggleBackgroundPanels && (
+        <button
+          type="button"
+          onClick={onToggleBackgroundPanels}
+          style={{
+            position: "absolute",
+            top: isWeb ? "10px" : "8px",
+            right: isWeb ? "76px" : "74px",
+            zIndex: 10001,
+            width: isWeb ? "24px" : "22px",
+            height: isWeb ? "24px" : "22px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: showBackgroundPanels ? "rgba(59, 130, 246, 0.2)" : "rgba(255, 255, 255, 0.1)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            borderRadius: "6px",
+            cursor: "pointer",
+            padding: 0,
+            transition: "all 0.2s ease",
+          }}
+          aria-label={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
+          title={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = showBackgroundPanels ? "rgba(59, 130, 246, 0.3)" : "rgba(255, 255, 255, 0.15)";
+            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = showBackgroundPanels ? "rgba(59, 130, 246, 0.2)" : "rgba(255, 255, 255, 0.1)";
+            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+          }}
+        >
+          <svg
+            width={isWeb ? "12" : "10"}
+            height={isWeb ? "12" : "10"}
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ display: "block" }}
+          >
+            <path
+              d={showBackgroundPanels ? "M19 12H5M12 5L5 12L12 19" : "M5 12H19M12 5L19 12L12 19"}
+              stroke="rgba(255, 255, 255, 0.9)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
+
       {/* Кнопка "поделиться" в правом верхнем углу шапки */}
-      <button
-        type="button"
-        onClick={onShare || (() => {})}
-        style={{
-          position: "absolute",
-          top: "12px",
-          right: isOwner ? "48px" : "12px", // Сдвигаем влево, если есть кнопка глаза
-          zIndex: 10001,
-          width: "32px",
-          height: "32px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: 0,
-        }}
-        aria-label="Поделиться"
-      >
-        <img 
-          src={shareIcon} 
-          alt="" 
-          style={{ width: "16px", height: "16px", display: "block" }}
-        />
-      </button>
+      {!hideActionButtons && (
+        <button
+          type="button"
+          onClick={onShare || (() => {})}
+          style={{
+            position: "absolute",
+            top: isWeb ? "10px" : "8px",
+            right: (isOwner && editMode && onToggleBackgroundPanels) ? (isWeb ? "42px" : "40px") : (isOwner ? "42px" : "10px"),
+            zIndex: 10001,
+            width: isWeb ? "28px" : "26px",
+            height: isWeb ? "28px" : "26px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255, 255, 255, 0.1)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            borderRadius: "6px",
+            cursor: "pointer",
+            padding: 0,
+            transition: "all 0.2s ease",
+          }}
+          aria-label="Поделиться"
+          title="Поделиться"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+          }}
+        >
+          <img 
+            src={shareIcon} 
+            alt="" 
+            style={{ width: isWeb ? "14px" : "12px", height: isWeb ? "14px" : "12px", display: "block" }}
+          />
+        </button>
+      )}
 
       {/* Кнопка "просмотр как пользователь" (только для авторов) */}
-      {isOwner && (
+      {!hideActionButtons && isOwner && (
         <button
           type="button"
           onClick={() => {
@@ -420,17 +497,17 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
           }}
           style={{
             position: "absolute",
-            top: "12px",
-            right: "12px",
+            top: isWeb ? "10px" : "8px",
+            right: "10px",
             zIndex: 10001,
-            width: "32px",
-            height: "32px",
+            width: isWeb ? "28px" : "26px",
+            height: isWeb ? "28px" : "26px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             background: "rgba(255, 255, 255, 0.1)",
             border: "1px solid rgba(255, 255, 255, 0.2)",
-            borderRadius: "8px",
+            borderRadius: "6px",
             cursor: "pointer",
             padding: 0,
             transition: "all 0.2s ease",
@@ -446,8 +523,8 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
           }}
         >
           <svg
-            width="18"
-            height="18"
+            width={isWeb ? "14" : "12"}
+            height={isWeb ? "14" : "12"}
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
