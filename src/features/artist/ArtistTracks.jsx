@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import TrackCard from "../track/TrackCard.jsx";
 import { getMockTracksByArtistSlug } from "../track/track.mock.js";
+import verifGold from "../../assets/verifgold.svg";
 import ArtistPageBackground from "./ArtistPageBackground.jsx";
 import ArtistPageBackgroundLeft from "./ArtistPageBackgroundLeft.jsx";
 import { getR2Url } from "../../utils/r2Upload.js";
@@ -326,26 +327,41 @@ export default function ArtistTracks({
         )}
       </div>
 
-      {/* "ПРОВЕРЕННЫЙ АРТИСТ" под "РЕЛИЗЫ" */}
-      <div
-        style={{
-          fontSize: "clamp(10px, 2vw, 12px)",
-          fontWeight: 300,
-          letterSpacing: "0.15em",
-          textTransform: "uppercase",
-          color: "rgba(255, 255, 255, 0.7)",
-          opacity: 1,
-          textAlign: "center",
-          marginTop: "6px",
-          marginBottom: "16px",
-          width: "100%",
-          display: "block",
-          position: "relative",
-          zIndex: 10,
-        }}
-      >
-        ПРОВЕРЕННЫЙ АРТИСТ
-      </div>
+      {/* "ПРОВЕРЕННЫЙ АРТИСТ" под "РЕЛИЗЫ" - только для PREMIUM и PREMIUM+ */}
+      {artist?.plan && artist.plan !== 'free' && (
+        <div
+          style={{
+            fontSize: "clamp(10px, 2vw, 12px)",
+            fontWeight: 300,
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            color: "rgba(255, 255, 255, 0.7)",
+            opacity: 1,
+            textAlign: "center",
+            marginTop: "6px",
+            marginBottom: "16px",
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+            position: "relative",
+            zIndex: 10,
+          }}
+        >
+          <img 
+            src={verifGold} 
+            alt="" 
+            style={{
+              width: "14px",
+              height: "14px",
+              opacity: 0.85,
+              filter: "drop-shadow(0 0 6px rgba(255, 210, 120, 0.35)) drop-shadow(0 2px 6px rgba(0,0,0,0.6))"
+            }}
+          />
+          <span>ПРОВЕРЕННЫЙ АРТИСТ</span>
+        </div>
+      )}
 
       {/* Блок с треками - карточки с 3D эффектом */}
       <div className="at-grid-wrapper">
