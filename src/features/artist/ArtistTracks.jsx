@@ -338,7 +338,7 @@ export default function ArtistTracks({
             color: "rgba(255, 255, 255, 0.7)",
             opacity: 1,
             textAlign: "center",
-            marginTop: "6px",
+            marginTop: "2px",
             marginBottom: "16px",
             width: "100%",
             display: "flex",

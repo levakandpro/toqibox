@@ -634,19 +634,22 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <div
-                className="ah-verified-text"
-                style={{
-                  fontSize: "clamp(8px, 1.5vw, 10px)",
-                  fontWeight: 300,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  color: "rgba(255, 255, 255, 0.6)",
-                  opacity: 0.8,
-                }}
-              >
-                ПРОВЕРЕННЫЙ АРТИСТ
-              </div>
+              {/* Показываем "ПРОВЕРЕННЫЙ АРТИСТ" только для бесплатных планов, т.к. для premium он теперь под "РЕЛИЗЫ" */}
+              {(!artist?.plan || artist.plan === 'free') && (
+                <div
+                  className="ah-verified-text"
+                  style={{
+                    fontSize: "clamp(8px, 1.5vw, 10px)",
+                    fontWeight: 300,
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "rgba(255, 255, 255, 0.6)",
+                    opacity: 0.8,
+                  }}
+                >
+                  ПРОВЕРЕННЫЙ АРТИСТ
+                </div>
+              )}
               <div className="ah-artist-name-wrapper" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span
                   style={{
