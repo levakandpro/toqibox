@@ -421,7 +421,7 @@ export default function AuthorPage() {
       <div style={{
         position: "sticky",
         top: 0,
-        zIndex: 1000,
+        zIndex: 10001,
         background: "rgba(0, 0, 0, 0.85)",
         backdropFilter: "blur(10px)",
         borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
@@ -431,6 +431,7 @@ export default function AuthorPage() {
         justifyContent: "space-between",
         gap: 16,
         flexWrap: "wrap",
+        pointerEvents: "auto",
       }}>
         <div style={{
           display: "flex",
@@ -504,12 +505,26 @@ export default function AuthorPage() {
             {editMode && (
               <button
                 type="button"
-                onClick={() => setShowBackgroundPanels(!showBackgroundPanels)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log("Toggle background panels clicked, current state:", showBackgroundPanels);
+                  setShowBackgroundPanels(!showBackgroundPanels);
+                }}
+                onTouchStart={(e) => {
+                  // Для мобильных - сразу срабатываем на touch
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log("Toggle background panels touched, current state:", showBackgroundPanels);
+                  setShowBackgroundPanels(!showBackgroundPanels);
+                }}
                 className="ah-tooltip"
                 data-tooltip={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
                 style={{
-                  width: isWeb ? "28px" : "26px",
-                  height: isWeb ? "28px" : "26px",
+                  width: isWeb ? "28px" : "32px",
+                  height: isWeb ? "28px" : "32px",
+                  minWidth: isWeb ? "28px" : "32px",
+                  minHeight: isWeb ? "28px" : "32px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -519,6 +534,12 @@ export default function AuthorPage() {
                   cursor: "pointer",
                   padding: 0,
                   transition: "all 0.2s ease",
+                  touchAction: "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                  WebkitTouchCallout: "none",
+                  userSelect: "none",
+                  position: "relative",
+                  zIndex: 10002,
                 }}
                 aria-label={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
                 title={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
