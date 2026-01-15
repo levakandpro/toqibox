@@ -287,6 +287,42 @@ export default function ArtistTracks({
         <button className="releases-button">
           РЕЛИЗЫ
         </button>
+        {/* ПРОВЕРЕННЫЙ АРТИСТ под РЕЛИЗЫ - только для premium и premium_plus */}
+        {(artist.plan === 'premium' || artist.plan === 'premium_plus') && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              marginTop: "4px",
+              marginBottom: "0px",
+              width: "100%",
+            }}
+          >
+            <img 
+              src={verifGold} 
+              alt="" 
+              style={{
+                width: "14px",
+                height: "14px",
+                display: "block",
+              }}
+            />
+            <span
+              style={{
+                fontSize: "clamp(10px, 2vw, 12px)",
+                fontWeight: 300,
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                color: "rgba(255, 255, 255, 0.7)",
+                display: "block",
+              }}
+            >
+              ПРОВЕРЕННЫЙ АРТИСТ
+            </span>
+          </div>
+        )}
         {/* Кнопка "+" для добавления трека (только в режиме редактирования) */}
         {isOwner === true && editMode === true && onAddTrack && (
           <button
@@ -326,43 +362,6 @@ export default function ArtistTracks({
           </button>
         )}
       </div>
-
-      {/* ПРОВЕРЕННЫЙ АРТИСТ под РЕЛИЗЫ - только для premium и premium_plus */}
-      {(artist.plan === 'premium' || artist.plan === 'premium_plus') && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "6px",
-            marginTop: "4px",
-            marginBottom: "16px",
-            width: "100%",
-          }}
-        >
-          <img 
-            src={verifGold} 
-            alt="" 
-            style={{
-              width: "14px",
-              height: "14px",
-              display: "block",
-            }}
-          />
-          <span
-            style={{
-              fontSize: "clamp(10px, 2vw, 12px)",
-              fontWeight: 300,
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              color: "rgba(255, 255, 255, 0.7)",
-              display: "block",
-            }}
-          >
-            ПРОВЕРЕННЫЙ АРТИСТ
-          </span>
-        </div>
-      )}
 
       {/* Блок с треками - карточки с 3D эффектом */}
       <div className="at-grid-wrapper">
