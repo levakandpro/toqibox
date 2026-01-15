@@ -375,26 +375,29 @@
   pointer-events: none;
 }
 
-/* Уменьшаем высоту контента на мобильных */
-@media (max-width: 900px) {
+/* Уменьшаем высоту контента на планшетах */
+@media (max-width: 900px) and (min-width: 521px) {
   .ah-content {
     height: 120px;
-    padding-bottom: 0;
-    align-items: center !important; /* Меняем flex-end на center чтобы поднять выше */
+    padding-bottom: 12px;
   }
 }
 
-/* Поднимаем название артиста ВЫШЕ на мобильных */
-@media (max-width: 520px) {
-  .ah-content {
+/* Центрируем название артиста ТОЛЬКО на мобильных */
+@media screen and (max-width: 520px) {
+  .ah-root .ah-content {
     height: 140px !important;
     padding-bottom: 0 !important;
-    align-items: center !important;
+    align-items: center !important; /* Центрируем по вертикали вместо flex-end */
+    display: grid !important;
+    place-items: center !important;
   }
   
-  .ah-name {
-    margin-top: -50px !important; /* Поднимаем название артиста ВЫШЕ */
-    transform: translateY(-15px) !important;
+  .ah-root .ah-content .ah-name,
+  .ah-content .ah-name {
+    margin-top: -15px !important; /* Чуть поднимаем выше центра */
+    transform: translateY(-5px) !important;
+    position: relative !important;
   }
 }
 
