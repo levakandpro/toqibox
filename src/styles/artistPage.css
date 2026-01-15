@@ -379,7 +379,22 @@
 @media (max-width: 900px) {
   .ah-content {
     height: 120px;
-    padding-bottom: 12px;
+    padding-bottom: 0;
+    align-items: center !important; /* Меняем flex-end на center чтобы поднять выше */
+  }
+}
+
+/* Поднимаем название артиста ВЫШЕ на мобильных */
+@media (max-width: 520px) {
+  .ah-content {
+    height: 140px !important;
+    padding-bottom: 0 !important;
+    align-items: center !important;
+  }
+  
+  .ah-name {
+    margin-top: -50px !important; /* Поднимаем название артиста ВЫШЕ */
+    transform: translateY(-15px) !important;
   }
 }
 
