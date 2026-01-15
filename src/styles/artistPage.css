@@ -395,8 +395,8 @@
   
   .ah-root .ah-content .ah-name,
   .ah-content .ah-name {
-    margin-top: -15px !important; /* Чуть поднимаем выше центра */
-    transform: translateY(-5px) !important;
+    margin-top: -25px !important; /* Поднимаем выше */
+    transform: translateY(-10px) !important;
     position: relative !important;
   }
   

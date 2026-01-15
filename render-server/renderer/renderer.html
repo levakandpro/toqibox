@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renderer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #c {
+            display: block;
+            width: 1920px;
+            height: 1080px;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="c"></canvas>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        
+        // Размеры canvas (16:9, 1920x1080)
+        const WIDTH = 1920;
+        const HEIGHT = 1080;
+        canvas.width = WIDTH;
+        canvas.height = HEIGHT;
+        
+        // Кэш для фоновых изображений
+        const imageCache = new Map();
+        
+        // Счетчик кадров
+        window.__frameId = 0;
+        
+        // Глобальная функция для рендеринга одного кадра
+        window.renderFrame = async function(t, params = {}) {
+            const {
+                bgImageUrl = null,
+                duration = 10,
+                // Временно простой mock-визуал
+                visualType = 'gradient' // 'gradient' | 'circle' | 'sine'
+            } = params;
+            
+            // 1. Загружаем фон-картинку (если нужно)
+            let bgImage = null;
+            if (bgImageUrl && !imageCache.has(bgImageUrl)) {
+                // Загружаем изображение синхронно (для Playwright это нормально)
+                // В реальном сценарии это должно быть через Promise, но для простоты оставим так
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                imageCache.set(bgImageUrl, img);
+                img.src = bgImageUrl;
+            }
+            if (bgImageUrl && imageCache.has(bgImageUrl)) {
+                bgImage = imageCache.get(bgImageUrl);
+            }
+            
+            // 2. Очищаем canvas
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            
+            // 3. Рисуем фон (cover режим)
+            if (bgImage && bgImage.complete && bgImage.naturalWidth > 0) {
+                const imgAspect = bgImage.width / bgImage.height;
+                const canvasAspect = WIDTH / HEIGHT;
+                
+                let drawWidth, drawHeight, drawX, drawY;
+                
+                if (imgAspect > canvasAspect) {
+                    // Изображение шире - обрезаем по бокам
+                    drawHeight = HEIGHT;
+                    drawWidth = HEIGHT * imgAspect;
+                    drawX = (WIDTH - drawWidth) / 2;
+                    drawY = 0;
+                } else {
+                    // Изображение выше - обрезаем сверху/снизу
+                    drawWidth = WIDTH;
+                    drawHeight = WIDTH / imgAspect;
+                    drawX = 0;
+                    drawY = (HEIGHT - drawHeight) / 2;
+                }
+                
+                ctx.drawImage(bgImage, drawX, drawY, drawWidth, drawHeight);
+            } else {
+                // Если фона нет, рисуем черный фон
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, WIDTH, HEIGHT);
+            }
+            
+            // 4. Рисуем визуал (временно простой mock)
+            if (visualType === 'gradient') {
+                // Градиент, который меняется от времени t
+                const gradient = ctx.createRadialGradient(
+                    WIDTH / 2 + Math.sin(t) * 200,
+                    HEIGHT / 2 + Math.cos(t) * 200,
+                    0,
+                    WIDTH / 2,
+                    HEIGHT / 2,
+                    600
+                );
+                gradient.addColorStop(0, `hsl(${(t * 60) % 360}, 70%, 50%)`);
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, WIDTH, HEIGHT);
+            } else if (visualType === 'circle') {
+                // Движущийся круг
+                const x = WIDTH / 2 + Math.sin(t * 2) * 400;
+                const y = HEIGHT / 2 + Math.cos(t * 2) * 300;
+                const radius = 100 + Math.sin(t * 3) * 50;
+                ctx.fillStyle = `hsl(${(t * 30) % 360}, 80%, 60%)`;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (visualType === 'sine') {
+                // Синусоидальная волна
+                ctx.strokeStyle = `hsl(${(t * 40) % 360}, 90%, 60%)`;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                for (let x = 0; x < WIDTH; x += 2) {
+                    const y = HEIGHT / 2 + Math.sin((x / WIDTH * Math.PI * 4) + (t * 2)) * 200;
+                    if (x === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+            }
+            
+            // 5. Рисуем прогресс-бар
+            const progressBarHeight = 8;
+            const progressBarY = HEIGHT - progressBarHeight - 24;
+            const progressBarX = 24;
+            const progressBarWidth = WIDTH - 48;
+            const progress = Math.min(1, Math.max(0, t / duration));
+            const fillWidth = progressBarWidth * progress;
+            
+            // Фон прогресс-бара
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
+            
+            // Заполнение прогресс-бара
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fillRect(progressBarX, progressBarY, fillWidth, progressBarHeight);
+            
+            // Текст времени (mm:ss)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            const minutes = Math.floor(t / 60);
+            const seconds = Math.floor(t % 60);
+            const timeText = `${minutes}:${String(seconds).padStart(2, '0')}`;
+            ctx.fillText(timeText, progressBarX + progressBarWidth, progressBarY - 20);
+            
+            // Увеличиваем счетчик кадров
+            window.__frameId += 1;
+            
+            // Форсим "пейнт" через requestAnimationFrame
+            await new Promise(r => requestAnimationFrame(r));
+        };
+        
+        // Для тестирования в браузере - рисуем начальный кадр
+        window.renderFrame(0, { duration: 10 });
+    </script>
+</body>
+</html>

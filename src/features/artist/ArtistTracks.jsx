@@ -326,6 +326,27 @@ export default function ArtistTracks({
         )}
       </div>
 
+      {/* "ПРОВЕРЕННЫЙ АРТИСТ" под "РЕЛИЗЫ" */}
+      <div
+        style={{
+          fontSize: "clamp(10px, 2vw, 12px)",
+          fontWeight: 300,
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
+          color: "rgba(255, 255, 255, 0.7)",
+          opacity: 1,
+          textAlign: "center",
+          marginTop: "6px",
+          marginBottom: "16px",
+          width: "100%",
+          display: "block",
+          position: "relative",
+          zIndex: 10,
+        }}
+      >
+        ПРОВЕРЕННЫЙ АРТИСТ
+      </div>
+
       {/* Блок с треками - карточки с 3D эффектом */}
       <div className="at-grid-wrapper">
         {tracks.length === 0 ? (
