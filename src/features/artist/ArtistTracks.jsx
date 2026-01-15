@@ -327,26 +327,17 @@ export default function ArtistTracks({
         )}
       </div>
 
-      {/* "ПРОВЕРЕННЫЙ АРТИСТ" под "РЕЛИЗЫ" - только для PREMIUM и PREMIUM+ */}
-      {artist?.plan && artist.plan !== 'free' && (
+      {/* ПРОВЕРЕННЫЙ АРТИСТ под РЕЛИЗЫ - только для premium и premium_plus */}
+      {(artist.plan === 'premium' || artist.plan === 'premium_plus') && (
         <div
           style={{
-            fontSize: "clamp(10px, 2vw, 12px)",
-            fontWeight: 300,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            color: "rgba(255, 255, 255, 0.7)",
-            opacity: 1,
-            textAlign: "center",
-            marginTop: "2px",
-            marginBottom: "16px",
-            width: "100%",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: "6px",
-            position: "relative",
-            zIndex: 10,
+            marginTop: "4px",
+            marginBottom: "16px",
+            width: "100%",
           }}
         >
           <img 
@@ -355,11 +346,21 @@ export default function ArtistTracks({
             style={{
               width: "14px",
               height: "14px",
-              opacity: 0.85,
-              filter: "drop-shadow(0 0 6px rgba(255, 210, 120, 0.35)) drop-shadow(0 2px 6px rgba(0,0,0,0.6))"
+              display: "block",
             }}
           />
-          <span>ПРОВЕРЕННЫЙ АРТИСТ</span>
+          <span
+            style={{
+              fontSize: "clamp(10px, 2vw, 12px)",
+              fontWeight: 300,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              color: "rgba(255, 255, 255, 0.7)",
+              display: "block",
+            }}
+          >
+            ПРОВЕРЕННЫЙ АРТИСТ
+          </span>
         </div>
       )}
 
