@@ -399,6 +399,20 @@
     transform: translateY(-5px) !important;
     position: relative !important;
   }
+  
+  /* Меняем порядок ТОЛЬКО на мобильных: название артиста сверху, "ПРОВЕРЕННЫЙ АРТИСТ" снизу */
+  .ah-name > div {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  .ah-artist-name-wrapper {
+    order: 1 !important;
+  }
+  
+  .ah-verified-text {
+    order: 2 !important;
+  }
 }
 
 .ah-content > * {

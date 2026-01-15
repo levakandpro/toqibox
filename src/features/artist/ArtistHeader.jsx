@@ -398,14 +398,25 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
       {!hideActionButtons && isOwner && editMode && onToggleBackgroundPanels && (
         <button
           type="button"
-          onClick={onToggleBackgroundPanels}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleBackgroundPanels();
+          }}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleBackgroundPanels();
+          }}
           style={{
             position: "absolute",
             top: isWeb ? "10px" : "8px",
             right: isWeb ? "76px" : "74px",
             zIndex: 10001,
-            width: isWeb ? "24px" : "22px",
-            height: isWeb ? "24px" : "22px",
+            width: isWeb ? "24px" : "28px",
+            height: isWeb ? "24px" : "28px",
+            minWidth: isWeb ? "24px" : "28px",
+            minHeight: isWeb ? "24px" : "28px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -415,6 +426,10 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
             cursor: "pointer",
             padding: 0,
             transition: "all 0.2s ease",
+            touchAction: "manipulation",
+            WebkitTapHighlightColor: "transparent",
+            WebkitTouchCallout: "none",
+            userSelect: "none",
           }}
           aria-label={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
           title={showBackgroundPanels ? "Скрыть панели фонов" : "Показать панели фонов"}
@@ -619,6 +634,19 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <div
+                className="ah-verified-text"
+                style={{
+                  fontSize: "clamp(8px, 1.5vw, 10px)",
+                  fontWeight: 300,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: "rgba(255, 255, 255, 0.6)",
+                  opacity: 0.8,
+                }}
+              >
+                ПРОВЕРЕННЫЙ АРТИСТ
+              </div>
               <div className="ah-artist-name-wrapper" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span
                   style={{
@@ -760,19 +788,6 @@ export default function ArtistHeader({ artist, isOwner = false, onUpdate, editMo
                   </svg>
                 </button>
               )}
-              </div>
-              <div
-                className="ah-verified-text"
-                style={{
-                  fontSize: "clamp(8px, 1.5vw, 10px)",
-                  fontWeight: 300,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  color: "rgba(255, 255, 255, 0.6)",
-                  opacity: 0.8,
-                }}
-              >
-                ПРОВЕРЕННЫЙ АРТИСТ
               </div>
             </div>
           )}
